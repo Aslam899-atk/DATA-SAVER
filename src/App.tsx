@@ -162,7 +162,7 @@ const MapClickHandler = ({ onMapClick }: { onMapClick: (lat: number, lng: number
 const PlayerTracker = ({ pos }: { pos: {lat: number, lng: number} }) => {
   const map = useMap();
   useEffect(() => {
-    map.panTo([pos.lat, pos.lng], { animate: false });
+    map.panTo([pos.lat, pos.lng], { animate: true, duration: 0.2 });
   }, [pos, map]);
   return null;
 };

@@ -133,6 +133,10 @@ body {
   cursor: crosshair;
 }
 
+.leaflet-marker-icon {
+  transition: transform 0.2s linear !important;
+}
+
 .map-grid {
   position: absolute;
   inset: 0;
