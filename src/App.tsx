@@ -167,11 +167,11 @@ const MapClickHandler = ({ onMapClick }: { onMapClick: (lat: number, lng: number
   return null;
 };
 
-const PlayerTracker = ({ pos }: { pos: {lat: number, lng: number} }) => {
+const PlayerTracker = ({ pos, zoom }: { pos: {lat: number, lng: number}, zoom: number }) => {
   const map = useMap();
   useEffect(() => {
-    map.panTo([pos.lat, pos.lng], { animate: true, duration: 0.2 });
-  }, [pos, map]);
+    map.setView([pos.lat, pos.lng], zoom, { animate: true, duration: 1 });
+  }, [pos, zoom, map]);
   return null;
 };
 
@@ -193,6 +193,14 @@ const AdminLogin = ({ onLogin }: { onLogin: (u: UserProfile) => void }) => {
     </div>
   );
 };
+
+const locations = [
+  { name: "KERALA, INDIA", lat: 10.8505, lng: 76.2711 },
+  { name: "DUBAI, UAE", lat: 25.2048, lng: 55.2708 },
+  { name: "LONDON, UK", lat: 51.5074, lng: -0.1278 },
+  { name: "NEW YORK, USA", lat: 40.7128, lng: -74.0060 },
+  { name: "TOKYO, JAPAN", lat: 35.6762, lng: 139.6503 }
+];
 
 // --- Main App ---
 
@@ -221,7 +229,8 @@ export default function App() {
   const [adTimer, setAdTimer] = useState<number | null>(null);
 
   // Character Movement (Lat/Lng)
-  const [playerPos, setPlayerPos] = useState({ lat: 10.021, lng: 76.326 });
+  const [playerPos, setPlayerPos] = useState({ lat: 20, lng: 0 }); // Global Start
+  const [zoomLevel, setZoomLevel] = useState(2);
   const [isMoving, setIsMoving] = useState(false);
   const [charType, setCharType] = useState<'man' | 'woman'>('man');
 
@@ -383,9 +392,22 @@ export default function App() {
 
   return (
     <div className="world-map">
+      {/* Quick Travel Selector */}
+      <div className="fixed bottom-20 left-6 z-50 flex flex-col gap-2">
+         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-2">Tap to Fly</p>
+         <div className="flex gap-2 flex-wrap max-w-md">
+            {locations.map(loc => (
+               <button key={loc.name} className="tactical-panel px-3 py-2 text-[10px] font-black bg-slate-900/90 border-b-2 border-b-amber-500 hover:bg-amber-500 hover:text-black transition-all" onClick={() => {
+                  setPlayerPos({ lat: loc.lat, lng: loc.lng });
+                  setZoomLevel(15);
+               }}>{loc.name}</button>
+            ))}
+         </div>
+      </div>
+
       <MapContainer 
         center={[playerPos.lat, playerPos.lng]} 
-        zoom={17} 
+        zoom={zoomLevel} 
         zoomControl={false} 
         style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 0 }}
       >
@@ -394,7 +416,7 @@ export default function App() {
           attribution="&copy; Google Maps"
         />
         <MapClickHandler onMapClick={handleMapClick} />
-        <PlayerTracker pos={playerPos} />
+        <PlayerTracker pos={playerPos} zoom={zoomLevel} />
         
         {/* Player Sprite as Leaflet Marker */}
         <Marker position={[playerPos.lat, playerPos.lng]} icon={getPlayerIcon(charType, isMoving)} zIndexOffset={100} />
