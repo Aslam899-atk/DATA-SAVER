@@ -10,7 +10,6 @@ import {
   Gift, 
   Bell,
   X,
-  Camera,
   Crown,
   Play,
   Trash2,
@@ -143,9 +142,15 @@ const getPlayerIcon = (charType: string, isMoving: boolean) => L.divIcon({
 
 const getChestIcon = (tier: string, hasPin: boolean) => {
   const iconHtml = renderToStaticMarkup(
-    <div className={`chest-marker chest-${tier}`} style={{ position: 'absolute', transform: 'translate(-50%, -50%)' }}>
-      {hasPin && <Crown className="crown-icon absolute -top-4" size={18} color="#fbbf24" />}
-      {tier === 'gold' ? <Play size={18} color="white" /> : tier === 'silver' ? <Camera size={18} color="white" /> : <Gift size={18} color="white" />}
+    <div className={`airdrop-cube tier-${tier}`} style={{ position: 'absolute', transform: 'translate(-50%, -50%) scale(1) rotateX(-20deg) rotateY(45deg)' }}>
+      <div className="face front"></div>
+      <div className="face back"></div>
+      <div className="face right"></div>
+      <div className="face left"></div>
+      <div className="face top">
+         {hasPin && <Lock size={12} color="maroon" style={{ transform: 'rotateX(90deg) rotateZ(45deg)' }} />}
+      </div>
+      <div className="face bottom"></div>
     </div>
   );
   return L.divIcon({
@@ -168,6 +173,25 @@ const PlayerTracker = ({ pos }: { pos: {lat: number, lng: number} }) => {
     map.panTo([pos.lat, pos.lng], { animate: true, duration: 0.2 });
   }, [pos, map]);
   return null;
+};
+
+const AdminLogin = ({ onLogin }: { onLogin: (u: UserProfile) => void }) => {
+  const [uname, setUname] = useState('');
+  const [pwd, setPwd] = useState('');
+  return (
+    <div className="flex items-center justify-center h-screen bg-slate-950">
+      <div className="tactical-panel p-12 max-w-sm w-full text-center border-t-4 border-t-amber-500">
+        <h2 className="text-2xl font-black text-white mb-6 italic tracking-tighter">ADMIN DIRECT ACCESS</h2>
+        <input className="tactical-input mb-4" placeholder="USERNAME" value={uname} onChange={e=>setUname(e.target.value)} />
+        <input className="tactical-input mb-4" type="password" placeholder="PASSWORD" value={pwd} onChange={e=>setPwd(e.target.value)} />
+        <button className="tactical-btn primary w-full" onClick={() => {
+          if (uname === 'admin' && pwd === 'admin123') {
+            onLogin({ id: 'admin-local', email: 'admin@domain.com', username: 'admin', isAdmin: true });
+          } else { alert('ACCESS DENIED'); }
+        }}>AUTHORIZE SYSTEM</button>
+      </div>
+    </div>
+  );
 };
 
 // --- Main App ---
@@ -200,6 +224,8 @@ export default function App() {
   const [playerPos, setPlayerPos] = useState({ lat: 10.021, lng: 76.326 });
   const [isMoving, setIsMoving] = useState(false);
   const [charType, setCharType] = useState<'man' | 'woman'>('man');
+
+  const [isExploding, setIsExploding] = useState(false);
 
   const API_URL = 'http://localhost:5000/api';
 
@@ -307,6 +333,14 @@ export default function App() {
     setUsers(prev => prev.filter(u => u.id !== targetId));
     setChests(prev => prev.filter(c => c.droppedBy !== userToDelete.username));
   };
+
+  if (window.location.pathname === '/admin' && (!currentUser || !currentUser.isAdmin)) {
+    return <AdminLogin onLogin={(user) => { 
+      setCurrentUser(user); 
+      localStorage.setItem('dataDropperUser', JSON.stringify(user)); 
+      window.location.href = '/'; 
+    }} />
+  }
 
   if (!currentUser) {
     return (
@@ -530,8 +564,13 @@ export default function App() {
                   ) : (
                     <button className="tactical-btn primary w-full h-14" onClick={() => {
                         axios.patch(`${API_URL}/chests/${selectedChest._id || selectedChest.id}/open`).then(() => {
-                            if (selectedChest.fileUrl) window.open(selectedChest.fileUrl, '_blank');
-                            else alert('FILE DOWNLOADED');
+                            setIsExploding(true);
+                            setTimeout(() => {
+                                setIsExploding(false);
+                                setSelectedChest(null);
+                                if (selectedChest.fileUrl) window.open(selectedChest.fileUrl, '_blank');
+                                else alert('FILE DOWNLOADED');
+                            }, 800);
                         });
                     }}>
                       <Download size={20} /> GET FILE
@@ -625,6 +664,8 @@ export default function App() {
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-slate-600 tracking-[5px] uppercase pointer-events-none">
         WASD to Move • Click Anywhere to Drop File
       </div>
+
+      {isExploding && <div className="pottitheri-explosion"></div>}
     </div>
   );
 }

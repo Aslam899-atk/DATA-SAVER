@@ -137,6 +137,54 @@ body {
   transition: transform 0.2s linear !important;
 }
 
+/* 3D Cube Airdrop */
+.airdrop-cube {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  transform-style: preserve-3d;
+  transform: scale(1) rotateX(-20deg) rotateY(45deg);
+}
+
+.airdrop-cube .face {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(0,0,0,0.8);
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.airdrop-cube .front  { transform: translateZ(16px); }
+.airdrop-cube .back   { transform: rotateY(180deg) translateZ(16px); }
+.airdrop-cube .right  { transform: rotateY(90deg) translateZ(16px); }
+.airdrop-cube .left   { transform: rotateY(-90deg) translateZ(16px); }
+.airdrop-cube .top    { transform: rotateX(90deg) translateZ(16px); }
+.airdrop-cube .bottom { transform: rotateX(-90deg) translateZ(16px); }
+
+/* Cube Colors by Tier */
+.tier-gold .face { background: linear-gradient(135deg, #f59e0b, #b45309); }
+.tier-silver .face { background: linear-gradient(135deg, #cbd5e1, #64748b); }
+.tier-bronze .face { background: linear-gradient(135deg, #b45309, #78350f); }
+
+/* Explosion Effect */
+.pottitheri-explosion {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: radial-gradient(circle, #ffeb3b 0%, #ff5722 40%, #000 80%);
+  animation: blast 0.8s ease-out forwards;
+}
+
+@keyframes blast {
+  0% { opacity: 0; transform: scale(0.1); }
+  30% { opacity: 1; transform: scale(1.5); }
+  100% { opacity: 0; transform: scale(3); filter: brightness(0); }
+}
+
 .map-grid {
   position: absolute;
   inset: 0;
