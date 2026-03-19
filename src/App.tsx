@@ -226,13 +226,37 @@ export default function App() {
   const [charType, setCharType] = useState<'man' | 'woman'>('man');
 
   const [isExploding, setIsExploding] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   const API_URL = 'http://localhost:5000/api';
 
   useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    });
+
     // Fetch live drops from Database
     axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', () => {});
+    };
   }, []);
+
+  const handleInstallClick = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        }
+        setDeferredPrompt(null);
+      });
+    } else {
+      alert("To install, use the 'Add to Home Screen' or 'Install App' option in your browser's menu (top right).");
+    }
+  };
 
   useEffect(() => {
     if (adTimer !== null && adTimer > 0) {
@@ -427,7 +451,13 @@ export default function App() {
           <Bell size={24} className="text-slate-400" />
           {requests.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full text-[10px] font-bold flex items-center justify-center">!</span>}
         </button>
-        <button className="tactical-panel p-3 bg-red-950/40 text-red-500 border-red-900/50" onClick={() => { setCurrentUser(null); localStorage.removeItem('dataDropperUser'); }}><LogOut size={24} /></button>
+        <button className="tactical-panel p-3 bg-red-950/40 text-red-500 border-red-900/50 hover:bg-red-900/40 transition-colors" onClick={() => { setCurrentUser(null); localStorage.removeItem('dataDropperUser'); }}><LogOut size={24} /></button>
+        <button 
+          className="tactical-btn primary flex items-center gap-2 border-2 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]" 
+          onClick={handleInstallClick}
+        >
+          <Download size={18} /> DOWNLOAD APP
+        </button>
       </div>
 
       {/* Interaction Modals */}
