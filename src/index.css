@@ -1,0 +1,404 @@
+@import url('https://fonts.googleapis.com/css2?family=VT323&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --background: 240 10% 4%;
+  --foreground: 0 0% 98%;
+  --mc-green: #55ff55;
+  --mc-dark-green: #3fb33f;
+  --mc-blue: #55ffff;
+  --mc-dark-blue: #3fb3b3;
+  --mc-gold: #ffd700;
+  --mc-silver: #c0c0c0;
+  --mc-bronze: #cd7f32;
+  --mc-red: #ff5555;
+  --cyber-pink: #ff00ff;
+  --cyber-blue: #00ffff;
+  --crown-gold: #fcf403;
+  --glass: rgba(0, 0, 0, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --pixel-border: 4px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #050505;
+  color: #fff;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/></svg>') 0 0, auto;
+}
+
+.mc-font {
+  font-family: 'VT323', monospace;
+  letter-spacing: 1px;
+}
+
+/* Minecraft Blocky Border */
+.mc-block {
+  background: var(--glass);
+  border: var(--pixel-border) solid #373737;
+  border-top-color: #7d7d7d;
+  border-left-color: #7d7d7d;
+  border-bottom-color: #1a1a1a;
+  border-right-color: #1a1a1a;
+  box-shadow: inset -4px -4px 0 #1a1a1a, inset 4px 4px 0 #7d7d7d;
+  position: relative;
+}
+
+.mc-btn {
+  font-family: 'VT323', monospace;
+  font-size: 1.25rem;
+  padding: 10px 20px;
+  background: #c6c6c6;
+  border: 4px solid #000;
+  box-shadow: inset -4px -4px 0 #5e5e5e, inset 4px 4px 0 #ffffff;
+  color: #373737;
+  cursor: pointer;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.1s;
+  user-select: none;
+}
+
+.mc-btn:hover {
+  background: #7ca1ff;
+  box-shadow: inset -4px -4px 0 #4f6fb3, inset 4px 4px 0 #ffffff;
+  color: #fff;
+}
+
+.mc-btn:active {
+  box-shadow: inset 4px 4px 0 #4f6fb3, inset -4px -4px 0 #ffffff;
+  transform: translateY(2px);
+}
+
+.mc-btn.primary {
+  background: #3fb33f;
+  box-shadow: inset -4px -4px 0 #1a4a1a, inset 4px 4px 0 #55ff55;
+  color: #fff;
+}
+
+.mc-btn.primary:hover {
+  background: #55ff55;
+}
+
+.mc-btn.danger {
+  background: #ff5555;
+  box-shadow: inset -4px -4px 0 #7a2222, inset 4px 4px 0 #ff8a8a;
+  color: #fff;
+}
+
+/* Starry Background */
+.star-field {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+  overflow: hidden;
+}
+
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  opacity: 0.5;
+  animation: flicker var(--duration) infinite;
+}
+
+@keyframes flicker {
+  0% { opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+
+.world-map {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg-dark);
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.map-grid {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.5) 100%),
+    linear-gradient(90deg, rgba(245, 158, 11, 0.03) 1px, transparent 1px),
+    linear-gradient(rgba(245, 158, 11, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 80px 80px, 80px 80px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.tactical-panel {
+  background: var(--panel-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  padding: 20px;
+}
+
+.tactical-btn {
+  background: var(--tactical-slate);
+  color: #fff;
+  padding: 12px 24px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  clip-path: polygon(0 0, 90% 0, 100% 20%, 100% 100%, 10% 100%, 0 80%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tactical-btn:hover {
+  background: var(--tactical-orange);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+}
+
+.tactical-btn.primary { background: var(--tactical-orange); }
+.tactical-btn.danger { background: #ef4444; }
+
+.tactical-input {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fff;
+  padding: 14px;
+  font-size: 16px;
+  width: 100%;
+  outline: none;
+  border-radius: 4px;
+}
+
+.tactical-input:focus {
+  border-color: var(--tactical-orange);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
+/* Player & Units */
+.player-sprite {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  z-index: 50;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 15px rgba(245, 158, 11, 0.4));
+}
+
+.player-sprite.man { background-image: url('/C:/Users/MSI/.gemini/antigravity/brain/76ca879b-20cb-4df6-8447-9d3f3e302fad/pubg_soldier_character_man_1773880448805.png'); }
+.player-sprite.woman { background-image: url('/C:/Users/MSI/.gemini/antigravity/brain/76ca879b-20cb-4df6-8447-9d3f3e302fad/pubg_soldier_character_woman_1773880522923.png'); }
+
+.player-sprite.walking {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 20px rgba(245, 158, 11, 0.7));
+}
+
+.place-label {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 800;
+  border-left: 3px solid var(--tactical-orange);
+  letter-spacing: 1px;
+  z-index: 5;
+  pointer-events: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+  animation: float 4s ease-in-out infinite; /* Kept original float animation */
+}
+
+.player-selection {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  display: flex;
+  gap: 12px;
+}
+
+/* Chests - Tactical BR Style */
+.chest-marker {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  z-index: 10;
+}
+
+.chest-glow {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow-color) 0%, transparent 70%);
+  opacity: 0.4;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.2; }
+  50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.5; }
+  100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.2; }
+}
+
+/* Chest Tier Colors */
+.chest-gold { color: var(--mc-gold); filter: drop-shadow(0 0 10px var(--mc-gold)); }
+.chest-silver { color: var(--mc-silver); filter: drop-shadow(0 0 10px var(--mc-silver)); }
+.chest-bronze { color: var(--mc-bronze); filter: drop-shadow(0 0 10px var(--mc-bronze)); }
+
+/* Crown (Kreedam) */
+.crown-icon {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--crown-gold);
+  filter: drop-shadow(0 0 5px var(--crown-gold));
+  z-index: 20;
+}
+
+/* Ad Player Overlay */
+.ad-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ad-timer {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 2rem;
+  color: var(--mc-gold);
+  font-family: 'VT323', monospace;
+}
+
+/* Admin Panel */
+.admin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 150;
+  padding: 40px;
+  overflow-y: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'VT323', monospace;
+  font-size: 1.2rem;
+}
+
+.admin-table th, .admin-table td {
+  padding: 15px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-table tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Glass UI Panels */
+.cyber-panel {
+  background: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.mystery-box {
+  animation: mysteryShimmer 1.5s infinite linear;
+  background-size: 200% 100%;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 45%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.1) 55%,
+    transparent 100%
+  );
+}
+
+@keyframes mysteryShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Text Effects */
+.text-neon-green { color: var(--mc-green); text-shadow: 0 0 8px var(--mc-green); }
+.text-neon-blue { color: var(--mc-blue); text-shadow: 0 0 8px var(--mc-blue); }
+.text-neon-gold { color: var(--mc-gold); text-shadow: 0 0 8px var(--mc-gold); }
+
+/* Badge */
+.count-badge {
+  background: var(--mc-red);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  box-shadow: 0 0 10px rgba(255, 85, 85, 0.5);
+}
+
+/* Input Fields - Minecraft Style */
+.mc-input {
+  background: #1a1a1a;
+  border: 4px solid #000;
+  box-shadow: inset 4px 4px 0 #000, inset -2px -2px 0 #373737;
+  color: #fff;
+  font-family: 'VT323', monospace;
+  font-size: 1.5rem;
+  padding: 10px 15px;
+  outline: none;
+  width: 100%;
+}
+
+.mc-input:focus {
+  border-color: #7ca1ff;
+}
+
+/* Minecraft Logo Shimmer */
+.logo-pixel {
+  display: inline-block;
+  font-size: 3rem;
+  font-family: 'VT323', monospace;
+  background: linear-gradient(180deg, #c6c6c6 0%, #7d7d7d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(4px 4px 0 #000);
+}
