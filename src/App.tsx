@@ -489,12 +489,12 @@ export default function App() {
                     <input type="file" className="tactical-input text-xs" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">MAXIMUM USERS (Leave blank for no limit)</label>
-                    <input type="number" className="tactical-input" value={maxOpensInput} onChange={(e) => setMaxOpensInput(e.target.value)} placeholder="e.g. 10" />
+                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">MAXIMUM USERS (Empty = Unlimited)</label>
+                    <input type="number" className="tactical-input" value={maxOpensInput} onChange={(e) => setMaxOpensInput(e.target.value)} placeholder="UNLIMITED" />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">AUTO DELETE IN (Mins - Leave blank for forever)</label>
-                    <input type="number" className="tactical-input" value={expiryInput} onChange={(e) => setExpiryInput(e.target.value)} placeholder="e.g. 60" />
+                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">AUTO DELETE IN (Mins - Empty = Forever)</label>
+                    <input type="number" className="tactical-input" value={expiryInput} onChange={(e) => setExpiryInput(e.target.value)} placeholder="FOREVER" />
                   </div>
                   <div className="flex gap-4 mt-4">
                     <button className="tactical-btn flex-1 bg-slate-800" onClick={() => setDropStep('tier')}>BACK</button>
