@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
 import { 
@@ -24,12 +25,14 @@ import 'leaflet/dist/leaflet.css';
 // --- Types ---
 
 interface Chest {
-  id: string;
+  id?: string;
+  _id?: string;
   lat: number;
   lng: number;
   tier: 'gold' | 'silver' | 'bronze';
   fileName: string;
   fileSize: string;
+  fileUrl?: string; // Cloudinary secure_url
   droppedBy: string;
   hasPin: boolean;
   pin?: string;
@@ -176,17 +179,14 @@ export default function App() {
     { id: 'u1', email: 'admin@gmail.com', username: 'admin', isAdmin: true },
     { id: 'u2', email: 'alex@gmail.com', username: 'alex', isAdmin: false }
   ]);
-  const [chests, setChests] = useState<Chest[]>([
-    { id: '1', lat: 10.0215, lng: 76.3265, tier: 'bronze', fileName: 'INTEL_MAP.PDF', fileSize: '2.4MB', droppedBy: 'alex', hasPin: false, currentOpens: 0 },
-    { id: '2', lat: 10.0220, lng: 76.3250, tier: 'silver', fileName: 'SECRET_OPS.ZIP', fileSize: '142MB', droppedBy: 'admin', hasPin: true, pin: '1234', currentOpens: 0, maxOpens: 10 },
-    { id: '3', lat: 10.0210, lng: 76.3270, tier: 'gold', fileName: 'CLASSIFIED.DAT', fileSize: '8.1MB', droppedBy: 'alex', hasPin: false, isMystery: true, currentOpens: 0 },
-  ]);
+  const [chests, setChests] = useState<Chest[]>([]);
   const [selectedChest, setSelectedChest] = useState<Chest | null>(null);
   const [isDropping, setIsDropping] = useState<{lat: number, lng: number} | null>(null);
   const [dropStep, setDropStep] = useState<'tier' | 'settings'>('tier');
   const [tempTier, setTempTier] = useState<'gold' | 'silver' | 'bronze' | null>(null);
   const [maxOpensInput, setMaxOpensInput] = useState('');
   const [expiryInput, setExpiryInput] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
   const [pinInput, setPinInput] = useState('');
   const [requests] = useState<Request[]>([]);
@@ -197,6 +197,13 @@ export default function App() {
   const [playerPos, setPlayerPos] = useState({ lat: 10.021, lng: 76.326 });
   const [isMoving, setIsMoving] = useState(false);
   const [charType, setCharType] = useState<'man' | 'woman'>('man');
+
+  const API_URL = 'http://localhost:5000/api';
+
+  useEffect(() => {
+    // Fetch live drops from Database
+    axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (adTimer !== null && adTimer > 0) {
@@ -251,29 +258,33 @@ export default function App() {
     setSelectedChest(chest);
   };
 
-  const finalizeDrop = () => {
+  const finalizeDrop = async () => {
     if (!isDropping || !currentUser || !tempTier) return;
 
-    const newChest: Chest = {
-      id: Math.random().toString(),
-      lat: isDropping.lat,
-      lng: isDropping.lng,
-      tier: tempTier,
-      fileName: `OP_INTEL_${Math.floor(Math.random()*1000)}.DAT`,
-      fileSize: '1.2MB',
-      droppedBy: currentUser.username,
-      hasPin: tempTier === 'silver' || tempTier === 'gold',
-      pin: '0000',
-      currentOpens: 0,
-      maxOpens: maxOpensInput ? parseInt(maxOpensInput) : undefined,
-      expiresAt: expiryInput ? Date.now() + parseInt(expiryInput) * 60000 : undefined
-    };
-    setChests([...chests, newChest]);
+    const formData = new FormData();
+    formData.append('lat', isDropping.lat.toString());
+    formData.append('lng', isDropping.lng.toString());
+    formData.append('tier', tempTier);
+    formData.append('droppedBy', currentUser.username);
+    if (tempTier === 'silver' || tempTier === 'gold') formData.append('pin', '0000'); // Or user defined pin
+    if (maxOpensInput) formData.append('maxOpens', maxOpensInput);
+    if (expiryInput) formData.append('expiresAt', (Date.now() + parseInt(expiryInput) * 60000).toString());
+    if (selectedFile) formData.append('file', selectedFile);
+
+    try {
+      const res = await axios.post(`${API_URL}/chests`, formData);
+      setChests([...chests, res.data]);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to deploy intel');
+    }
+
     setIsDropping(null);
     setTempTier(null);
     setDropStep('tier');
     setMaxOpensInput('');
     setExpiryInput('');
+    setSelectedFile(null);
   };
 
   const handleMapClick = (lat: number, lng: number) => {
@@ -281,8 +292,9 @@ export default function App() {
     setIsDropping({ lat, lng });
   };
 
-  const deleteChest = (targetId: string) => {
-    setChests(prev => prev.filter(c => c.id !== targetId));
+  const deleteChest = async (targetId: string) => {
+    await axios.delete(`${API_URL}/chests/${targetId}`).catch(console.error);
+    setChests(prev => prev.filter(c => c._id !== targetId && c.id !== targetId));
     setSelectedChest(null);
   };
 
@@ -328,7 +340,7 @@ export default function App() {
         {/* Chests as Leaflet Markers */}
         {chests.map(chest => (
           <Marker 
-            key={chest.id}
+            key={chest.id || chest._id}
             position={[chest.lat, chest.lng]}
             icon={getChestIcon(chest.tier, chest.hasPin)}
             eventHandlers={{ click: () => handleChestClick(chest) }}
@@ -404,7 +416,11 @@ export default function App() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-6">
-                   <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">ATTACH SECRET FILE</label>
+                    <input type="file" className="tactical-input text-xs" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+                  </div>
+                  <div className="flex flex-col gap-2">
                     <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">PERSONNEL LIMIT</label>
                     <input type="number" className="tactical-input" value={maxOpensInput} onChange={(e) => setMaxOpensInput(e.target.value)} placeholder="NO LIMIT" />
                   </div>
@@ -508,7 +524,12 @@ export default function App() {
                       </div>
                     </div>
                   ) : (
-                    <button className="tactical-btn primary w-full h-14">
+                    <button className="tactical-btn primary w-full h-14" onClick={() => {
+                        axios.patch(`${API_URL}/chests/${selectedChest._id || selectedChest.id}/open`).then(() => {
+                            if (selectedChest.fileUrl) window.open(selectedChest.fileUrl, '_blank');
+                            else alert('INTEL RETRIEVED');
+                        });
+                    }}>
                       <Download size={20} /> RETRIEVE INTEL
                     </button>
                   )}
@@ -516,7 +537,7 @@ export default function App() {
                   {(selectedChest.droppedBy === currentUser.username || isAdminMode) && (
                     <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/5">
                       <button className="tactical-btn text-xs h-10 bg-slate-800">EDIT META</button>
-                      <button className="tactical-btn danger text-xs h-10" onClick={() => deleteChest(selectedChest.id)}>TERMINATE</button>
+                      <button className="tactical-btn danger text-xs h-10" onClick={() => deleteChest(selectedChest._id || selectedChest.id || '')}>TERMINATE</button>
                     </div>
                   )}
                 </div>
@@ -577,7 +598,7 @@ export default function App() {
                         </td>
                         <td className="flex gap-4">
                           <button className="text-green-500" onClick={() => handleChestClick(c)}><Play size={18} /></button>
-                          <button className="text-red-500" onClick={() => deleteChest(c.id)}><Trash2 size={18} /></button>
+                          <button className="text-red-500" onClick={() => deleteChest(c._id || c.id || '')}><Trash2 size={18} /></button>
                         </td>
                       </tr>
                     ))}
