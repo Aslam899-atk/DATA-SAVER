@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   User, 
   Lock, 
   LogOut, 
   Download, 
   Gift, 
-  HelpCircle,
   Bell,
   X,
   Mail,
@@ -13,8 +12,7 @@ import {
   Crown,
   Play,
   Trash2,
-  Shield,
-  Edit2
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { renderToStaticMarkup } from 'react-dom/server';
