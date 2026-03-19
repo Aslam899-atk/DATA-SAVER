@@ -173,7 +173,10 @@ const PlayerTracker = ({ pos }: { pos: {lat: number, lng: number} }) => {
 // --- Main App ---
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    const saved = localStorage.getItem('dataDropperUser');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([
     { id: 'u1', email: 'admin@gmail.com', username: 'admin', isAdmin: true },
@@ -310,6 +313,7 @@ export default function App() {
       <GoogleOAuthProvider clientId="666413173667-kkf2ggvt3avkgpdcojhkg8koeljv7t3m.apps.googleusercontent.com">
         <LoginScreen onLogin={(user) => { 
           setCurrentUser(user); 
+          localStorage.setItem('dataDropperUser', JSON.stringify(user));
           if (!users.find(u => u.id === user.id)) setUsers(prev => [...prev, user]); 
         }} />
       </GoogleOAuthProvider>
@@ -389,7 +393,7 @@ export default function App() {
           <Bell size={24} className="text-slate-400" />
           {requests.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full text-[10px] font-bold flex items-center justify-center">!</span>}
         </button>
-        <button className="tactical-panel p-3 bg-red-950/40 text-red-500 border-red-900/50" onClick={() => setCurrentUser(null)}><LogOut size={24} /></button>
+        <button className="tactical-panel p-3 bg-red-950/40 text-red-500 border-red-900/50" onClick={() => { setCurrentUser(null); localStorage.removeItem('dataDropperUser'); }}><LogOut size={24} /></button>
       </div>
 
       {/* Interaction Modals */}
