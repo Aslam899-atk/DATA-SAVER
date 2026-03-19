@@ -137,37 +137,43 @@ body {
   transition: transform 0.2s linear !important;
 }
 
-/* 3D Cube Airdrop */
-.airdrop-cube {
+/* 3D Ball Airdrop */
+.airdrop-sphere {
   position: relative;
-  width: 32px;
-  height: 32px;
-  transform-style: preserve-3d;
-  transform: scale(1) rotateX(-20deg) rotateY(45deg);
-}
-
-.airdrop-cube .face {
-  position: absolute;
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgba(0,0,0,0.8);
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  box-shadow: 
+    inset -4px -4px 10px rgba(0,0,0,0.5),
+    inset 4px 4px 10px rgba(255,255,255,0.3),
+    0 4px 15px rgba(0,0,0,0.4);
+  background: white;
+  animation: float 2s ease-in-out infinite;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.airdrop-cube .front  { transform: translateZ(16px); }
-.airdrop-cube .back   { transform: rotateY(180deg) translateZ(16px); }
-.airdrop-cube .right  { transform: rotateY(90deg) translateZ(16px); }
-.airdrop-cube .left   { transform: rotateY(-90deg) translateZ(16px); }
-.airdrop-cube .top    { transform: rotateX(90deg) translateZ(16px); }
-.airdrop-cube .bottom { transform: rotateX(-90deg) translateZ(16px); }
+@keyframes float {
+  0%, 100% { transform: translateY(-50%) scale(1); }
+  50% { transform: translateY(-65%) scale(1.1); }
+}
 
-/* Cube Colors by Tier */
-.tier-gold .face { background: linear-gradient(135deg, #f59e0b, #b45309); }
-.tier-silver .face { background: linear-gradient(135deg, #cbd5e1, #64748b); }
-.tier-bronze .face { background: linear-gradient(135deg, #b45309, #78350f); }
+/* Tier Colors for Ball */
+.tier-gold .airdrop-sphere {
+  background: radial-gradient(circle at 30% 30%, #fcd34d, #b45309);
+  border: 1px solid #f59e0b;
+}
+
+.tier-silver .airdrop-sphere {
+  background: radial-gradient(circle at 30% 30%, #e2e8f0, #475569);
+  border: 1px solid #94a3b8;
+}
+
+.tier-bronze .airdrop-sphere {
+  background: radial-gradient(circle at 30% 30%, #fb923c, #7c2d12);
+  border: 1px solid #9a3412;
+}
 
 /* Explosion Effect */
 .pottitheri-explosion {
