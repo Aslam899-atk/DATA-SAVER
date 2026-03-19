@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from "jwt-decode";
 import { 
   User, 
   Lock, 
@@ -7,7 +9,6 @@ import {
   Gift, 
   Bell,
   X,
-  Mail,
   Camera,
   Crown,
   Play,
@@ -88,34 +89,17 @@ const StarField = () => {
 };
 
 const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [step, setStep] = useState<'gmail' | 'password'>('gmail');
-
-  const handleGmailClick = () => {
-    if (!email.includes('@gmail.com')) {
-      alert('USE SECURE GMAIL ADDRESS');
-      return;
+  const handleGoogleSuccess = (credentialResponse: any) => {
+    if (credentialResponse.credential) {
+       const decoded: any = jwtDecode(credentialResponse.credential);
+       const newUser: UserProfile = {
+         id: decoded.sub,
+         email: decoded.email,
+         username: decoded.given_name || decoded.email.split('@')[0],
+         isAdmin: decoded.email === 'admin@gmail.com' || decoded.email.includes('admin')
+       };
+       onLogin(newUser);
     }
-    const extractedUsername = email.split('@')[0];
-    setUsername(extractedUsername);
-    setStep('password');
-  };
-
-  const handleFinalSignup = () => {
-    if (password.length < 4) {
-      alert('ENCRYPTION KEY TOO SHORT');
-      return;
-    }
-    const newUser: UserProfile = {
-      id: Math.random().toString(),
-      email,
-      username,
-      password,
-      isAdmin: email === 'admin@gmail.com' || email.includes('admin')
-    };
-    onLogin(newUser);
   };
 
   return (
@@ -131,57 +115,17 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
           <p className="logo-tagline">BATTLE ROYALE FILE PROTOCOL</p>
         </div>
 
-        <AnimatePresence mode="wait">
-          {step === 'gmail' ? (
-            <motion.div 
-              key="gmail"
-              initial={{ x: 20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -20, opacity: 0 }}
-              className="flex flex-col gap-6"
-            >
-              <div className="flex flex-col gap-2">
-                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-[3px]">COMMUNICATIONS ACCESS</label>
-                <input 
-                  type="email" 
-                  className="tactical-input" 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ID@GMAIL.COM"
-                />
-              </div>
-              <button className="tactical-btn primary w-full" onClick={handleGmailClick}>
-                <Mail size={18} /> INITIALIZE SEQUENCE
-              </button>
-            </motion.div>
-          ) : (
-            <motion.div 
-              key="password"
-              initial={{ x: 20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -20, opacity: 0 }}
-              className="flex flex-col gap-6"
-            >
-              <div className="text-center">
-                <p className="text-amber-500 font-bold uppercase tracking-widest mb-1">WELCOME, AGENT {username}</p>
-                <p className="text-[10px] text-slate-500">ESTABLISH SECURE ENCRYPTION KEY</p>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-[10px] font-bold text-slate-500 tracking-[3px]">ENCRYPTION KEY</label>
-                <input 
-                  type="password" 
-                  className="tactical-input" 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
-              </div>
-              <button className="tactical-btn primary w-full" onClick={handleFinalSignup}>
-                ENTER THE SECTOR
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <div className="flex flex-col gap-6 items-center">
+            <div className="text-center mb-4">
+               <p className="text-[10px] uppercase font-bold text-slate-500 tracking-[3px] mb-4">BIOMETRIC AUTHENTICATION REQUIRED</p>
+            </div>
+            <GoogleLogin
+               onSuccess={handleGoogleSuccess}
+               onError={() => alert('AUTHORIZATION MISTMATCH')}
+               theme="filled_black"
+               shape="pill"
+            />
+        </div>
       </motion.div>
     </div>
   );
@@ -350,7 +294,14 @@ export default function App() {
   };
 
   if (!currentUser) {
-    return <LoginScreen onLogin={(user) => { setCurrentUser(user); setUsers(prev => [...prev, user]); }} />;
+    return (
+      <GoogleOAuthProvider clientId="666413173667-kkf2ggvt3avkgpdcojhkg8koeljv7t3m.apps.googleusercontent.com">
+        <LoginScreen onLogin={(user) => { 
+          setCurrentUser(user); 
+          if (!users.find(u => u.id === user.id)) setUsers(prev => [...prev, user]); 
+        }} />
+      </GoogleOAuthProvider>
+    );
   }
 
   const isExpired = selectedChest?.expiresAt && Date.now() > selectedChest.expiresAt;
