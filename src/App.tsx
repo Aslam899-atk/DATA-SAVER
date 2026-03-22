@@ -360,26 +360,26 @@ export default function App() {
     <div className="world-map relative w-full h-screen overflow-hidden bg-black">
       <StarField />
       
-      {/* MAP TOGGLE BUTTON */}
-      <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[200]">
-         <div className="flex bg-black/60 p-1 rounded-full border border-white/20 backdrop-blur-md">
-            <button 
-               className={`px-6 py-2 rounded-full font-black text-xs tracking-widest uppercase transition-all ${mapMode === '3d' ? 'bg-[#5ba4e5] text-black shadow-lg' : 'text-slate-400 hover:text-white'}`}
+      {/* MAP TOGGLE */}
+      <div style={{ position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 200 }}>
+         <div style={{ display: 'flex', background: 'rgba(0,0,0,0.7)', padding: '4px', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)' }}>
+            <button
+               style={{ padding: '8px 24px', borderRadius: '999px', fontWeight: 900, fontSize: '11px', letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', border: 'none', transition: 'all 0.2s', background: mapMode === '3d' ? '#5ba4e5' : 'transparent', color: mapMode === '3d' ? '#000' : '#94a3b8' }}
                onClick={() => setMapMode('3d')}
             >
-               3D Dashboard
+               🌍 3D Globe
             </button>
-            <button 
-               className={`px-6 py-2 rounded-full font-black text-xs tracking-widest uppercase transition-all ${mapMode === '2d' ? 'bg-orange-500 text-black shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            <button
+               style={{ padding: '8px 24px', borderRadius: '999px', fontWeight: 900, fontSize: '11px', letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', border: 'none', transition: 'all 0.2s', background: mapMode === '2d' ? '#f97316' : 'transparent', color: mapMode === '2d' ? '#000' : '#94a3b8' }}
                onClick={() => setMapMode('2d')}
             >
-               2D Tactical Zoom
+               🗺️ Street View
             </button>
          </div>
       </div>
 
       {/* 3D GLOBE RENDERED PUBLICLY */}
-      <div className={`globe-container absolute inset-0 transition-opacity duration-500 ${mapMode === '3d' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+      <div style={{ position: 'absolute', inset: 0, zIndex: mapMode === '3d' ? 10 : 0, opacity: mapMode === '3d' ? 1 : 0, pointerEvents: mapMode === '3d' ? 'auto' : 'none', transition: 'opacity 0.5s' }} className="globe-container">
         <Globe
           ref={globeEl}
           globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
@@ -406,7 +406,7 @@ export default function App() {
       </div>
 
       {/* 2D TACTICAL SATELLITE MAP */}
-      <div className={`absolute inset-0 transition-opacity duration-500 ${mapMode === '2d' ? 'opacity-100 z-20' : 'opacity-0 z-0 pointer-events-none'}`}>
+      <div style={{ position: 'absolute', inset: 0, zIndex: mapMode === '2d' ? 20 : 0, opacity: mapMode === '2d' ? 1 : 0, pointerEvents: mapMode === '2d' ? 'auto' : 'none', transition: 'opacity 0.5s' }}>
          {mapMode === '2d' && (
             <MapContainer center={[20, 0]} zoom={3} style={{ height: '100%', width: '100%', background: 'transparent' }} zoomControl={false}>
                <TileLayer
@@ -436,55 +436,55 @@ export default function App() {
       </div>
 
       {/* TOP USER BAR */}
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-6 px-8 py-3 tactical-panel min-w-[300px] max-w-xl">
+      <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 300, display: 'flex', alignItems: 'center', gap: 16, padding: '12px 28px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, minWidth: 280, boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}>
          {currentUser ? (
             <>
-              <div className="flex items-center gap-3">
-                 <User size={18} className="text-orange-500" />
-                 <span className="text-xs font-black text-white italic">{currentUser.username.toUpperCase()}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                 <User size={18} style={{ color: '#f97316' }} />
+                 <span style={{ fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: 2, textTransform: 'uppercase' }}>{currentUser.username.toUpperCase()}</span>
               </div>
-              <div className="ml-auto flex items-center justify-end gap-3 pl-8 flex-1">
-                 <button className="tactical-btn h-10 w-10 p-0 relative" onClick={() => setShowRequests(!showRequests)}>
-                    <Bell size={18} className={chests.some(c => c.droppedBy === currentUser.username && c.requests?.some(r => r.status === 'pending')) ? "text-orange-500 animate-pulse" : ""} />
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+                 <button className="tactical-btn" style={{ height: 36, width: 36, padding: 0 }} onClick={() => setShowRequests(!showRequests)}>
+                    <Bell size={16} style={{ color: chests.some(c => c.droppedBy === currentUser.username && c.requests?.some(r => r.status === 'pending')) ? '#f97316' : '#fff' }} />
                  </button>
-                 <button className="tactical-btn h-10 w-10 p-0" onClick={() => { setCurrentUser(null); localStorage.removeItem('dataDropperUser'); }}><LogOut size={18} /></button>
+                 <button className="tactical-btn" style={{ height: 36, width: 36, padding: 0 }} onClick={() => { setCurrentUser(null); localStorage.removeItem('dataDropperUser'); }}><LogOut size={16} /></button>
               </div>
             </>
          ) : (
-            <button className="text-[10px] w-full text-center font-black text-white uppercase tracking-[4px] hover:text-orange-500 transition-colors" onClick={() => setShowLoginModal(true)}>
-               INITIATE OPERATOR LOGIN
+            <button style={{ fontSize: 10, width: '100%', textAlign: 'center', fontWeight: 900, color: '#fff', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: 4, textTransform: 'uppercase' }} onClick={() => setShowLoginModal(true)}>
+               🔐 INITIATE OPERATOR LOGIN
             </button>
          )}
       </div>
 
       {/* PUBLIC STATISTICS HUD (LEFT) */}
-      <div className="fixed top-24 left-6 z-[100] flex flex-col gap-4 pointer-events-none">
-         <div className="flex items-center gap-4 tactical-panel py-2 px-4 border-l-4 border-l-amber-400 bg-black/40">
-            <Package size={20} className="text-amber-400 opacity-80"/>
-            <span className="text-sm font-black italic tracking-widest uppercase text-white">GOLD: {chests.filter(c=>c.tier==='gold').length}</span>
+      <div style={{ position: 'fixed', top: 130, left: 20, zIndex: 100, display: 'flex', flexDirection: 'column', gap: 10, pointerEvents: 'none' }}>
+         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #fbbf24', borderRadius: 10 }}>
+            <span style={{ fontSize: 20 }}>🥇</span>
+            <span style={{ fontSize: 12, fontWeight: 900, color: '#fbbf24', letterSpacing: 3, textTransform: 'uppercase' }}>GOLD: {chests.filter(c=>c.tier==='gold').length}</span>
          </div>
-         <div className="flex items-center gap-4 tactical-panel py-2 px-4 border-l-4 border-l-slate-400 bg-black/40">
-            <Package size={20} className="text-slate-400 opacity-80"/>
-            <span className="text-sm font-black italic tracking-widest uppercase text-white">SILVER: {chests.filter(c=>c.tier==='silver').length}</span>
+         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #94a3b8', borderRadius: 10 }}>
+            <span style={{ fontSize: 20 }}>🥈</span>
+            <span style={{ fontSize: 12, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>SILVER: {chests.filter(c=>c.tier==='silver').length}</span>
          </div>
-         <div className="flex items-center gap-4 tactical-panel py-2 px-4 border-l-4 border-l-sky-400 bg-black/40">
-            <Package size={20} className="text-sky-400 opacity-80"/>
-            <span className="text-sm font-black italic tracking-widest uppercase text-white">PLATINUM: {chests.filter(c=>c.tier==='platinum').length}</span>
+         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #38bdf8', borderRadius: 10 }}>
+            <span style={{ fontSize: 20 }}>💎</span>
+            <span style={{ fontSize: 12, fontWeight: 900, color: '#38bdf8', letterSpacing: 3, textTransform: 'uppercase' }}>PLATINUM: {chests.filter(c=>c.tier==='platinum').length}</span>
          </div>
       </div>
 
       {/* PUBLIC STATISTICS HUD (RIGHT) */}
-      <div className="fixed top-24 right-6 z-[100] pointer-events-none">
-         <div className="flex items-center gap-4 tactical-panel py-3 px-5 border-r-4 border-r-orange-500 bg-black/40">
-            <span className="text-2xl font-black italic text-white">{chests.length}</span>
-            <Package size={24} className="text-orange-500 opacity-80"/>
+      <div style={{ position: 'fixed', top: 130, right: 20, zIndex: 100, pointerEvents: 'none' }}>
+         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRight: '4px solid #f97316', borderRadius: 10 }}>
+            <span style={{ fontSize: 26, fontWeight: 900, color: '#fff', fontStyle: 'italic' }}>{chests.length}</span>
+            <span style={{ fontSize: 12, fontWeight: 900, color: '#f97316', letterSpacing: 2, textTransform: 'uppercase' }}>TOTAL<br/>DROPS</span>
          </div>
       </div>
 
       <AnimatePresence>
         {/* LOGIN MODAL */}
         {!currentUser && showLoginModal && (
-           <div className="fixed inset-0 z-[600] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+           <div style={{ position: 'fixed', inset: 0, zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(16px)' }}>
               <LoginScreen 
                  onLogin={(user) => { setCurrentUser(user); localStorage.setItem('dataDropperUser', JSON.stringify(user)); setShowLoginModal(false); }} 
                  onCancel={() => setShowLoginModal(false)} 
