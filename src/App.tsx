@@ -43,7 +43,7 @@ interface UserProfile {
   isAdmin: boolean;
 }
 
-const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
+const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
 
 const StarField = () => {
   const [stars, setStars] = useState<{ x: number, y: number, size: number, duration: number }[]>([]);
