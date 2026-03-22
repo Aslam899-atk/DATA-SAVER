@@ -24,7 +24,14 @@
     "react-globe.gl": "^2.37.0",
     "react-leaflet": "^5.0.0",
     "tailwind-merge": "^3.5.0",
-    "three": "^0.183.2"
+    "three": "^0.183.2",
+    "cloudinary": "^1.41.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "mongoose": "^9.3.1",
+    "multer": "^2.1.1",
+    "multer-storage-cloudinary": "^4.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

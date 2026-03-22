@@ -48,7 +48,7 @@ interface UserProfile {
   isAdmin: boolean;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://data-droper-backend.vercel.app/api';
+const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
 
 const StarField = () => {
   const [stars, setStars] = useState<{ x: number, y: number, size: number, duration: number }[]>([]);
@@ -211,13 +211,22 @@ export default function App() {
     if (expiryInput) formData.append('expiresAt', (Date.now() + parseInt(expiryInput) * 3600000).toString()); // Hours
     if (selectedFile) formData.append('file', selectedFile);
 
+    // Dynamic API_URL calculation
+    const urlParams = new URLSearchParams(window.location.search);
+    const overrideUrl = urlParams.get('api');
+    const finalApiUrl = overrideUrl ? `${overrideUrl}/api` : API_URL;
+
     try {
-      const res = await axios.post(`${API_URL}/chests`, formData);
+      const res = await axios.post(`${finalApiUrl}/chests`, formData, {
+        timeout: 25000 // Increased timeout for larger uploads
+      });
       setChests([...chests, res.data]);
       setIsDropping(null); setTempTier(null); setDropStep('tier');
-    } catch (e) { 
-      console.error(e);
-      alert('FAILED TO DEPLOY INTEL: Network Error or Serverless Timeout'); 
+      alert('INTEL DEPLOYED SUCCESSFULLY');
+    } catch (e: any) { 
+      console.error("DEPLOYMENT ERROR:", e);
+      const msg = e.response?.data?.error || e.message;
+      alert(`FAILED TO DEPLOY INTEL: ${msg}\n\nTIP: Check if Vercel Environment Variables are set AND if the backend URL is correct.`); 
     }
   };
 
