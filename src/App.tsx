@@ -133,14 +133,17 @@ export default function App() {
   };
 
   const handlePointClick = (pt: any) => {
-    if (!currentUser) { setShowLoginModal(true); return; }
     setSelectedChest(pt);
   };
 
   const handleChestAction = async () => {
-    if (!selectedChest || !currentUser) return;
+    if (!selectedChest) return;
     if (selectedChest.tier === 'platinum') { processOpen(); return; }
+    
+    if (selectedChest.tier === 'silver' && adTimer === null) { setAdTimer(15); return; }
+    
     if (selectedChest.tier === 'gold') {
+       if (!currentUser) { setShowLoginModal(true); return; }
        if (pinInput !== (selectedChest.pin || '0000')) { alert('INVALID PIN'); return; }
        const myReq = selectedChest.requests?.find(r => r.from === currentUser.username);
        if (!myReq || myReq.status === 'pending') {
@@ -151,9 +154,8 @@ export default function App() {
           return;
        }
        if (myReq.status === 'rejected') { alert('DENIED'); return; }
+       processOpen();
     }
-    if (selectedChest.tier === 'silver' && adTimer === null) { setAdTimer(15); return; }
-    processOpen();
   };
 
   const processOpen = async () => {
@@ -321,7 +323,7 @@ export default function App() {
         )}
 
         {/* CHEST MODAL */}
-        {selectedChest && adTimer === null && currentUser && (
+        {selectedChest && adTimer === null && (
           <div className="fixed inset-0 flex items-center justify-center p-6 z-[300] bg-slate-950/95 backdrop-blur-3xl">
              <motion.div initial={{ y: 20 }} animate={{ y: 0 }} className="tactical-panel p-12 w-full max-w-md border-t-8 border-t-orange-500 flex flex-col gap-6">
                 <div className="flex gap-4">
