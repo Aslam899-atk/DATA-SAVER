@@ -5,18 +5,14 @@ import { jwtDecode } from "jwt-decode";
 import { 
   User, 
   LogOut, 
-  Download, 
   Bell,
   X,
-  Timer,
-  Users,
   Package,
   Smartphone,
   Monitor
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Globe from 'react-globe.gl';
-import * as THREE from 'three';
 
 // --- Types ---
 
@@ -214,7 +210,7 @@ export default function App() {
      return <AdminPanel />;
   }
 
-  const globeEl = useRef<any>();
+  const globeEl = useRef<any>(null);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('dataDropperUser');
     return saved ? JSON.parse(saved) : null;
