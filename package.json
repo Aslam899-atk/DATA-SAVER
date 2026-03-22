@@ -21,8 +21,10 @@
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-globe.gl": "^2.37.0",
     "react-leaflet": "^5.0.0",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
