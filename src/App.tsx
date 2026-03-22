@@ -214,22 +214,23 @@ export default function App() {
           ref={globeEl}
           globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
           onGlobeClick={handleGlobeClick}
-          pointsData={chests}
-          pointLat="lat" pointLng="lng"
-          pointColor={(d: any) => (d.tier === 'platinum' ? '#38bdf8' : d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#ea580c')}
-          pointAltitude={(d: any) => (d.tier === 'platinum' ? 0.4 : d.tier === 'gold' ? 0.3 : d.tier === 'silver' ? 0.2 : 0.1)}
-          pointRadius={0.8}
-          onPointClick={handlePointClick}
+          htmlElementsData={chests}
+          htmlElement={(d: any) => {
+            const el = document.createElement('div');
+            el.innerHTML = `📦`;
+            el.style.fontSize = '32px';
+            el.style.filter = `drop-shadow(0 0 10px ${d.tier === 'platinum' ? '#38bdf8' : d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#fff' : '#000'})`;
+            el.style.cursor = 'pointer';
+            el.style.pointerEvents = 'auto';
+            el.onclick = () => handlePointClick(d);
+            return el;
+          }}
+          htmlLat="lat" htmlLng="lng"
+          htmlAltitude={(d: any) => (d.tier === 'platinum' ? 0.4 : d.tier === 'gold' ? 0.3 : d.tier === 'silver' ? 0.2 : 0.1)}
           ringsData={chests}
           ringLat="lat" ringLng="lng"
           ringColor={(d: any) => (d.tier === 'platinum' ? '#38bdf8' : d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#ea580c')}
           ringMaxRadius={2} ringPropagationSpeed={2}
-          customLayerData={[]}
-          customThreeObject={() => {
-            const geometry = new THREE.SphereGeometry(2, 16, 16);
-            const material = new THREE.MeshBasicMaterial({ color: '#f97316' });
-            return new THREE.Mesh(geometry, material);
-          }}
         />
       </div>
 
@@ -373,25 +374,34 @@ export default function App() {
 
         {/* CHEST MODAL */}
         {selectedChest && adTimer === null && (
-          <div className="fixed inset-0 flex items-center justify-center p-6 z-[300] bg-slate-950/95 backdrop-blur-3xl">
-             <motion.div initial={{ y: 20 }} animate={{ y: 0 }} className="tactical-panel p-12 w-full max-w-md border-t-8 border-t-orange-500 flex flex-col gap-6">
-                <div className="flex gap-4">
-                   <div className="w-16 h-16 bg-slate-900 border border-orange-500 rounded flex items-center justify-center"><Download size={24} className="text-orange-500" /></div>
-                   <div><h3 className="text-2xl font-black italic">{selectedChest.fileName}</h3><p className="text-[10px] text-slate-500 uppercase">{selectedChest.tier} LINK // {selectedChest.droppedBy}</p></div>
+          <div className="fixed inset-0 flex items-center justify-center p-6 z-[300] bg-black/60 backdrop-blur-sm" onClick={() => setSelectedChest(null)}>
+             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={e => e.stopPropagation()} className="relative w-full max-w-sm bg-[#5ba4e5] rounded-[2.5rem] border-2 border-black p-8 text-black shadow-2xl flex flex-col gap-6">
+                
+                <button onClick={() => setSelectedChest(null)} className="absolute top-4 right-4 text-black hover:text-white transition-colors">
+                   <X size={24}/>
+                </button>
+
+                <div className="w-full h-40 border-2 border-black rounded-[2rem] flex flex-col items-center justify-center bg-[#5ba4e5] p-4 text-center mt-4">
+                   <span className="text-2xl font-medium mb-1 line-clamp-2">Preview of file</span>
+                   <span className="text-xs font-bold opacity-70">[{selectedChest.fileName}]</span>
                 </div>
-                {selectedChest.tier === 'silver' && (
-                   <div className="grid grid-cols-2 gap-2 text-[10px] font-black">
-                      <div className="p-3 bg-white/5 rounded flex items-center gap-2"><Users size={14}/> {selectedChest.currentOpens}/{selectedChest.maxOpens || '∞'}</div>
-                      <div className="p-3 bg-white/5 rounded flex items-center gap-2"><Timer size={14}/> {selectedChest.expiresAt ? Math.round((selectedChest.expiresAt - Date.now())/3600000) + 'h' : 'PERM'}</div>
-                   </div>
+
+                {selectedChest.tier === 'gold' && (
+                   <input 
+                      type="password" 
+                      value={pinInput} 
+                      onChange={e => setPinInput(e.target.value)} 
+                      placeholder="Password" 
+                      className="w-full p-4 text-center rounded-2xl border-2 border-black bg-transparent placeholder-black/60 focus:outline-none font-bold text-lg text-black" 
+                   />
                 )}
-                <div className="flex flex-col gap-3">
-                   {selectedChest.tier === 'gold' && <input type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} className="tactical-input text-center text-2xl" placeholder="PIN" />}
-                   <button className="tactical-btn primary h-16" onClick={handleChestAction}>
-                      {selectedChest.tier === 'platinum' ? 'ACCESS DATA' : selectedChest.tier === 'gold' ? 'VERIFY & REQUEST' : 'WATCH AD TO ACCESS'}
-                   </button>
-                   <button className="text-xs text-center" onClick={() => setSelectedChest(null)}>CANCEL</button>
-                </div>
+
+                <button 
+                  onClick={handleChestAction} 
+                  className="w-full border-2 border-black rounded-[1.5rem] py-4 bg-[#5ba4e5] font-semibold text-2xl uppercase hover:bg-black/10 transition-colors shadow-[0_4px_0_0_#000] active:shadow-none active:translate-y-1"
+                >
+                   {selectedChest.tier === 'platinum' ? 'DOWNLOAD' : selectedChest.tier === 'gold' ? 'DOWNLOAD' : 'WATCH AD'}
+                </button>
              </motion.div>
           </div>
         )}
