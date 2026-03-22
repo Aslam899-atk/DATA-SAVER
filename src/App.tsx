@@ -143,8 +143,16 @@ const getPlayerIcon = (charType: string, isMoving: boolean) => L.divIcon({
 const getChestIcon = (tier: string, hasPin: boolean) => {
   const iconHtml = renderToStaticMarkup(
     <div className={`airdrop-container tier-${tier}`} style={{ position: 'absolute', transform: 'translate(-50%, -50%)' }}>
-      <div className="airdrop-sphere">
-         {hasPin && <Lock size={12} color="white" />}
+      <div className="crate-beam"></div>
+      <div className="sci-fi-crate">
+        <div className="face front"></div>
+        <div className="face back"></div>
+        <div className="face left"></div>
+        <div className="face right"></div>
+        <div className="face top">
+          {hasPin && <Lock size={14} color="#f97316" style={{ transform: 'rotateX(-90deg)' }} />}
+        </div>
+        <div className="face bottom"></div>
       </div>
     </div>
   );

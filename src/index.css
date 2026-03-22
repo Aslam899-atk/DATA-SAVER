@@ -137,43 +137,75 @@ body {
   transition: transform 0.2s linear !important;
 }
 
-/* 3D Ball Airdrop */
-.airdrop-sphere {
+/* Sci-Fi Crate Airdrop */
+.sci-fi-crate {
   position: relative;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  box-shadow: 
-    inset -4px -4px 10px rgba(0,0,0,0.5),
-    inset 4px 4px 10px rgba(255,255,255,0.3),
-    0 4px 15px rgba(0,0,0,0.4);
-  background: white;
-  animation: float 2s ease-in-out infinite;
+  width: 32px;
+  height: 32px;
+  transform-style: preserve-3d;
+  transform: rotateX(-20deg) rotateY(45deg);
+  animation: hover-crate 3s ease-in-out infinite;
+}
+
+@keyframes hover-crate {
+  0%, 100% { transform: translateY(0) rotateX(-20deg) rotateY(45deg); }
+  50% { transform: translateY(-10px) rotateX(-20deg) rotateY(45deg); }
+}
+
+.sci-fi-crate .face {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  background: #f8fafc;
+  border: 2px solid #334155;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(-50%) scale(1); }
-  50% { transform: translateY(-65%) scale(1.1); }
+.sci-fi-crate .front  { transform: translateZ(16px); }
+.sci-fi-crate .back   { transform: rotateY(180deg) translateZ(16px); }
+.sci-fi-crate .right  { transform: rotateY(90deg) translateZ(16px); }
+.sci-fi-crate .left   { transform: rotateY(-90deg) translateZ(16px); }
+.sci-fi-crate .top    { transform: rotateX(90deg) translateZ(16px); background: #1e293b; border: 2px solid #ef4444; }
+.sci-fi-crate .bottom { transform: rotateX(-90deg) translateZ(16px); }
+
+/* Sci-Fi Details (Orange 'X') */
+.sci-fi-crate .face::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 2px solid transparent;
+  background: linear-gradient(45deg, transparent 45%, #f97316 45%, #f97316 55%, transparent 55%),
+              linear-gradient(-45deg, transparent 45%, #f97316 45%, #f97316 55%, transparent 55%);
+  opacity: 0.8;
 }
 
-/* Tier Colors for Ball */
-.tier-gold .airdrop-sphere {
-  background: radial-gradient(circle at 30% 30%, #fcd34d, #b45309);
-  border: 1px solid #f59e0b;
+/* Glowing Beam */
+.crate-beam {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: 40px;
+  height: 150px;
+  background: linear-gradient(to top, rgba(245, 158, 11, 0.8), transparent);
+  transform: translateX(-50%);
+  filter: blur(8px);
+  pointer-events: none;
+  animation: pulse-beam 2s ease-in-out infinite;
+  mask-image: linear-gradient(to bottom, transparent, black);
 }
 
-.tier-silver .airdrop-sphere {
-  background: radial-gradient(circle at 30% 30%, #e2e8f0, #475569);
-  border: 1px solid #94a3b8;
+@keyframes pulse-beam {
+  0%, 100% { opacity: 0.4; height: 120px; }
+  50% { opacity: 0.8; height: 180px; }
 }
 
-.tier-bronze .airdrop-sphere {
-  background: radial-gradient(circle at 30% 30%, #fb923c, #7c2d12);
-  border: 1px solid #9a3412;
-}
+/* Tier Beam Colors */
+.tier-gold .crate-beam { background: linear-gradient(to top, rgba(234, 179, 8, 0.8), transparent); }
+.tier-silver .crate-beam { background: linear-gradient(to top, rgba(148, 163, 184, 0.8), transparent); }
+.tier-bronze .crate-beam { background: linear-gradient(to top, rgba(154, 52, 18, 0.8), transparent); }
 
 /* Explosion Effect */
 .pottitheri-explosion {
