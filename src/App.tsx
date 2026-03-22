@@ -169,13 +169,25 @@ export default function App() {
     formData.append('lng', isDropping.lng.toString());
     formData.append('tier', tempTier);
     formData.append('droppedBy', currentUser.username);
-    if (tempTier === 'gold') { formData.append('pin', pinInput || '0000'); formData.append('requiresRequest', 'true'); }
-    if (maxOpensInput) formData.append('maxOpens', maxOpensInput);
-    if (expiryInput) formData.append('expiresAt', (Date.now() + parseInt(expiryInput) * 3600000).toString());
+    if (tempTier === 'gold') { 
+      formData.append('pin', pinInput || '0000'); 
+      formData.append('requiresRequest', 'true'); 
+    }
+    
+    if (maxOpensInput && !isNaN(parseInt(maxOpensInput))) {
+      formData.append('maxOpens', parseInt(maxOpensInput).toString());
+    }
+    
+    if (expiryInput && !isNaN(parseInt(expiryInput))) {
+      // Convert hours to absolute timestamp
+      const expiryTimestamp = Date.now() + parseInt(expiryInput) * 3600000;
+      formData.append('expiresAt', expiryTimestamp.toString());
+    }
+    
     if (selectedFile) formData.append('file', selectedFile);
 
     try {
-      const res = await axios.post(`${API_URL}/chests`, formData, { timeout: 30000 });
+      const res = await axios.post(`${API_URL}/chests`, formData, { timeout: 45000 });
       setChests(prev => [...prev, res.data]);
       setIsDropping(null); setTempTier(null); setDropStep('tier'); setMaxOpensInput(''); setExpiryInput(''); setSelectedFile(null); setPinInput('');
       alert('DEPLOYED');
