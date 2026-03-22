@@ -653,51 +653,45 @@ export default function App() {
           </motion.div>
         )}
 
-        {/* INTRO MODAL */}
+        {/* INTRO MODAL (HOW TO USE & DOWNLOADS) */}
         {showIntro && currentUser && (
-          <div className="fixed inset-0 z-[700] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="w-full max-w-xl bg-[#5ba4e5] border-2 border-black rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
-              <h2 className="text-3xl font-black text-black mb-6 uppercase text-center tracking-widest">HOW TO USE</h2>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(16px)' }}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} style={{ width: '100%', maxWidth: 560, background: '#5ba4e5', border: '2px solid #000', borderRadius: 40, padding: 32, boxShadow: '0 20px 60px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
+              <h2 style={{ fontSize: 28, fontWeight: 900, color: '#000', marginBottom: 24, textTransform: 'uppercase', textAlign: 'center', letterSpacing: 4 }}>HOW TO USE</h2>
 
-              <div className="space-y-4 text-black font-semibold mb-8">
-                <div className="flex gap-4 items-center bg-white/20 p-4 rounded-2xl border-2 border-black shadow">
-                  <div className="text-4xl drop-shadow-md">🌍</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center', background: 'rgba(255,255,255,0.2)', padding: 16, borderRadius: 24, border: '2px solid #000' }}>
+                  <div style={{ fontSize: 32 }}>🌍</div>
                   <div>
-                    <h4 className="font-bold uppercase mb-1">Global Dashboard</h4>
-                    <p className="text-sm">Drag to rotate the map. Use scroll or pinch to zoom into any sector.</p>
+                    <h4 style={{ fontWeight: 800, margin: 0, textTransform: 'uppercase', fontSize: 13 }}>Global Dashboard</h4>
+                    <p style={{ margin: 0, fontSize: 11, fontWeight: 600 }}>Drag to rotate. Scroll to zoom into any sector.</p>
                   </div>
                 </div>
 
-                <div className="flex gap-4 items-center bg-white/20 p-4 rounded-2xl border-2 border-black shadow">
-                  <div className="text-4xl drop-shadow-md">📦</div>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center', background: 'rgba(255,255,255,0.2)', padding: 16, borderRadius: 24, border: '2px solid #000' }}>
+                  <div style={{ fontSize: 32 }}>📦</div>
                   <div>
-                    <h4 className="font-bold uppercase mb-1">Drop Data</h4>
-                    <p className="text-sm">Click empty areas to drop ordnance. Choose between Gold, Silver, and Bronze tiers.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4 items-center bg-white/20 p-4 rounded-2xl border-2 border-black shadow">
-                  <div className="text-4xl drop-shadow-md">🔓</div>
-                  <div>
-                    <h4 className="font-bold uppercase mb-1">Access Intel</h4>
-                    <p className="text-sm">Click existing chests on the map to preview and safely download the contents.</p>
+                    <h4 style={{ fontWeight: 800, margin: 0, textTransform: 'uppercase', fontSize: 13 }}>Drop Data</h4>
+                    <p style={{ margin: 0, fontSize: 11, fontWeight: 600 }}>Click empty areas to drop ordnance (Gold/Silver/Bronze).</p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-wrap justify-around items-center gap-4 mb-8 bg-white/20 p-4 rounded-2xl border-2 border-black shadow text-black">
-                <div className="flex-1 flex flex-col items-center border-r-2 border-black/20 pr-4 hover:scale-105 transition-transform">
-                  <Smartphone size={32} className="mb-2 text-black" />
-                  <a href="#" onClick={(e) => { e.preventDefault(); alert("Mobile App Download Starting..."); }} className="font-bold underline text-sm uppercase text-center text-black hover:text-orange-900">Mobile App (APK)</a>
+              {/* DOWNLOAD SECTION */}
+              <div style={{ background: '#000', padding: 20, borderRadius: 28, marginBottom: 24, display: 'flex', justifyContent: 'space-around', gap: 12 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                   <Smartphone size={28} style={{ color: '#5ba4e5' }} />
+                   <a href="#" onClick={(e) => { e.preventDefault(); alert("Mobile App Download Starting..."); }} style={{ color: '#fff', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', textDecoration: 'underline' }}>Download APK</a>
                 </div>
-                <div className="flex-1 flex flex-col items-center hover:scale-105 transition-transform">
-                  <Monitor size={32} className="mb-2 text-black" />
-                  <a href="#" onClick={(e) => { e.preventDefault(); alert("PC Client Download Starting..."); }} className="font-bold underline text-sm uppercase text-center text-black hover:text-orange-900">PC Software (.exe)</a>
+                <div style={{ width: 2, height: 40, background: 'rgba(255,255,255,0.1)' }}></div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                   <Monitor size={28} style={{ color: '#5ba4e5' }} />
+                   <a href="#" onClick={(e) => { e.preventDefault(); alert("PC Client Download Starting..."); }} style={{ color: '#fff', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', textDecoration: 'underline' }}>PC Software</a>
                 </div>
               </div>
 
-              <div className="flex justify-center">
-                <button onClick={handleCloseIntro} className="bg-black text-[#5ba4e5] px-12 py-3 rounded-[1.5rem] font-black uppercase text-xl border-2 border-black shadow-[0_4px_0_0_#000] active:shadow-none active:translate-y-1 hover:bg-black/90 transition-all">START MISSION</button>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <button onClick={handleCloseIntro} style={{ background: '#000', color: '#5ba4e5', padding: '14px 48px', borderRadius: 24, fontWeight: 900, fontSize: 18, border: '2px solid #000', cursor: 'pointer', textTransform: 'uppercase', boxShadow: '0 4px 0 #000' }}>CONFIRM</button>
               </div>
             </motion.div>
           </div>
