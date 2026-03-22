@@ -7,7 +7,6 @@ import {
   LogOut, 
   Bell,
   X,
-  Package,
   Smartphone,
   Monitor
 } from 'lucide-react';
@@ -494,80 +493,61 @@ export default function App() {
 
         {/* DEPLOY MODAL */}
         {isDropping && currentUser && (
-          <div className="fixed inset-0 flex items-center justify-center p-6 z-[300] bg-slate-900/50 backdrop-blur-sm">
-             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="w-full max-w-lg bg-[#5ba4e5] rounded-[2.5rem] border-2 border-black p-8 text-black shadow-2xl relative">
+          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 500, background: 'rgba(10,15,30,0.7)', backdropFilter: 'blur(8px)' }}>
+             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} style={{ width: '100%', maxWidth: 480, background: '#5ba4e5', borderRadius: 40, border: '2px solid #000', padding: 32, color: '#000', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', overflowY: 'auto', maxHeight: '90vh' }}>
                 
-                <div className="flex gap-6 justify-center mb-8">
-                   <button onClick={() => setTempTier('gold')} className={`w-[70px] h-[70px] flex items-center justify-center rounded transition-all ${tempTier === 'gold' ? 'border-4 border-blue-700 bg-yellow-400' : 'bg-yellow-400 opacity-90'}`}>
-                      <Package size={36} className="text-white drop-shadow" />
-                   </button>
-                   <button onClick={() => setTempTier('silver')} className={`w-[70px] h-[70px] flex items-center justify-center rounded transition-all ${tempTier === 'silver' ? 'border-4 border-blue-700 bg-gray-300' : 'bg-gray-300 opacity-90'}`}>
-                      <Package size={36} className="text-white drop-shadow" />
-                   </button>
-                   <button onClick={() => setTempTier('platinum')} className={`w-[70px] h-[70px] flex items-center justify-center rounded transition-all ${tempTier === 'platinum' ? 'border-4 border-blue-700 bg-slate-800' : 'bg-slate-800 opacity-90'}`}>
-                      <Package size={36} className="text-white drop-shadow" />
-                   </button>
+                {/* TIER SELECTION */}
+                <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginBottom: 24 }}>
+                   <button onClick={() => setTempTier('gold')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#fbbf24', border: tempTier === 'gold' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🥇</button>
+                   <button onClick={() => setTempTier('silver')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#d1d5db', border: tempTier === 'silver' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🥈</button>
+                   <button onClick={() => setTempTier('platinum')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#1e293b', border: tempTier === 'platinum' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>💎</button>
                 </div>
 
-                <div className="w-full min-h-[120px] mb-4 flex flex-col justify-center items-center">
-                   {tempTier === 'platinum' && (
-                      <h3 className="text-xl text-black font-semibold mb-6">Fully free</h3>
-                   )}
+                {/* TIER INFO */}
+                <div style={{ minHeight: 100, marginBottom: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                   {tempTier === 'platinum' && <p style={{ fontSize: 18, fontWeight: 600 }}>✅ Fully Free — Anyone can download</p>}
 
                    {tempTier === 'silver' && (
-                      <div className="flex flex-col items-center w-full">
-                         <div className="flex w-full justify-around mb-6 text-black font-medium text-sm">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                               <input type="radio" name="silverMode" checked={silverMode==='timer'} onChange={()=>setSilverMode('timer')} className="w-4 h-4 accent-black" /> timer
+                      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                         <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', fontWeight: 600, fontSize: 14 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                               <input type="radio" name="silverMode" checked={silverMode==='timer'} onChange={()=>setSilverMode('timer')} /> ⏱️ Timer
                             </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                               <input type="radio" name="silverMode" checked={silverMode==='count'} onChange={()=>setSilverMode('count')} className="w-4 h-4 accent-black" /> count
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                               <input type="radio" name="silverMode" checked={silverMode==='count'} onChange={()=>setSilverMode('count')} /> 👥 Count
                             </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                               <input type="radio" name="silverMode" checked={silverMode==='ads'} onChange={()=>setSilverMode('ads')} className="w-4 h-4 accent-black" /> ads
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                               <input type="radio" name="silverMode" checked={silverMode==='ads'} onChange={()=>setSilverMode('ads')} /> 📺 Ads
                             </label>
                          </div>
-                         <div className="flex items-center gap-4">
-                            <input 
-                               type="number" 
-                               value={silverValue} onChange={e=>setSilverValue(e.target.value)} 
-                               className="w-16 h-12 bg-transparent border-2 border-black rounded-xl text-center text-xl font-bold focus:outline-none" 
-                            />
-                            <span className="text-lg font-medium">
-                               {silverMode === 'timer' && 'hour'}
+                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <input type="number" value={silverValue} onChange={e=>setSilverValue(e.target.value)} style={{ width: 70, height: 48, border: '2px solid #000', borderRadius: 12, textAlign: 'center', fontSize: 20, fontWeight: 700, background: 'transparent', outline: 'none' }} />
+                            <span style={{ fontSize: 16, fontWeight: 600 }}>
+                               {silverMode === 'timer' && 'Hours'}
                                {silverMode === 'count' && 'People can open'}
-                               {silverMode === 'ads' && 'Ads view'}
+                               {silverMode === 'ads' && 'Ad views required'}
                             </span>
                          </div>
                       </div>
                    )}
-                   
-                   {tempTier === 'gold' && (
-                      <div className="w-full flex items-center justify-center h-full"> 
-                      </div>
-                   )}
                 </div>
 
-                <div className="w-full px-4 flex flex-col gap-4">
-                   <label className="w-full border-2 border-black rounded-lg p-3 text-black font-medium cursor-pointer overflow-hidden flex items-center">
-                      <input type="file" onChange={e => setSelectedFile(e.target.files?.[0] || null)} className="hidden" />
-                      {selectedFile ? selectedFile.name : 'Choose file'}
+                {/* FILE INPUT */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', marginBottom: 24 }}>
+                   <label style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                      <input type="file" onChange={e => setSelectedFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                      📁 {selectedFile ? selectedFile.name : 'Choose file to drop'}
                    </label>
                    
                    {tempTier === 'gold' && (
-                      <input 
-                         type="password" 
-                         value={pinInput} 
-                         onChange={e => setPinInput(e.target.value)} 
-                         placeholder="password" 
-                         className="w-full border-2 border-black rounded-lg p-3 bg-transparent text-black placeholder-black/60 focus:outline-none font-medium" 
-                      />
+                      <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="🔑 Set password for access" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }} />
                    )}
                 </div>
 
-                <div className="mt-8 flex justify-center gap-6 w-full">
-                   <button className="bg-black/80 text-white border-2 border-black px-8 py-3 rounded-[1.5rem] font-bold uppercase hover:bg-black/90 transition-all shadow-md" onClick={() => setIsDropping(null)}>Abort</button>
-                   <button className="bg-black text-[#5ba4e5] px-10 py-3 rounded-[1.5rem] font-black uppercase hover:bg-gray-900 border-2 border-black shadow-[0_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all" onClick={finalizeDrop}>Commence Drop</button>
+                {/* ACTION BUTTONS */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
+                   <button style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', border: '2px solid #000', padding: '12px 28px', borderRadius: 24, fontWeight: 700, fontSize: 14, cursor: 'pointer', letterSpacing: 1, textTransform: 'uppercase' }} onClick={() => setIsDropping(null)}>✕ Abort</button>
+                   <button style={{ background: '#000', color: '#5ba4e5', padding: '12px 32px', borderRadius: 24, fontWeight: 900, fontSize: 15, cursor: 'pointer', letterSpacing: 1, textTransform: 'uppercase', border: '2px solid #000', boxShadow: '0 4px 0 #000' }} onClick={finalizeDrop}>🚀 Commence Drop</button>
                 </div>
              </motion.div>
           </div>
@@ -575,33 +555,24 @@ export default function App() {
 
         {/* CHEST MODAL */}
         {selectedChest && adTimer === null && (
-          <div className="fixed inset-0 flex items-center justify-center p-6 z-[300] bg-black/60 backdrop-blur-sm" onClick={() => setSelectedChest(null)}>
-             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={e => e.stopPropagation()} className="relative w-full max-w-sm bg-[#5ba4e5] rounded-[2.5rem] border-2 border-black p-8 text-black shadow-2xl flex flex-col gap-6">
+          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 500, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedChest(null)}>
+             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 380, background: '#5ba4e5', borderRadius: 40, border: '2px solid #000', padding: 32, color: '#000', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: 20 }}>
                 
-                <button onClick={() => setSelectedChest(null)} className="absolute top-4 right-4 text-black hover:text-white transition-colors">
-                   <X size={24}/>
-                </button>
+                <button onClick={() => setSelectedChest(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#000' }}>✕</button>
 
-                <div className="w-full h-40 border-2 border-black rounded-[2rem] flex flex-col items-center justify-center bg-[#5ba4e5] p-4 text-center mt-4">
-                   <span className="text-2xl font-medium mb-1 line-clamp-2">Preview of file</span>
-                   <span className="text-xs font-bold opacity-70">[{selectedChest.fileName}]</span>
+                <div style={{ width: '100%', height: 140, border: '2px solid #000', borderRadius: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.15)', marginTop: 12, textAlign: 'center', padding: 12 }}>
+                   <span style={{ fontSize: 36 }}>📦</span>
+                   <span style={{ fontSize: 18, fontWeight: 600, marginTop: 4 }}>Preview of file</span>
+                   <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.7, marginTop: 4 }}>[{selectedChest.fileName}]</span>
+                   <span style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>By: {selectedChest.droppedBy} • {selectedChest.tier.toUpperCase()}</span>
                 </div>
 
                 {selectedChest.tier === 'gold' && (
-                   <input 
-                      type="password" 
-                      value={pinInput} 
-                      onChange={e => setPinInput(e.target.value)} 
-                      placeholder="Password" 
-                      className="w-full p-4 text-center rounded-2xl border-2 border-black bg-transparent placeholder-black/60 focus:outline-none font-bold text-lg text-black" 
-                   />
+                   <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="Enter password" style={{ width: '100%', padding: '14px 16px', textAlign: 'center', borderRadius: 20, border: '2px solid #000', background: 'transparent', fontWeight: 700, fontSize: 16, outline: 'none' }} />
                 )}
 
-                <button 
-                  onClick={handleChestAction} 
-                  className="w-full border-2 border-black rounded-[1.5rem] py-4 bg-[#5ba4e5] font-semibold text-2xl uppercase hover:bg-black/10 transition-colors shadow-[0_4px_0_0_#000] active:shadow-none active:translate-y-1"
-                >
-                   {selectedChest.tier === 'platinum' ? 'DOWNLOAD' : selectedChest.tier === 'gold' ? 'DOWNLOAD' : 'WATCH AD'}
+                <button onClick={handleChestAction} style={{ width: '100%', border: '2px solid #000', borderRadius: 24, padding: '16px 0', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 20, cursor: 'pointer', letterSpacing: 2, textTransform: 'uppercase', boxShadow: '0 4px 0 rgba(0,0,0,0.3)' }}>
+                   {selectedChest.tier === 'silver' ? '📺 WATCH AD' : '⬇️ DOWNLOAD'}
                 </button>
              </motion.div>
           </div>
