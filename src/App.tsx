@@ -11,7 +11,6 @@ import {
   Bell,
   X,
   Crown,
-  Play,
   Trash2,
   Shield
 } from 'lucide-react';
@@ -240,7 +239,7 @@ export default function App() {
   const [isExploding, setIsExploding] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
-   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   useEffect(() => {
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -251,8 +250,13 @@ export default function App() {
     // Fetch live drops from Database
     axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
 
+    const checkInterval = setInterval(() => {
+      axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
+    }, 30000); // Sync every 30s
+
     return () => {
       window.removeEventListener('beforeinstallprompt', () => {});
+      clearInterval(checkInterval);
     };
   }, []);
 
@@ -281,7 +285,7 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (document.activeElement?.tagName === 'INPUT') return; // Don't move while typing
+      if (document.activeElement?.tagName === 'INPUT') return; 
       const step = 0.0002;
       let newPos = { ...playerPos };
       let moved = false;
@@ -308,19 +312,39 @@ export default function App() {
   }, [playerPos]);
 
   const handleChestClick = (chest: Chest) => {
-    // Check if expired or limit reached
-    const isExpired = chest.expiresAt && Date.now() > chest.expiresAt;
-    const isLimitReached = chest.maxOpens && chest.currentOpens >= chest.maxOpens;
-    
-    if (!isExpired && !isLimitReached) {
-       if (chest.tier === 'gold' || chest.tier === 'silver') {
-        setAdTimer(15);
-      }
-      // Increment opens (simulate)
-      setChests(prev => prev.map(c => c.id === chest.id ? { ...c, currentOpens: c.currentOpens + 1 } : c));
-    }
-    
     setSelectedChest(chest);
+    setPinInput('');
+  };
+
+  const handleChestAction = async () => {
+    if (!selectedChest) return;
+
+    if (selectedChest.tier === 'gold') {
+      if (pinInput !== (selectedChest.pin || '0000')) {
+        alert('ACCESS DENIED: INCORRECT PIN');
+        return;
+      }
+    }
+
+    if (selectedChest.tier === 'silver' && adTimer === null) {
+      setAdTimer(15);
+      return; 
+    }
+
+    try {
+      const res = await axios.patch(`${API_URL}/chests/${selectedChest._id || selectedChest.id}/open`);
+      setChests(prev => prev.map(c => (c._id === selectedChest._id || c.id === selectedChest.id) ? res.data : c));
+      
+      setIsExploding(true);
+      setTimeout(() => {
+        setIsExploding(false);
+        if (selectedChest.fileUrl) window.open(selectedChest.fileUrl, '_blank');
+        else alert('DATA SEQUENCE COMPLETE');
+        setSelectedChest(null);
+      }, 800);
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Access Failed');
+    }
   };
 
   const finalizeDrop = async () => {
@@ -331,7 +355,7 @@ export default function App() {
     formData.append('lng', isDropping.lng.toString());
     formData.append('tier', tempTier);
     formData.append('droppedBy', currentUser.username);
-    if (tempTier === 'silver' || tempTier === 'gold') formData.append('pin', '0000'); // Or user defined pin
+    if (tempTier === 'gold') formData.append('pin', pinInput || '0000'); 
     if (maxOpensInput) formData.append('maxOpens', maxOpensInput);
     if (expiryInput) formData.append('expiresAt', (Date.now() + parseInt(expiryInput) * 60000).toString());
     if (selectedFile) formData.append('file', selectedFile);
@@ -339,6 +363,7 @@ export default function App() {
     try {
       const res = await axios.post(`${API_URL}/chests`, formData);
       setChests([...chests, res.data]);
+      alert('DEPLOYMENT SUCCESSFUL');
     } catch (e) {
       console.error(e);
       alert('Failed to deploy intel');
@@ -350,6 +375,7 @@ export default function App() {
     setMaxOpensInput('');
     setExpiryInput('');
     setSelectedFile(null);
+    setPinInput('');
   };
 
   const handleMapClick = (lat: number, lng: number) => {
@@ -390,337 +416,330 @@ export default function App() {
     );
   }
 
-  const isExpired = selectedChest?.expiresAt && Date.now() > selectedChest.expiresAt;
-  const isLimitReached = selectedChest?.maxOpens && selectedChest.currentOpens >= selectedChest.maxOpens; // Using >= because we incremented on click
-
   return (
     <div className="world-map">
-      {/* Quick Travel Selector */}
-      <div className="fixed bottom-20 left-6 z-50 flex flex-col gap-2">
-         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-2">Tap to Fly</p>
-         <div className="flex gap-2 flex-wrap max-w-md">
+      {/* Cinematic Space Background */}
+      <div className="absolute inset-0 bg-[#020617] pointer-events-none overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vh] h-[150vh] bg-blue-500/10 rounded-full blur-[150px]"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vh] h-[100vh] bg-orange-500/5 rounded-full blur-[120px]"></div>
+        <div className="absolute top-1/4 left-1/4 w-1 h-1 bg-white rounded-full animate-pulse opacity-40"></div>
+        <div className="absolute bottom-1/3 right-1/4 w-1 h-1 bg-white rounded-full animate-pulse opacity-30"></div>
+      </div>
+
+      {/* Top Floating HUD Dashboard */}
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-6 px-8 py-3 tactical-panel w-[90%] max-w-4xl">
+         <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-slate-800/50 rounded flex items-center justify-center border border-white/5 shadow-inner">
+               <User size={20} className="text-orange-500" />
+            </div>
+            <div className="flex flex-col">
+               <span className="text-[9px] font-black tracking-widest text-slate-500 uppercase">Authenticated Operator</span>
+               <span className="text-sm font-black text-white tracking-widest italic">{currentUser?.username.toUpperCase()}</span>
+            </div>
+         </div>
+
+         <div className="h-8 w-[1px] bg-white/10 ml-auto flex-shrink-0"></div>
+
+         <div className="flex items-center gap-3">
+            {currentUser?.isAdmin && (
+               <button 
+                  className={`tactical-btn h-10 px-4 ${isAdminMode ? 'primary' : 'bg-white/5'}`}
+                  onClick={() => setIsAdminMode(!isAdminMode)}
+               >
+                  <Shield size={16} /> ADMIN
+               </button>
+            )}
+            <button className="tactical-btn h-10 w-10 p-0 items-center justify-center bg-white/5 relative" onClick={() => setShowRequests(!showRequests)}>
+               <Bell size={18} className={requests.length > 0 ? "text-orange-500 animate-bounce" : "text-slate-200"} />
+               {requests.length > 0 && <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-orange-500 rounded-full shadow-[0_0_8px_rgba(249,115,22,1)]"></span>}
+            </button>
+            <button className="tactical-btn h-10 w-10 p-0 items-center justify-center bg-red-900/10 text-red-500 border-red-900/20 hover:bg-red-900/40 transition-all" onClick={() => { setCurrentUser(null); localStorage.removeItem('dataDropperUser'); }}>
+               <LogOut size={18} />
+            </button>
+            <button className="tactical-btn primary h-10 px-6 font-black text-[10px]" onClick={handleInstallClick}>
+               INSTALL
+            </button>
+         </div>
+      </div>
+
+      {/* Globe Map Sphere */}
+      <div className="map-container-wrapper">
+         <div className="absolute inset-0 bg-black/40 z-[5] pointer-events-none shadow-[inset_0_0_150px_rgba(0,0,0,0.8)]"></div>
+         <MapContainer 
+            center={[playerPos.lat, playerPos.lng]} 
+            zoom={zoomLevel} 
+            zoomControl={false} 
+            style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 0 }}
+         >
+            <TileLayer
+               url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+               attribution="&copy; Google Maps"
+            />
+            <MapClickHandler onMapClick={handleMapClick} />
+            <PlayerTracker pos={playerPos} zoom={zoomLevel} />
+            
+            <Marker position={[playerPos.lat, playerPos.lng]} icon={getPlayerIcon(charType, isMoving)} zIndexOffset={100} />
+
+            {chests.map((chest) => (
+               <Marker 
+                  key={chest._id || chest.id}
+                  position={[chest.lat, chest.lng]} 
+                  icon={getChestIcon(chest.tier, chest.hasPin)}
+                  eventHandlers={{ click: () => handleChestClick(chest) }}
+               />
+            ))}
+         </MapContainer>
+      </div>
+
+      {/* Bottom Left: Location Selectors */}
+      <div className="fixed bottom-10 left-10 z-[150] flex flex-col gap-4">
+         <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] pl-1 drop-shadow-lg">Targeting Vectors</p>
+         <div className="flex gap-2 flex-wrap max-w-sm">
             {locations.map(loc => (
-               <button key={loc.name} className="tactical-panel px-3 py-2 text-[10px] font-black bg-slate-900/90 border-b-2 border-b-amber-500 hover:bg-amber-500 hover:text-black transition-all" onClick={() => {
+               <button key={loc.name} className="tactical-btn bg-slate-900/60 border-white/5 hover:border-orange-500/50 hover:bg-slate-800/80 transition-all font-black text-[9px]" onClick={() => {
                   setPlayerPos({ lat: loc.lat, lng: loc.lng });
                   setZoomLevel(15);
-               }}>{loc.name}</button>
+               }}>
+                  {loc.name}
+               </button>
             ))}
          </div>
       </div>
 
-      <MapContainer 
-        center={[playerPos.lat, playerPos.lng]} 
-        zoom={zoomLevel} 
-        zoomControl={false} 
-        style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 0 }}
-      >
-        <TileLayer
-          url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-          attribution="&copy; Google Maps"
-        />
-        <MapClickHandler onMapClick={handleMapClick} />
-        <PlayerTracker pos={playerPos} zoom={zoomLevel} />
-        
-        {/* Player Sprite as Leaflet Marker */}
-        <Marker position={[playerPos.lat, playerPos.lng]} icon={getPlayerIcon(charType, isMoving)} zIndexOffset={100} />
-
-        {/* Chests as Leaflet Markers */}
-        {chests.map(chest => (
-          <Marker 
-            key={chest.id || chest._id}
-            position={[chest.lat, chest.lng]}
-            icon={getChestIcon(chest.tier, chest.hasPin)}
-            eventHandlers={{ click: () => handleChestClick(chest) }}
-          />
-        ))}
-      </MapContainer>
-
-      {/* Crosshair Overlay */}
-      <div className="absolute top-1/2 left-1/2 w-4 h-4 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10 border-2 border-amber-500 rounded-full opacity-50" />
-
-      {/* Character Selector */}
-      <div className="player-selection z-50">
-        <button 
-          className={`tactical-btn ${charType === 'man' ? 'primary' : ''}`} 
-          onClick={() => setCharType('man')}
-        >AGENT (M)</button>
-        <button 
-          className={`tactical-btn ${charType === 'woman' ? 'primary' : ''}`} 
-          onClick={() => setCharType('woman')}
-        >AGENT (F)</button>
+      {/* Bottom Right: Status Dashboard */}
+      <div className="fixed bottom-10 right-10 z-[150] flex flex-col items-end gap-4">
+          <div className="flex gap-2 p-1.5 bg-slate-900/60 backdrop-blur rounded-xl border border-white/5 shadow-2xl">
+             <button className={`tactical-btn h-12 w-12 p-0 justify-center rounded-lg ${charType === 'man' ? 'primary' : 'bg-transparent border-0'}`} onClick={() => setCharType('man')}><User size={20} /></button>
+             <button className={`tactical-btn h-12 w-12 p-0 justify-center rounded-lg ${charType === 'woman' ? 'primary' : 'bg-transparent border-0'}`} onClick={() => setCharType('woman')}><User size={20} /></button>
+          </div>
+          <div className="tactical-panel px-5 py-3 border-l-4 border-l-orange-500 bg-slate-900/90 shadow-2xl flex items-center gap-4">
+             <div className="flex flex-col">
+                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">POSITIONING SYSTEM</span>
+                <span className="text-[10px] font-mono font-black text-white tracking-widest uppercase">
+                   {playerPos.lat.toFixed(4)} / {playerPos.lng.toFixed(4)}
+                </span>
+             </div>
+             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+          </div>
       </div>
 
-      {/* HUD Header */}
-      <div className="fixed top-6 left-6 z-50 flex items-center gap-4">
-        <div className="tactical-panel p-2 flex items-center gap-4 bg-slate-900/80 border-l-4 border-l-amber-500">
-          <div className="w-12 h-12 bg-slate-800 rounded flex items-center justify-center border border-white/10">
-            <User size={24} className="text-amber-500" />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-1">Logged in as</p>
-            <p className="text-lg font-black text-white leading-none uppercase">{currentUser.username}</p>
-          </div>
-        </div>
-        {currentUser.isAdmin && (
-          <button 
-            className={`tactical-btn ${isAdminMode ? 'primary' : ''}`}
-            onClick={() => setIsAdminMode(!isAdminMode)}
-          >
-            <Shield size={18} /> ADMIN DASHBOARD
-          </button>
-        )}
-      </div>
-
-      <div className="fixed top-6 right-6 z-50 flex gap-4">
-        <button className="tactical-panel p-3 relative bg-slate-900/80" onClick={() => setShowRequests(!showRequests)}>
-          <Bell size={24} className="text-slate-400" />
-          {requests.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full text-[10px] font-bold flex items-center justify-center">!</span>}
-        </button>
-        <button className="tactical-panel p-3 bg-red-950/40 text-red-500 border-red-900/50 hover:bg-red-900/40 transition-colors" onClick={() => { setCurrentUser(null); localStorage.removeItem('dataDropperUser'); }}><LogOut size={24} /></button>
-        <button 
-          className="tactical-btn primary flex items-center gap-2 border-2 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]" 
-          onClick={handleInstallClick}
-        >
-          <Download size={18} /> DOWNLOAD APP
-        </button>
-      </div>
-
-      {/* Interaction Modals */}
-      <AnimatePresence>
-        {isDropping && (
-          <div className="fixed inset-0 flex items-center justify-center p-6 z-[110] bg-slate-950/80 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="tactical-panel p-8 w-full max-w-sm flex flex-col gap-8 border-t-8 border-t-amber-500"
-            >
-              <div className="text-center">
-                <h3 className="text-2xl font-black text-white tracking-tighter italic uppercase">
-                  {dropStep === 'tier' ? 'CHOOSE CHEST TYPE' : 'CHEST SETTINGS'}
-                </h3>
-                <p className="text-[10px] text-slate-500 mt-2 font-bold tracking-[2px] uppercase">Where do you want to hide the file?</p>
-              </div>
-              
-              {dropStep === 'tier' ? (
-                <div className="flex flex-col gap-4">
-                  <button className="tactical-btn h-14" style={{ borderLeft: '4px solid var(--mc-gold)' }} onClick={() => { setTempTier('gold'); setDropStep('settings'); }}>GOLD CHEST (Requires PIN)</button>
-                  <button className="tactical-btn h-14" style={{ borderLeft: '4px solid var(--mc-silver)' }} onClick={() => { setTempTier('silver'); setDropStep('settings'); }}>SILVER CHEST (Watch Ad to Open)</button>
-                  <button className="tactical-btn h-14" style={{ borderLeft: '4px solid var(--mc-bronze)' }} onClick={() => { setTempTier('bronze'); finalizeDrop(); }}>BRONZE CHEST (Free for All)</button>
-                  <button className="text-slate-500 font-bold text-xs mt-4 uppercase hover:text-white transition-colors" onClick={() => setIsDropping(null)}>CANCEL</button>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-6">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">SELECT FILE TO UPLOAD</label>
-                    <input type="file" className="tactical-input text-xs" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">MAXIMUM USERS (Empty = Unlimited)</label>
-                    <input type="number" className="tactical-input" value={maxOpensInput} onChange={(e) => setMaxOpensInput(e.target.value)} placeholder="UNLIMITED" />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">AUTO DELETE IN (Mins - Empty = Forever)</label>
-                    <input type="number" className="tactical-input" value={expiryInput} onChange={(e) => setExpiryInput(e.target.value)} placeholder="FOREVER" />
-                  </div>
-                  <div className="flex gap-4 mt-4">
-                    <button className="tactical-btn flex-1 bg-slate-800" onClick={() => setDropStep('tier')}>BACK</button>
-                    <button className="tactical-btn primary flex-1" onClick={finalizeDrop}>DROP CHEST</button>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Ad Overlay */}
-      <AnimatePresence>
-        {adTimer !== null && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="ad-overlay"
-          >
-             <div className="relative">
-              <div className="w-24 h-24 border-8 border-amber-500/20 rounded-full flex items-center justify-center">
-                <span className="text-4xl font-black text-amber-500">{adTimer}</span>
-              </div>
-              <svg className="absolute top-0 left-0 w-24 h-24 rotate-[-90deg]">
-                <circle cx="48" cy="48" r="40" fill="none" stroke="currentColor" strokeWidth="8" className="text-amber-500" strokeDasharray="251" strokeDashoffset={251 - (251 * adTimer / 15)} />
-              </svg>
-            </div>
-            <div className="mt-8 text-center">
-              <h2 className="text-4xl font-black italic text-white uppercase tracking-tighter">PLAYING AD TO UNLOCK CHEST</h2>
-              <p className="text-slate-500 font-bold text-[10px] mt-2 tracking-[4px]">PLEASE WAIT • {selectedChest?.tier} CHEST</p>
-            </div>
-            <div className="mt-12 w-[600px] aspect-video bg-black/40 border border-white/5 flex items-center justify-center relative group">
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-              <Play size={80} className="text-white/20 group-hover:text-amber-500/40 transition-colors" />
-              <div className="absolute bottom-6 left-6 flex items-center gap-2">
-                <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" />
-                <span className="text-[10px] font-bold tracking-widest">VIDEO ADVERTISEMENT</span>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Chest Inspector Modal */}
-      <AnimatePresence>
-        {selectedChest && adTimer === null && (
-          <div className="fixed inset-0 flex items-center justify-center p-6 z-[100] bg-slate-950/90 backdrop-blur-md">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="tactical-panel w-full max-w-lg p-10 border-t-8 border-t-slate-700"
-            >
-              <button className="absolute top-6 right-6 text-slate-500 hover:text-white" onClick={() => setSelectedChest(null)}>
-                <X size={24} />
-              </button>
-
-              <div className="grid grid-cols-[160px_1fr] gap-10">
-                <div className="flex flex-col items-center gap-6">
-                  <div className="w-40 h-40 bg-slate-900 border border-white/5 rounded-sm flex items-center justify-center relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    {(isExpired || isLimitReached) ? <X size={64} className="text-red-500" /> : selectedChest.hasPin ? <Lock size={64} className="text-amber-500" /> : <Gift size={64} className="text-blue-500" />}
-                    {selectedChest.hasPin && <Crown className="absolute top-2 right-2 text-amber-500" size={20} />}
-                  </div>
-                  <div className="flex flex-col items-center w-full">
-                    <span className={`px-3 py-1 text-[10px] font-black rounded-full mb-4 uppercase ${selectedChest.tier === 'gold' ? 'bg-amber-500 text-black' : selectedChest.tier === 'silver' ? 'bg-slate-400 text-black' : 'bg-amber-800 text-white'}`}>
-                      {selectedChest.tier} CHEST
-                    </span>
-                    {(isExpired || isLimitReached) && <span className="text-red-500 font-black text-xs uppercase italic tracking-widest animate-pulse">! DATA EXPIRED</span>}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-6">
-                  <div>
-                    <h2 className="text-4xl font-black italic uppercase text-white mb-2 leading-none">{selectedChest.isMystery ? '???' : selectedChest.fileName}</h2>
-                    <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-4">Origin: {selectedChest.droppedBy}</p>
-                    <div className="flex gap-8 p-4 bg-slate-900/50 rounded-sm border border-white/5">
-                      <div>
-                        <p className="text-[8px] uppercase text-slate-500 font-bold mb-1">Users Unlocked</p>
-                        <p className="font-mono text-sm">{selectedChest.currentOpens} / {selectedChest.maxOpens || '∞'}</p>
-                      </div>
-                      <div>
-                        <p className="text-[8px] uppercase text-slate-500 font-bold mb-1">File Status</p>
-                        <p className="font-mono text-sm text-green-500">AVAILABLE</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {(selectedChest.hasPin || isExpired || isLimitReached) ? (
-                    <div className="flex flex-col gap-4">
-                      {!(isExpired || isLimitReached) && (
-                        <input type="password" className="tactical-input" maxLength={4} placeholder="ENTER SECURE PIN" value={pinInput} onChange={(e) => setPinInput(e.target.value)} />
-                      )}
-                      <div className="flex gap-2">
-                        {!(isExpired || isLimitReached) && <button className="tactical-btn primary flex-1" onClick={() => { if (pinInput === selectedChest.pin) alert('PIN ACCEPTED!'); else alert('INCORRECT PIN'); }}>OPEN CHEST</button>}
-                        <button className="tactical-btn flex-1 bg-slate-800">REQUEST ACCESS</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button className="tactical-btn primary w-full h-14" onClick={() => {
-                        axios.patch(`${API_URL}/chests/${selectedChest._id || selectedChest.id}/open`).then(() => {
-                            setIsExploding(true);
-                            setTimeout(() => {
-                                setIsExploding(false);
-                                setSelectedChest(null);
-                                if (selectedChest.fileUrl) window.open(selectedChest.fileUrl, '_blank');
-                                else alert('FILE DOWNLOADED');
-                            }, 800);
-                        });
-                    }}>
-                      <Download size={20} /> GET FILE
-                    </button>
-                  )}
-
-                  {(selectedChest.droppedBy === currentUser.username || isAdminMode) && (
-                    <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/5">
-                      <button className="tactical-btn text-xs h-10 bg-slate-800">EDIT DETAILS</button>
-                      <button className="tactical-btn danger text-xs h-10" onClick={() => deleteChest(selectedChest._id || selectedChest.id || '')}>DELETE CHEST</button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Admin Command Console */}
       <AnimatePresence>
         {isAdminMode && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
-            className="admin-overlay grid grid-rows-[auto_1fr] gap-8 bg-slate-950 border-4 border-slate-900 border-t-amber-500"
-          >
-            <div className="flex justify-between items-center bg-slate-900/50 p-6 -m-10 mb-0 border-b border-white/5">
-              <div>
-                <h2 className="text-3xl font-black italic text-white uppercase italic tracking-tighter">ADMIN DASHBOARD</h2>
-                <p className="text-[10px] text-slate-500 font-bold tracking-[4px]">LOGGED IN AS: {currentUser.username}</p>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="admin-overlay px-12 py-12">
+            <div className="flex justify-between items-center mb-16 px-4">
+              <div className="flex flex-col">
+                <h2 className="text-5xl font-black italic text-white uppercase tracking-tighter">Command Center</h2>
+                <p className="text-orange-500 font-black text-[10px] tracking-[0.5em] mt-2 uppercase">Global Data Administration Protocol</p>
               </div>
-              <button className="tactical-btn danger" onClick={() => setIsAdminMode(false)}><X size={20} /> CLOSE PANEL</button>
+              <button className="tactical-btn danger h-14 px-8" onClick={() => setIsAdminMode(false)}><X size={20} /> CLOSE SYSTEM</button>
             </div>
-
-            <div className="grid grid-cols-2 gap-8 mt-10">
-              <div className="tactical-panel bg-slate-900/30">
-                <h3 className="text-lg font-black text-slate-400 mb-6 flex items-center gap-2 uppercase italic tracking-tighter"><User size={20} className="text-amber-500" /> Registered Users ({users.length})</h3>
-                <table className="admin-table">
-                  <thead><tr className="text-slate-500 uppercase text-[10px] tracking-widest"><th className="pb-4">Username</th><th className="pb-4">Email</th><th className="pb-4">Role</th><th className="pb-4">Action</th></tr></thead>
-                  <tbody>
-                    {users.map(u => (
-                      <tr key={u.id}>
-                        <td className="font-mono text-xs">{u.username.toUpperCase()}</td>
-                        <td className="text-xs text-slate-400">{u.email}</td>
-                        <td className="text-[10px] font-bold"><span className={`px-2 py-0.5 rounded ${u.isAdmin ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-400'}`}>{u.isAdmin ? 'ADMIN' : 'USER'}</span></td>
-                        <td>
-                          {!u.isAdmin && <button className="text-red-500 hover:scale-110 transition-transform" onClick={() => deleteUser(u.id)}><Trash2 size={18} /></button>}
-                        </td>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 h-[calc(100vh-250px)]">
+              <div className="tactical-panel p-10 flex flex-col overflow-hidden">
+                <h3 className="text-xs font-black text-white/40 uppercase tracking-[4px] mb-8 flex items-center gap-3">
+                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div> DEPLOYED ORDNANCE ({chests.length})
+                </h3>
+                <div className="overflow-y-auto flex-1">
+                  <table className="admin-table w-full">
+                    <thead>
+                      <tr>
+                        <th className="text-[9px] uppercase text-slate-500 pb-4 font-black">Level</th>
+                        <th className="text-[9px] uppercase text-slate-500 pb-4 font-black">Operator</th>
+                        <th className="text-[9px] uppercase text-slate-500 pb-4 font-black">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {chests.map(c => (
+                        <tr key={c._id || c.id}>
+                          <td className="py-4 font-black text-white uppercase text-xs tracking-tighter flex items-center gap-2">
+                             <div className={`w-2 h-2 rounded-full ${c.tier === 'gold' ? 'bg-amber-400' : 'bg-slate-400'}`}></div>
+                             {c.tier}
+                          </td>
+                          <td className="py-4 text-slate-400 text-xs tracking-widest uppercase font-bold">{c.droppedBy}</td>
+                          <td className="py-4">
+                            <button className="text-red-500/40 hover:text-red-500 p-2 transition-colors" onClick={() => deleteChest(c._id || c.id || '')}><Trash2 size={16} /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              <div className="tactical-panel bg-slate-900/30">
-                <h3 className="text-lg font-black text-slate-400 mb-6 flex items-center gap-2 uppercase italic tracking-tighter"><Gift size={20} className="text-amber-500" /> All Dropped Chests ({chests.length})</h3>
-                <table className="admin-table">
-                  <thead><tr className="text-slate-500 uppercase text-[10px] tracking-widest"><th className="pb-4">File Name</th><th className="pb-4">Dropped By</th><th className="pb-4">Chest Type</th><th className="pb-4">Action</th></tr></thead>
-                  <tbody>
-                    {chests.map(c => (
-                      <tr key={c.id}>
-                        <td className="font-mono text-xs">{c.fileName.split('.')[0]}</td>
-                        <td className="font-mono text-xs text-slate-400">{c.droppedBy.toUpperCase()}</td>
-                        <td className="text-[10px] font-bold">
-                          <span className={`px-2 py-0.5 rounded ${c.tier === 'gold' ? 'bg-amber-500 text-black' : 'bg-slate-700 text-white'}`}>
-                            {c.tier.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="flex gap-4">
-                          <button className="text-green-500" onClick={() => handleChestClick(c)}><Play size={18} /></button>
-                          <button className="text-red-500" onClick={() => deleteChest(c._id || c.id || '')}><Trash2 size={18} /></button>
-                        </td>
+              <div className="tactical-panel p-10 flex flex-col overflow-hidden">
+                <h3 className="text-xs font-black text-white/40 uppercase tracking-[4px] mb-8 flex items-center gap-3">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div> PERSONNEL RECORDS ({users.length})
+                </h3>
+                <div className="overflow-y-auto flex-1">
+                   <table className="admin-table w-full">
+                    <thead>
+                      <tr>
+                        <th className="text-[9px] uppercase text-slate-500 pb-4 font-black">Codename</th>
+                        <th className="text-[9px] uppercase text-slate-500 pb-4 font-black">Authorization</th>
+                        <th className="text-[9px] uppercase text-slate-500 pb-4 font-black">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {users.map(u => (
+                        <tr key={u.id}>
+                          <td className="py-4 font-black text-white uppercase text-xs tracking-widest">{u.username}</td>
+                          <td className="py-4">
+                             <span className={`px-3 py-1 rounded text-[9px] font-black tracking-widest ${u.isAdmin ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' : 'bg-white/5 text-slate-400 border border-white/5'} uppercase`}>
+                                {u.isAdmin ? 'LVL_4_ADMIN' : 'FIELD_OP'}
+                             </span>
+                          </td>
+                          <td className="py-4">
+                            {!u.isAdmin && <button className="text-red-500/40 hover:text-red-500 p-2" onClick={() => deleteUser(u.id)}><Trash2 size={16} /></button>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </motion.div>
         )}
+
+        {showRequests && (
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="fixed top-24 right-10 w-96 tactical-panel p-8 z-[210] border-t-8 border-t-orange-500 shadow-3xl">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-xs font-black text-white uppercase tracking-[4px]">Intelligence Feed</h3>
+              <button onClick={() => setShowRequests(false)} className="tactical-btn h-10 w-10 p-0 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors"><X size={18} /></button>
+            </div>
+            {requests.length === 0 ? (
+              <div className="flex flex-col items-center py-20 opacity-30">
+                 <Bell size={40} className="mb-4" />
+                 <p className="text-center text-slate-600 font-bold text-[9px] uppercase tracking-[0.3em]">Buffer Empty</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {requests.map(r => (
+                  <div key={r.id} className="p-5 bg-white/[0.03] rounded-xl border border-white/5 group hover:border-orange-500/40 transition-all">
+                    <p className="text-xs text-white font-black mb-1 uppercase tracking-widest">{r.chestId}</p>
+                    <p className="text-[9px] text-slate-500 font-black mb-4 uppercase tracking-[0.2em]">{r.status}</p>
+                    <button className="w-full tactical-btn primary h-10 text-[9px] font-black tracking-[0.3em]">AUTHORIZE DECRYPT</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {isDropping && (
+          <div className="fixed inset-0 flex items-center justify-center p-6 z-[300] bg-[#020617]/95 backdrop-blur-2xl">
+            <motion.div 
+               initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+               className="tactical-panel p-10 w-full max-w-sm flex flex-col gap-10 shadow-[0_0_100px_rgba(249,115,22,0.15)] border-t-8 border-t-orange-500"
+            >
+               <div className="text-center">
+                  <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-orange-500/20">
+                     <Download size={32} className="text-orange-500 animate-bounce" />
+                  </div>
+                  <h3 className="text-3xl font-black text-white tracking-tighter italic uppercase">
+                     {dropStep === 'tier' ? 'Deploy Intel' : 'Payload Spec'}
+                  </h3>
+               </div>
+               
+               {dropStep === 'tier' ? (
+                 <div className="flex flex-col gap-3">
+                   <button className="tactical-btn h-16 bg-white/[0.03] border-l-4 border-l-amber-400 text-xs" onClick={() => { setTempTier('gold'); setDropStep('settings'); }}>LEVEL: GOLD (BIOMETRIC)</button>
+                   <button className="tactical-btn h-16 bg-white/[0.03] border-l-4 border-l-slate-400 text-xs" onClick={() => { setTempTier('silver'); setDropStep('settings'); }}>LEVEL: SILVER (AD-GATED)</button>
+                   <button className="tactical-btn h-16 bg-white/[0.03] border-l-4 border-l-orange-900 text-xs" onClick={() => { setTempTier('bronze'); finalizeDrop(); }}>LEVEL: BRONZE (UNLOCKED)</button>
+                   <button className="text-[9px] font-black text-slate-600 uppercase tracking-[0.5em] mt-8 hover:text-red-500 transition-colors" onClick={() => setIsDropping(null)}>CANCEL SEQUENCE</button>
+                 </div>
+               ) : (
+                 <div className="flex flex-col gap-6">
+                   <div className="flex flex-col gap-2">
+                     <label className="text-[8px] uppercase font-black text-slate-500 tracking-[0.4em] pl-1">Target Payload</label>
+                     <input type="file" className="tactical-input text-[10px] font-mono p-4 h-auto" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+                   </div>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-[0.2em] pl-1">Quota</label>
+                        <input type="number" className="tactical-input text-center h-12" value={maxOpensInput} onChange={(e) => setMaxOpensInput(e.target.value)} placeholder="INF" />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-[0.2em] pl-1">Timer (MIN)</label>
+                        <input type="number" className="tactical-input text-center h-12" value={expiryInput} onChange={(e) => setExpiryInput(e.target.value)} placeholder="OFF" />
+                      </div>
+                   </div>
+                   {tempTier === 'gold' && (
+                     <div className="flex flex-col gap-2">
+                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-[0.2em] pl-1">Security PIN</label>
+                        <input type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} className="tactical-input text-center h-12" maxLength={4} placeholder="0000" />
+                     </div>
+                   )}
+                   <div className="flex gap-3 mt-6">
+                     <button className="tactical-btn flex-1 h-14 bg-white/5 border-0 font-black text-[10px]" onClick={() => setDropStep('tier')}>PREVIOUS</button>
+                     <button className="tactical-btn primary flex-1 h-14 font-black text-[10px]" onClick={finalizeDrop}>DEEP DROP</button>
+                   </div>
+                 </div>
+               )}
+            </motion.div>
+          </div>
+        )}
+
+        {adTimer !== null && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[500] flex flex-col items-center justify-center bg-[#020617]/98 backdrop-blur-3xl">
+            <div className="w-32 h-32 border-4 border-white/5 rounded-full flex items-center justify-center relative">
+               <span className="text-4xl font-black text-orange-500 italic">{adTimer}</span>
+               <svg className="absolute inset-[-4px] w-[calc(100%+8px)] h-[calc(100%+8px)] -rotate-90">
+                  <circle cx="64" cy="64" r="60" fill="none" stroke="#f97316" strokeWidth="4" strokeDasharray="377" strokeDashoffset={377 - (377 * adTimer / 15)} className="transition-all duration-1000 linear" />
+               </svg>
+            </div>
+            <div className="mt-12 text-center">
+              <h2 className="text-5xl font-black italic text-white uppercase tracking-tighter">Decrypting Caches</h2>
+              <p className="text-orange-500/60 font-black text-[10px] mt-2 tracking-[8px] uppercase">Please maintain hardware connection</p>
+            </div>
+          </motion.div>
+        )}
+
+        {selectedChest && adTimer === null && (
+          <div className="fixed inset-0 flex items-center justify-center p-6 z-[300] bg-[#020617]/95 backdrop-blur-2xl">
+            <motion.div 
+               initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+               className="tactical-panel p-12 w-full max-w-lg border-t-8 border-t-orange-500 flex flex-col gap-10 shadow-3xl"
+            >
+              <div className="flex items-center gap-8">
+                <div className={`w-24 h-24 rounded-2xl flex items-center justify-center border-2 ${selectedChest.tier === 'gold' ? 'border-amber-400 bg-amber-400/10' : selectedChest.tier === 'silver' ? 'border-slate-400 bg-slate-400/10' : 'border-orange-950 bg-orange-950/10'}`}>
+                   {selectedChest.tier === 'gold' ? <Crown size={48} className="text-amber-400" /> : <Gift size={48} className="text-slate-200" />}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-4">{selectedChest.fileName.split('.').shift()}</h3>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{selectedChest.tier} Level Payload</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                 <div className="p-6 bg-white/[0.03] rounded-xl border border-white/5">
+                    <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Weight</p>
+                    <p className="text-base font-black text-white italic">{selectedChest.fileSize}</p>
+                 </div>
+                 <div className="p-6 bg-white/[0.03] rounded-xl border border-white/5">
+                    <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Source</p>
+                    <p className="text-base font-black text-white italic uppercase">{selectedChest.droppedBy}</p>
+                 </div>
+              </div>
+
+              <div className="flex flex-col gap-4 mt-4">
+                 {selectedChest.tier === 'gold' && (
+                    <div className="flex flex-col gap-3 mb-6">
+                       <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] text-center">PIN Required</label>
+                       <input type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} className="tactical-input text-center text-4xl tracking-[0.8em]" maxLength={4} placeholder="0000" />
+                    </div>
+                 )}
+                 <button className="tactical-btn primary h-20 justify-center text-xs font-black tracking-[0.4em]" onClick={handleChestAction}>
+                    {selectedChest.tier === 'gold' ? 'VERIFY & ACCESS' : selectedChest.tier === 'silver' ? 'START DECRYPT' : 'ACCESS DATA'}
+                 </button>
+                 <button className="text-[10px] font-black text-slate-600 uppercase tracking-[0.6em] mt-4 hover:text-white transition-colors text-center" onClick={() => { setSelectedChest(null); setPinInput(''); }}>ABORT ACCESS</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
 
-      {/* Footer Status */}
-      <div className="fixed bottom-6 left-6 tactical-panel py-2 px-4 flex items-center gap-4 bg-slate-900/80 border-b-2 border-b-amber-500 z-50">
-        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-        <p className="text-[10px] font-bold tracking-[3px] text-slate-400 uppercase">
-          App Status: Active • Connected • GPS: {playerPos.lat.toFixed(3)}, {playerPos.lng.toFixed(3)}
-        </p>
-      </div>
-
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-slate-600 tracking-[5px] uppercase pointer-events-none">
-        WASD to Move • Click Anywhere to Drop File
-      </div>
-
-      {isExploding && <div className="pottitheri-explosion"></div>}
+      {isExploding && <div className="pottitheri-explosion z-[500] pointer-events-none"></div>}
     </div>
   );
 }
