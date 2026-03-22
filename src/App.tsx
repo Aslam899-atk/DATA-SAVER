@@ -10,7 +10,9 @@ import {
   X,
   Timer,
   Users,
-  Package
+  Package,
+  Smartphone,
+  Monitor
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Globe from 'react-globe.gl';
@@ -474,6 +476,17 @@ export default function App() {
                          <h4 className="font-bold uppercase mb-1">Access Intel</h4>
                          <p className="text-sm">Click existing chests on the map to preview and safely download the contents.</p>
                       </div>
+                   </div>
+                </div>
+
+                <div className="flex flex-wrap justify-around items-center gap-4 mb-8 bg-white/20 p-4 rounded-2xl border-2 border-black shadow text-black">
+                   <div className="flex-1 flex flex-col items-center border-r-2 border-black/20 pr-4 hover:scale-105 transition-transform">
+                      <Smartphone size={32} className="mb-2 text-black" />
+                      <a href="#" onClick={(e)=>{e.preventDefault(); alert("Mobile App Download Starting...");}} className="font-bold underline text-sm uppercase text-center text-black hover:text-orange-900">Mobile App (APK)</a>
+                   </div>
+                   <div className="flex-1 flex flex-col items-center hover:scale-105 transition-transform">
+                      <Monitor size={32} className="mb-2 text-black" />
+                      <a href="#" onClick={(e)=>{e.preventDefault(); alert("PC Client Download Starting...");}} className="font-bold underline text-sm uppercase text-center text-black hover:text-orange-900">PC Software (.exe)</a>
                    </div>
                 </div>
 
