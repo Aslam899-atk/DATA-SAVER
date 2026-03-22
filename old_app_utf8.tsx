@@ -1,29 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
 import { 
   User, 
   LogOut, 
+  Download, 
   Bell,
   X,
-  Package,
-  Smartphone,
-  Monitor
+  Timer,
+  Users,
+  Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Globe from 'react-globe.gl';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
-// Fix typical leaflet icon issue
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+import * as THREE from 'three';
 
 // --- Types ---
 
@@ -54,130 +45,6 @@ interface UserProfile {
 }
 
 const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
-
-const AdminPanel = () => {
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [adminUser, setAdminUser] = useState('');
-  const [adminPass, setAdminPass] = useState('');
-  const [activeTab, setActiveTab] = useState<'DROPS' | 'ADS'>('DROPS');
-  const [chests, setChests] = useState<Chest[]>([]);
-
-  useEffect(() => {
-    if (isAdminLoggedIn) {
-      axios.get(`${API_URL}/chests`).then(res => setChests(res.data));
-    }
-  }, [isAdminLoggedIn]);
-
-  const handleLogin = (e: any) => {
-    e.preventDefault();
-    if (adminUser === 'aslam' && adminPass === '313 aslam 786') {
-      setIsAdminLoggedIn(true);
-    } else {
-      alert('Invalid admin credentials');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-     if (window.confirm('Delete this drop?')) {
-        await axios.delete(`${API_URL}/chests/${id}`);
-        setChests(chests.filter(c => c._id !== id && c.id !== id));
-     }
-  };
-
-  if (!isAdminLoggedIn) {
-     return (
-       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
-          <form onSubmit={handleLogin} className="bg-[#5ba4e5] p-10 rounded-[2.5rem] border-2 border-black flex flex-col gap-6 w-full max-w-sm shadow-2xl">
-             <h2 className="text-3xl font-black text-center mb-4 uppercase text-black">Admin Access</h2>
-             <input type="text" value={adminUser} onChange={e=>setAdminUser(e.target.value)} placeholder="Username" className="p-4 rounded-xl border-2 border-black font-bold text-lg bg-white/60"/>
-             <input type="password" value={adminPass} onChange={e=>setAdminPass(e.target.value)} placeholder="Password" className="p-4 rounded-xl border-2 border-black font-bold text-lg bg-white/60"/>
-             <button type="submit" className="bg-black text-[#5ba4e5] font-black py-4 rounded-xl text-xl uppercase tracking-widest hover:bg-black/80 shadow-[0_4px_0_0_#fff] active:shadow-none active:translate-y-1">Login</button>
-          </form>
-       </div>
-     );
-  }
-
-  return (
-    <div className="min-h-screen bg-white text-black font-sans p-10 flex gap-8">
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col pt-4 max-w-5xl">
-         {/* TABS */}
-         <div className="flex w-full mb-10 h-16">
-            <button onClick={() => setActiveTab('DROPS')} className={`flex-1 text-3xl font-bold border-2 border-black bg-[#5ba4e5] transition-all shadow-md ${activeTab==='DROPS'? 'border-red-500 border-4 z-10' : ''}`}>DROPS</button>
-            <button onClick={() => setActiveTab('ADS')} className={`flex-1 text-3xl font-bold border-2 border-black bg-[#5ba4e5] -ml-[2px] transition-all shadow-md ${activeTab==='ADS'? 'border-red-500 border-4 z-10' : ''}`}>ADS</button>
-         </div>
-
-         {/* TAB CONTENT: DROPS */}
-         {activeTab === 'DROPS' && (
-            <div className="flex flex-col gap-5">
-               {chests.map(chest => (
-                  <div key={chest._id || chest.id} className="w-full bg-[#5ba4e5] border-2 border-black p-3 flex items-center shadow-md">
-                     <button onClick={() => handleDelete(chest._id || chest.id!)} className="w-10 h-10 rounded-full border-2 border-black bg-white flex items-center justify-center hover:bg-black hover:text-white transition-colors group">
-                        <X size={16} className="opacity-0 group-hover:opacity-100" />
-                     </button>
-                     <a href={chest.fileUrl || '#'} target="_blank" rel="noreferrer" className="flex-1 ml-6 text-xl tracking-wide font-mono hover:underline hover:text-blue-900 truncate">
-                        {chest.droppedBy}
-                     </a>
-                     <div className="w-16 h-full flex items-center justify-center border-l-2 border-black/20 pl-4">
-                        <span className="text-3xl drop-shadow-md" style={{filter: `drop-shadow(0 0 5px ${chest.tier === 'platinum' ? '#38bdf8' : chest.tier === 'gold' ? '#fbbf24' : chest.tier === 'silver' ? '#fff' : '#000'})`}}>
-                           {chest.tier === 'platinum' ? '📦' : chest.tier === 'gold' ? '🧰' : '🎁'}
-                        </span>
-                     </div>
-                  </div>
-               ))}
-               {chests.length === 0 && <p className="text-2xl text-center font-bold text-gray-500 mt-10">No active drops available.</p>}
-            </div>
-         )}
-
-         {/* TAB CONTENT: ADS */}
-         {activeTab === 'ADS' && (
-            <div className="flex flex-col gap-8">
-               <div className="flex items-center gap-6">
-                  <div className="flex-1 border-4 border-black bg-[#5ba4e5] rounded-xl p-4 font-bold text-xl uppercase shadow-md cursor-pointer hover:bg-[#4a93d4] transition-colors">Choose video for ads</div>
-                  <span className="font-medium text-gray-600 text-lg">Only 15 second</span>
-               </div>
-               <div className="grid grid-cols-4 gap-6">
-                  {Array.from({length: 16}).map((_, i) => (
-                     <div key={i} className="aspect-square bg-[#5ba4e5] border-2 border-black rounded-[2rem] flex items-center justify-center shadow-lg hover:scale-105 transition-transform cursor-pointer">
-                        <span className="font-semibold text-lg text-black/80">Preview of ads</span>
-                     </div>
-                  ))}
-               </div>
-            </div>
-         )}
-      </div>
-
-      {/* RIGHT HUD */}
-      <div className="w-[300px] flex flex-col gap-10 pt-4 px-8 border-l-2 border-dashed border-gray-300">
-         <div className="flex items-center justify-between text-2xl font-black w-full text-black">
-            <span>TOTAL:{chests.length}</span>
-            <div className="w-12 h-12 bg-slate-800 rounded flex flex-col items-center justify-center shadow-md"><span className="text-xl">📦</span></div>
-         </div>
-         <div className="flex items-center justify-between text-2xl font-black w-full text-black">
-            <span>GOLD:{chests.filter(c=>c.tier==='gold').length}</span>
-            <div className="w-12 h-12 bg-yellow-400 rounded flex flex-col items-center justify-center shadow-md"><span className="text-xl">🧰</span></div>
-         </div>
-         <div className="flex items-center justify-between text-2xl font-black w-full text-black">
-            <span>SILVER:{chests.filter(c=>c.tier==='silver').length}</span>
-            <div className="w-12 h-12 bg-gray-300/80 rounded flex flex-col items-center justify-center shadow-md"><span className="text-xl">🎁</span></div>
-         </div>
-         <div className="flex items-center justify-between text-2xl font-black w-full text-black">
-            <span>PLATINUM:{chests.filter(c=>c.tier==='platinum').length}</span>
-            <div className="w-12 h-12 bg-slate-800 rounded flex flex-col items-center justify-center shadow-md"><span className="text-xl">📦</span></div>
-         </div>
-      </div>
-    </div>
-  );
-};
-
-const LeafletMapEvents = ({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) => {
-  useMapEvents({
-    click(e: any) {
-      onMapClick(e.latlng.lat, e.latlng.lng);
-    },
-  });
-  return null;
-};
 
 const StarField = () => {
   const [stars, setStars] = useState<{ x: number, y: number, size: number, duration: number }[]>([]);
@@ -226,11 +93,7 @@ const LoginScreen = ({ onLogin, onCancel }: { onLogin: (user: UserProfile) => vo
 };
 
 export default function App() {
-  if (window.location.pathname === '/admin') {
-     return <AdminPanel />;
-  }
-
-  const globeEl = useRef<any>(null);
+  const globeEl = useRef<any>();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('dataDropperUser');
     return saved ? JSON.parse(saved) : null;
@@ -247,8 +110,6 @@ export default function App() {
   const [showRequests, setShowRequests] = useState(false);
   const [adTimer, setAdTimer] = useState<number | null>(null);
   const [isExploding, setIsExploding] = useState(false);
-  const [showIntro, setShowIntro] = useState(false);
-  const [mapMode, setMapMode] = useState<'3d' | '2d'>('3d');
 
   useEffect(() => {
     const fn = () => axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
@@ -256,19 +117,6 @@ export default function App() {
     const interval = setInterval(fn, 15000); // Faster updates for live maps
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (currentUser) {
-      if (!localStorage.getItem(`introSeen_${currentUser.username}`)) {
-         setShowIntro(true);
-      }
-    }
-  }, [currentUser]);
-
-  const handleCloseIntro = () => {
-     setShowIntro(false);
-     if (currentUser) localStorage.setItem(`introSeen_${currentUser.username}`, 'true');
-  };
 
   useEffect(() => {
     if (adTimer !== null && adTimer > 0) {
@@ -357,29 +205,11 @@ export default function App() {
   };
 
   return (
-    <div className="world-map relative w-full h-screen overflow-hidden bg-black">
+    <div className="world-map">
       <StarField />
       
-      {/* MAP TOGGLE BUTTON */}
-      <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[200]">
-         <div className="flex bg-black/60 p-1 rounded-full border border-white/20 backdrop-blur-md">
-            <button 
-               className={`px-6 py-2 rounded-full font-black text-xs tracking-widest uppercase transition-all ${mapMode === '3d' ? 'bg-[#5ba4e5] text-black shadow-lg' : 'text-slate-400 hover:text-white'}`}
-               onClick={() => setMapMode('3d')}
-            >
-               3D Dashboard
-            </button>
-            <button 
-               className={`px-6 py-2 rounded-full font-black text-xs tracking-widest uppercase transition-all ${mapMode === '2d' ? 'bg-orange-500 text-black shadow-lg' : 'text-slate-400 hover:text-white'}`}
-               onClick={() => setMapMode('2d')}
-            >
-               2D Tactical Zoom
-            </button>
-         </div>
-      </div>
-
       {/* 3D GLOBE RENDERED PUBLICLY */}
-      <div className={`globe-container absolute inset-0 transition-opacity duration-500 ${mapMode === '3d' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+      <div className="globe-container">
         <Globe
           ref={globeEl}
           globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
@@ -387,13 +217,12 @@ export default function App() {
           htmlElementsData={chests}
           htmlElement={(d: any) => {
             const el = document.createElement('div');
-            el.innerHTML = `📦`;
+            el.innerHTML = `≡ƒôª`;
             el.style.fontSize = '32px';
             el.style.filter = `drop-shadow(0 0 10px ${d.tier === 'platinum' ? '#38bdf8' : d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#fff' : '#000'})`;
             el.style.cursor = 'pointer';
             el.style.pointerEvents = 'auto';
-            el.title = d.fileName;
-            el.onclick = (e) => { e.stopPropagation(); handlePointClick(d); };
+            el.onclick = () => handlePointClick(d);
             return el;
           }}
           htmlLat="lat" htmlLng="lng"
@@ -403,36 +232,6 @@ export default function App() {
           ringColor={(d: any) => (d.tier === 'platinum' ? '#38bdf8' : d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#ea580c')}
           ringMaxRadius={2} ringPropagationSpeed={2}
         />
-      </div>
-
-      {/* 2D TACTICAL SATELLITE MAP */}
-      <div className={`absolute inset-0 transition-opacity duration-500 ${mapMode === '2d' ? 'opacity-100 z-20' : 'opacity-0 z-0 pointer-events-none'}`}>
-         {mapMode === '2d' && (
-            <MapContainer center={[20, 0]} zoom={3} style={{ height: '100%', width: '100%', background: 'transparent' }} zoomControl={false}>
-               <TileLayer
-                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                  attribution="Tiles &copy; Esri"
-                  maxZoom={19}
-               />
-               <LeafletMapEvents onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} />
-               {chests.map((chest) => {
-                  const chestIcon = L.divIcon({
-                     html: `<div style="font-size: 32px; filter: drop-shadow(0 0 10px ${chest.tier === 'platinum' ? '#38bdf8' : chest.tier === 'gold' ? '#fbbf24' : chest.tier === 'silver' ? '#fff' : '#000'}); display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer;">📦</div>`,
-                     className: 'custom-chest-icon',
-                     iconSize: [40, 40],
-                     iconAnchor: [20, 20]
-                  });
-                  return (
-                     <Marker 
-                        key={chest._id || chest.id} 
-                        position={[chest.lat, chest.lng]} 
-                        icon={chestIcon}
-                        eventHandlers={{ click: (e) => { L.DomEvent.stopPropagation(e as any); handlePointClick(chest); } }}
-                     />
-                  );
-               })}
-            </MapContainer>
-         )}
       </div>
 
       {/* TOP USER BAR */}
@@ -565,9 +364,9 @@ export default function App() {
                    )}
                 </div>
 
-                <div className="mt-8 flex justify-center gap-6 w-full">
-                   <button className="bg-black/80 text-white border-2 border-black px-8 py-3 rounded-[1.5rem] font-bold uppercase hover:bg-black/90 transition-all shadow-md" onClick={() => setIsDropping(null)}>Abort</button>
-                   <button className="bg-black text-[#5ba4e5] px-10 py-3 rounded-[1.5rem] font-black uppercase hover:bg-gray-900 border-2 border-black shadow-[0_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all" onClick={finalizeDrop}>Commence Drop</button>
+                <div className="absolute -bottom-16 left-0 right-0 flex justify-center gap-4">
+                   <button className="bg-white/10 text-white border border-white/30 px-6 py-2 rounded-full font-bold uppercase hover:bg-white/20" onClick={() => setIsDropping(null)}>Abort</button>
+                   <button className="bg-orange-500 text-white px-8 py-2 rounded-full font-black uppercase hover:bg-orange-600 shadow-xl" onClick={finalizeDrop}>Commence Drop</button>
                 </div>
              </motion.div>
           </div>
@@ -630,56 +429,6 @@ export default function App() {
                 ))}
              </div>
           </motion.div>
-        )}
-
-        {/* INTRO MODAL */}
-        {showIntro && currentUser && (
-          <div className="fixed inset-0 z-[700] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
-             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="w-full max-w-xl bg-[#5ba4e5] border-2 border-black rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
-                <h2 className="text-3xl font-black text-black mb-6 uppercase text-center tracking-widest">HOW TO USE</h2>
-                
-                <div className="space-y-4 text-black font-semibold mb-8">
-                   <div className="flex gap-4 items-center bg-white/20 p-4 rounded-2xl border-2 border-black shadow">
-                      <div className="text-4xl drop-shadow-md">🌍</div>
-                      <div>
-                         <h4 className="font-bold uppercase mb-1">Global Dashboard</h4>
-                         <p className="text-sm">Drag to rotate the map. Use scroll or pinch to zoom into any sector.</p>
-                      </div>
-                   </div>
-
-                   <div className="flex gap-4 items-center bg-white/20 p-4 rounded-2xl border-2 border-black shadow">
-                      <div className="text-4xl drop-shadow-md">📦</div>
-                      <div>
-                         <h4 className="font-bold uppercase mb-1">Drop Data</h4>
-                         <p className="text-sm">Click empty areas to drop ordnance. Choose between Platinum, Silver, and Gold tiers.</p>
-                      </div>
-                   </div>
-
-                   <div className="flex gap-4 items-center bg-white/20 p-4 rounded-2xl border-2 border-black shadow">
-                      <div className="text-4xl drop-shadow-md">🔓</div>
-                      <div>
-                         <h4 className="font-bold uppercase mb-1">Access Intel</h4>
-                         <p className="text-sm">Click existing chests on the map to preview and safely download the contents.</p>
-                      </div>
-                   </div>
-                </div>
-
-                <div className="flex flex-wrap justify-around items-center gap-4 mb-8 bg-white/20 p-4 rounded-2xl border-2 border-black shadow text-black">
-                   <div className="flex-1 flex flex-col items-center border-r-2 border-black/20 pr-4 hover:scale-105 transition-transform">
-                      <Smartphone size={32} className="mb-2 text-black" />
-                      <a href="#" onClick={(e)=>{e.preventDefault(); alert("Mobile App Download Starting...");}} className="font-bold underline text-sm uppercase text-center text-black hover:text-orange-900">Mobile App (APK)</a>
-                   </div>
-                   <div className="flex-1 flex flex-col items-center hover:scale-105 transition-transform">
-                      <Monitor size={32} className="mb-2 text-black" />
-                      <a href="#" onClick={(e)=>{e.preventDefault(); alert("PC Client Download Starting...");}} className="font-bold underline text-sm uppercase text-center text-black hover:text-orange-900">PC Software (.exe)</a>
-                   </div>
-                </div>
-
-                <div className="flex justify-center">
-                   <button onClick={handleCloseIntro} className="bg-black text-[#5ba4e5] px-12 py-3 rounded-[1.5rem] font-black uppercase text-xl border-2 border-black shadow-[0_4px_0_0_#000] active:shadow-none active:translate-y-1 hover:bg-black/90 transition-all">START MISSION</button>
-                </div>
-             </motion.div>
-          </div>
         )}
       </AnimatePresence>
 
