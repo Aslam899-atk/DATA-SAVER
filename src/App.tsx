@@ -739,6 +739,22 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* SVG Distortion Filter for the 3D 'Lens' / 'Bulge' Effect */}
+      <svg style={{ position: 'absolute', width: 0, height: 0 }} aria-hidden="true" focusable="false">
+        <defs>
+          <filter id="bulge-filter">
+             {/* Spherical Displacement Map */}
+             <feImage 
+                href="data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='100%' height='100%'><radialGradient id='g' cx='50%' cy='50%' r='50%' fx='50%' fy='50%'><stop offset='0%' stop-opacity='1'/><stop offset='80%' stop-opacity='0.4'/><stop offset='100%' stop-opacity='0'/></radialGradient><rect width='100%' height='100%' fill='url(%23g)'/></svg>"
+                result="mask"
+             />
+             <feDisplacementMap in="SourceGraphic" in2="mask" scale="80" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+      </svg>
+      {/* 3D Atmospheric Horizon Glow (Outer Ring) */}
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[86vh] h-[86vh] rounded-full border-[15px] border-blue-500/10 blur-[12px] pointer-events-none z-[11] shadow-[0_0_80px_rgba(135,206,235,0.2)]"></div>
+
       {isExploding && <div className="pottitheri-explosion z-[500] pointer-events-none"></div>}
     </div>
   );
