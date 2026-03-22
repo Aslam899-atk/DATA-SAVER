@@ -9,7 +9,8 @@ import {
   Bell,
   X,
   Timer,
-  Users
+  Users,
+  Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Globe from 'react-globe.gl';
@@ -63,7 +64,7 @@ const StarField = () => {
   );
 };
 
-const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
+const LoginScreen = ({ onLogin, onCancel }: { onLogin: (user: UserProfile) => void, onCancel: () => void }) => {
   const handleGoogleSuccess = (credentialResponse: any) => {
     if (credentialResponse.credential) {
        const decoded: any = jwtDecode(credentialResponse.credential);
@@ -76,18 +77,18 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
     }
   };
   return (
-    <div className="flex items-center justify-center h-screen relative overflow-hidden bg-slate-950">
-      <StarField />
-      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="tactical-panel p-12 w-full max-w-md z-10 border-t-4 border-t-orange-500">
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-black italic text-orange-500 mb-2 uppercase tracking-tighter">DATA DROPPER</h1>
-          <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">3D GLOBAL LOGISTICS</p>
-        </div>
-        <div className="flex flex-col gap-6 items-center">
-            <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => alert('AUTH FAILED')} theme="filled_black" shape="pill" />
-        </div>
-      </motion.div>
-    </div>
+    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="tactical-panel p-10 w-full max-w-md z-10 border-t-8 border-t-orange-500 relative flex flex-col items-center">
+      <button onClick={onCancel} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
+      <div className="text-center mb-8 mt-4">
+        <h1 className="text-3xl font-black italic text-orange-500 mb-2 uppercase tracking-tighter">AUTHENTICATE</h1>
+        <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase">Operator Login Required</p>
+      </div>
+      <div className="flex flex-col gap-6 items-center">
+        <GoogleOAuthProvider clientId="666413173667-kkf2ggvt3avkgpdcojhkg8koeljv7t3m.apps.googleusercontent.com">
+          <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => alert('AUTH FAILED')} theme="filled_black" shape="pill" />
+        </GoogleOAuthProvider>
+      </div>
+    </motion.div>
   );
 };
 
@@ -97,6 +98,7 @@ export default function App() {
     const saved = localStorage.getItem('dataDropperUser');
     return saved ? JSON.parse(saved) : null;
   });
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [chests, setChests] = useState<Chest[]>([]);
   const [selectedChest, setSelectedChest] = useState<Chest | null>(null);
   const [isDropping, setIsDropping] = useState<{lat: number, lng: number} | null>(null);
@@ -113,7 +115,7 @@ export default function App() {
   useEffect(() => {
     const fn = () => axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
     fn();
-    const interval = setInterval(fn, 30000);
+    const interval = setInterval(fn, 15000); // Faster updates for live maps
     return () => clearInterval(interval);
   }, []);
 
@@ -125,8 +127,14 @@ export default function App() {
   }, [adTimer]);
 
   const handleGlobeClick = ({ lat, lng }: { lat: number, lng: number }) => {
-    if (selectedChest || adTimer !== null || !currentUser || isDropping) return;
+    if (!currentUser) { setShowLoginModal(true); return; }
+    if (selectedChest || adTimer !== null || isDropping) return;
     setIsDropping({ lat, lng });
+  };
+
+  const handlePointClick = (pt: any) => {
+    if (!currentUser) { setShowLoginModal(true); return; }
+    setSelectedChest(pt);
   };
 
   const handleChestAction = async () => {
@@ -169,21 +177,18 @@ export default function App() {
     formData.append('lng', isDropping.lng.toString());
     formData.append('tier', tempTier);
     formData.append('droppedBy', currentUser.username);
+    
     if (tempTier === 'gold') { 
       formData.append('pin', pinInput || '0000'); 
       formData.append('requiresRequest', 'true'); 
     }
-    
     if (maxOpensInput && !isNaN(parseInt(maxOpensInput))) {
       formData.append('maxOpens', parseInt(maxOpensInput).toString());
     }
-    
     if (expiryInput && !isNaN(parseInt(expiryInput))) {
-      // Convert hours to absolute timestamp
       const expiryTimestamp = Date.now() + parseInt(expiryInput) * 3600000;
       formData.append('expiresAt', expiryTimestamp.toString());
     }
-    
     if (selectedFile) formData.append('file', selectedFile);
 
     try {
@@ -199,15 +204,11 @@ export default function App() {
     axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data));
   };
 
-  if (!currentUser) return (
-    <GoogleOAuthProvider clientId="666413173667-kkf2ggvt3avkgpdcojhkg8koeljv7t3m.apps.googleusercontent.com">
-      <LoginScreen onLogin={(user) => { setCurrentUser(user); localStorage.setItem('dataDropperUser', JSON.stringify(user)); }} />
-    </GoogleOAuthProvider>
-  );
-
   return (
     <div className="world-map">
       <StarField />
+      
+      {/* 3D GLOBE RENDERED PUBLICLY */}
       <div className="globe-container">
         <Globe
           ref={globeEl}
@@ -218,7 +219,7 @@ export default function App() {
           pointColor={(d: any) => (d.tier === 'platinum' ? '#38bdf8' : d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#ea580c')}
           pointAltitude={(d: any) => (d.tier === 'platinum' ? 0.4 : d.tier === 'gold' ? 0.3 : d.tier === 'silver' ? 0.2 : 0.1)}
           pointRadius={0.8}
-          onPointClick={(pt: any) => setSelectedChest(pt)}
+          onPointClick={handlePointClick}
           ringsData={chests}
           ringLat="lat" ringLng="lng"
           ringColor={(d: any) => (d.tier === 'platinum' ? '#38bdf8' : d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#ea580c')}
@@ -232,21 +233,65 @@ export default function App() {
         />
       </div>
 
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-6 px-8 py-3 tactical-panel w-[90%] max-w-4xl">
-         <div className="flex items-center gap-3">
-            <User size={18} className="text-orange-500" />
-            <span className="text-xs font-black text-white italic">{currentUser?.username.toUpperCase()}</span>
-         </div>
-         <div className="ml-auto flex items-center gap-3">
-            <button className="tactical-btn h-10 w-10 p-0 relative" onClick={() => setShowRequests(!showRequests)}>
-               <Bell size={18} className={chests.some(c => c.droppedBy === currentUser.username && c.requests?.some(r => r.status === 'pending')) ? "text-orange-500 animate-pulse" : ""} />
+      {/* TOP USER BAR */}
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-6 px-8 py-3 tactical-panel min-w-[300px] max-w-xl">
+         {currentUser ? (
+            <>
+              <div className="flex items-center gap-3">
+                 <User size={18} className="text-orange-500" />
+                 <span className="text-xs font-black text-white italic">{currentUser.username.toUpperCase()}</span>
+              </div>
+              <div className="ml-auto flex items-center justify-end gap-3 pl-8 flex-1">
+                 <button className="tactical-btn h-10 w-10 p-0 relative" onClick={() => setShowRequests(!showRequests)}>
+                    <Bell size={18} className={chests.some(c => c.droppedBy === currentUser.username && c.requests?.some(r => r.status === 'pending')) ? "text-orange-500 animate-pulse" : ""} />
+                 </button>
+                 <button className="tactical-btn h-10 w-10 p-0" onClick={() => { setCurrentUser(null); localStorage.removeItem('dataDropperUser'); }}><LogOut size={18} /></button>
+              </div>
+            </>
+         ) : (
+            <button className="text-[10px] w-full text-center font-black text-white uppercase tracking-[4px] hover:text-orange-500 transition-colors" onClick={() => setShowLoginModal(true)}>
+               INITIATE OPERATOR LOGIN
             </button>
-            <button className="tactical-btn h-10 w-10 p-0" onClick={() => { setCurrentUser(null); localStorage.removeItem('dataDropperUser'); }}><LogOut size={18} /></button>
+         )}
+      </div>
+
+      {/* PUBLIC STATISTICS HUD (LEFT) */}
+      <div className="fixed top-24 left-6 z-[100] flex flex-col gap-4 pointer-events-none">
+         <div className="flex items-center gap-4 tactical-panel py-2 px-4 border-l-4 border-l-amber-400 bg-black/40">
+            <Package size={20} className="text-amber-400 opacity-80"/>
+            <span className="text-sm font-black italic tracking-widest uppercase text-white">GOLD: {chests.filter(c=>c.tier==='gold').length}</span>
+         </div>
+         <div className="flex items-center gap-4 tactical-panel py-2 px-4 border-l-4 border-l-slate-400 bg-black/40">
+            <Package size={20} className="text-slate-400 opacity-80"/>
+            <span className="text-sm font-black italic tracking-widest uppercase text-white">SILVER: {chests.filter(c=>c.tier==='silver').length}</span>
+         </div>
+         <div className="flex items-center gap-4 tactical-panel py-2 px-4 border-l-4 border-l-sky-400 bg-black/40">
+            <Package size={20} className="text-sky-400 opacity-80"/>
+            <span className="text-sm font-black italic tracking-widest uppercase text-white">PLATINUM: {chests.filter(c=>c.tier==='platinum').length}</span>
+         </div>
+      </div>
+
+      {/* PUBLIC STATISTICS HUD (RIGHT) */}
+      <div className="fixed top-24 right-6 z-[100] pointer-events-none">
+         <div className="flex items-center gap-4 tactical-panel py-3 px-5 border-r-4 border-r-orange-500 bg-black/40">
+            <span className="text-2xl font-black italic text-white">{chests.length}</span>
+            <Package size={24} className="text-orange-500 opacity-80"/>
          </div>
       </div>
 
       <AnimatePresence>
-        {isDropping && (
+        {/* LOGIN MODAL */}
+        {!currentUser && showLoginModal && (
+           <div className="fixed inset-0 z-[600] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+              <LoginScreen 
+                 onLogin={(user) => { setCurrentUser(user); localStorage.setItem('dataDropperUser', JSON.stringify(user)); setShowLoginModal(false); }} 
+                 onCancel={() => setShowLoginModal(false)} 
+              />
+           </div>
+        )}
+
+        {/* DEPLOY MODAL */}
+        {isDropping && currentUser && (
           <div className="fixed inset-0 flex items-center justify-center p-6 z-[300] bg-slate-950/90 backdrop-blur-xl">
              <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="tactical-panel p-10 w-full max-w-sm flex flex-col gap-6 border-t-8 border-t-orange-500">
                <h3 className="text-center text-2xl font-black italic uppercase">Deploy Ordnance</h3>
@@ -275,7 +320,8 @@ export default function App() {
           </div>
         )}
 
-        {selectedChest && adTimer === null && (
+        {/* CHEST MODAL */}
+        {selectedChest && adTimer === null && currentUser && (
           <div className="fixed inset-0 flex items-center justify-center p-6 z-[300] bg-slate-950/95 backdrop-blur-3xl">
              <motion.div initial={{ y: 20 }} animate={{ y: 0 }} className="tactical-panel p-12 w-full max-w-md border-t-8 border-t-orange-500 flex flex-col gap-6">
                 <div className="flex gap-4">
@@ -299,7 +345,8 @@ export default function App() {
           </div>
         )}
 
-        {showRequests && (
+        {/* REQUESTS LIST MODAL */}
+        {showRequests && currentUser && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[400] bg-slate-950/90 backdrop-blur-md p-10 overflow-y-auto">
              <div className="flex justify-between items-center mb-10">
                 <h2 className="text-4xl font-black italic uppercase">Access Requests</h2>
