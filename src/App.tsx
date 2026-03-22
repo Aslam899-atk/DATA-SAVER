@@ -245,11 +245,19 @@ export default function App() {
           pointsData={chests}
           pointLat="lat"
           pointLng="lng"
-          pointColor={(d: any) => (d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#78350f')}
-          pointRadius={0.5}
-          pointAltitude={0.1}
+          pointColor={(d: any) => (d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#ea580c')}
+          pointAltitude={(d: any) => (d.tier === 'gold' ? 0.3 : d.tier === 'silver' ? 0.2 : 0.1)}
+          pointRadius={0.7}
           pointsMerge={false}
           onPointClick={(pt: any) => setSelectedChest(pt)}
+
+          ringsData={chests}
+          ringLat="lat"
+          ringLng="lng"
+          ringColor={(d: any) => (d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#ea580c')}
+          ringMaxRadius={2}
+          ringPropagationSpeed={2}
+          ringRepeatPeriod={1000}
 
           customLayerData={[playerPos]}
           customThreeObject={(d: any) => {
