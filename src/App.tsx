@@ -6,7 +6,6 @@ import {
   User, 
   LogOut, 
   Download, 
-  Zap, 
   Bell,
   X,
   Timer,
@@ -112,9 +111,9 @@ export default function App() {
   const [isExploding, setIsExploding] = useState(false);
 
   useEffect(() => {
-    const fetch = () => axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
-    fetch();
-    const interval = setInterval(fetch, 30000);
+    const fn = () => axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
+    fn();
+    const interval = setInterval(fn, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -212,6 +211,12 @@ export default function App() {
           ringLat="lat" ringLng="lng"
           ringColor={(d: any) => (d.tier === 'platinum' ? '#38bdf8' : d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#ea580c')}
           ringMaxRadius={2} ringPropagationSpeed={2}
+          customLayerData={[]}
+          customThreeObject={() => {
+            const geometry = new THREE.SphereGeometry(2, 16, 16);
+            const material = new THREE.MeshBasicMaterial({ color: '#f97316' });
+            return new THREE.Mesh(geometry, material);
+          }}
         />
       </div>
 
