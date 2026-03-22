@@ -110,6 +110,7 @@ export default function App() {
   const [showRequests, setShowRequests] = useState(false);
   const [adTimer, setAdTimer] = useState<number | null>(null);
   const [isExploding, setIsExploding] = useState(false);
+  const [showIntro, setShowIntro] = useState(false);
 
   useEffect(() => {
     const fn = () => axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
@@ -117,6 +118,19 @@ export default function App() {
     const interval = setInterval(fn, 15000); // Faster updates for live maps
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      if (!localStorage.getItem(`introSeen_${currentUser.username}`)) {
+         setShowIntro(true);
+      }
+    }
+  }, [currentUser]);
+
+  const handleCloseIntro = () => {
+     setShowIntro(false);
+     if (currentUser) localStorage.setItem(`introSeen_${currentUser.username}`, 'true');
+  };
 
   useEffect(() => {
     if (adTimer !== null && adTimer > 0) {
@@ -429,6 +443,45 @@ export default function App() {
                 ))}
              </div>
           </motion.div>
+        )}
+
+        {/* INTRO MODAL */}
+        {showIntro && currentUser && (
+          <div className="fixed inset-0 z-[700] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="w-full max-w-xl bg-[#5ba4e5] border-2 border-black rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
+                <h2 className="text-3xl font-black text-black mb-6 uppercase text-center tracking-widest">HOW TO USE</h2>
+                
+                <div className="space-y-4 text-black font-semibold mb-8">
+                   <div className="flex gap-4 items-center bg-white/20 p-4 rounded-2xl border-2 border-black shadow">
+                      <div className="text-4xl drop-shadow-md">🌍</div>
+                      <div>
+                         <h4 className="font-bold uppercase mb-1">Global Dashboard</h4>
+                         <p className="text-sm">Drag to rotate the map. Use scroll or pinch to zoom into any sector.</p>
+                      </div>
+                   </div>
+
+                   <div className="flex gap-4 items-center bg-white/20 p-4 rounded-2xl border-2 border-black shadow">
+                      <div className="text-4xl drop-shadow-md">📦</div>
+                      <div>
+                         <h4 className="font-bold uppercase mb-1">Drop Data</h4>
+                         <p className="text-sm">Click empty areas to drop ordnance. Choose between Platinum, Silver, and Gold tiers.</p>
+                      </div>
+                   </div>
+
+                   <div className="flex gap-4 items-center bg-white/20 p-4 rounded-2xl border-2 border-black shadow">
+                      <div className="text-4xl drop-shadow-md">🔓</div>
+                      <div>
+                         <h4 className="font-bold uppercase mb-1">Access Intel</h4>
+                         <p className="text-sm">Click existing chests on the map to preview and safely download the contents.</p>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="flex justify-center">
+                   <button onClick={handleCloseIntro} className="bg-black text-[#5ba4e5] px-12 py-3 rounded-[1.5rem] font-black uppercase text-xl border-2 border-black shadow-[0_4px_0_0_#000] active:shadow-none active:translate-y-1 hover:bg-black/90 transition-all">START MISSION</button>
+                </div>
+             </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
