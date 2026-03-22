@@ -423,11 +423,12 @@ export default function App() {
       {/* 2D TACTICAL SATELLITE MAP */}
       <div style={{ position: 'absolute', inset: 0, zIndex: mapMode === '2d' ? 20 : 0, opacity: mapMode === '2d' ? 1 : 0, pointerEvents: mapMode === '2d' ? 'auto' : 'none', transition: 'opacity 0.5s' }}>
         {mapMode === '2d' && (
-          <MapContainer center={[20, 0]} zoom={3} style={{ height: '100%', width: '100%', background: 'transparent' }} zoomControl={false}>
+          <MapContainer center={[20, 0]} zoom={3} minZoom={2} style={{ height: '100%', width: '100%', background: '#001020' }} zoomControl={false} maxBounds={[[-90,-180],[90,180]]}>
             <TileLayer
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
               attribution="Tiles &copy; Esri"
               maxZoom={19}
+              noWrap={true}
             />
             <LeafletMapEvents onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} />
             {chests.map((chest) => {
