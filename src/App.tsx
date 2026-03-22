@@ -102,10 +102,9 @@ export default function App() {
   const [chests, setChests] = useState<Chest[]>([]);
   const [selectedChest, setSelectedChest] = useState<Chest | null>(null);
   const [isDropping, setIsDropping] = useState<{lat: number, lng: number} | null>(null);
-  const [dropStep, setDropStep] = useState<'tier' | 'settings'>('tier');
-  const [tempTier, setTempTier] = useState<'platinum' | 'gold' | 'silver' | 'bronze' | null>(null);
-  const [maxOpensInput, setMaxOpensInput] = useState('');
-  const [expiryInput, setExpiryInput] = useState('');
+  const [tempTier, setTempTier] = useState<'platinum' | 'gold' | 'silver'>('platinum');
+  const [silverMode, setSilverMode] = useState<'timer' | 'count' | 'ads'>('count');
+  const [silverValue, setSilverValue] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [pinInput, setPinInput] = useState('');
   const [showRequests, setShowRequests] = useState(false);
@@ -130,6 +129,7 @@ export default function App() {
     if (!currentUser) { setShowLoginModal(true); return; }
     if (selectedChest || adTimer !== null || isDropping) return;
     setIsDropping({ lat, lng });
+    setTempTier('platinum'); setSilverMode('count'); setSilverValue(''); setPinInput(''); setSelectedFile(null);
   };
 
   const handlePointClick = (pt: any) => {
@@ -184,19 +184,17 @@ export default function App() {
       formData.append('pin', pinInput || '0000'); 
       formData.append('requiresRequest', 'true'); 
     }
-    if (maxOpensInput && !isNaN(parseInt(maxOpensInput))) {
-      formData.append('maxOpens', parseInt(maxOpensInput).toString());
-    }
-    if (expiryInput && !isNaN(parseInt(expiryInput))) {
-      const expiryTimestamp = Date.now() + parseInt(expiryInput) * 3600000;
-      formData.append('expiresAt', expiryTimestamp.toString());
+    if (tempTier === 'silver' && silverValue && !isNaN(parseInt(silverValue))) {
+      if (silverMode === 'count') formData.append('maxOpens', silverValue);
+      if (silverMode === 'timer') formData.append('expiresAt', (Date.now() + parseInt(silverValue) * 3600000).toString());
+      if (silverMode === 'ads') formData.append('adsRequired', silverValue);
     }
     if (selectedFile) formData.append('file', selectedFile);
 
     try {
       const res = await axios.post(`${API_URL}/chests`, formData, { timeout: 45000 });
       setChests(prev => [...prev, res.data]);
-      setIsDropping(null); setTempTier(null); setDropStep('tier'); setMaxOpensInput(''); setExpiryInput(''); setSelectedFile(null); setPinInput('');
+      setIsDropping(null); setTempTier('platinum'); setSilverValue(''); setSelectedFile(null); setPinInput('');
       alert('DEPLOYED');
     } catch (e: any) { alert(`FAILED: ${e.response?.data?.error || e.message}`); }
   };
@@ -294,30 +292,81 @@ export default function App() {
 
         {/* DEPLOY MODAL */}
         {isDropping && currentUser && (
-          <div className="fixed inset-0 flex items-center justify-center p-6 z-[300] bg-slate-950/90 backdrop-blur-xl">
-             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="tactical-panel p-10 w-full max-w-sm flex flex-col gap-6 border-t-8 border-t-orange-500">
-               <h3 className="text-center text-2xl font-black italic uppercase">Deploy Ordnance</h3>
-               {dropStep === 'tier' ? (
-                 <div className="flex flex-col gap-2">
-                   <button className="tactical-btn bg-sky-500/10 border-sky-500/40" onClick={() => { setTempTier('platinum'); setDropStep('settings'); }}>PLATINUM (FREE)</button>
-                   <button className="tactical-btn bg-amber-500/10 border-amber-500/40" onClick={() => { setTempTier('gold'); setDropStep('settings'); }}>GOLD (SECURE)</button>
-                   <button className="tactical-btn bg-slate-500/10 border-slate-500/40" onClick={() => { setTempTier('silver'); setDropStep('settings'); }}>SILVER (ADS/TIME)</button>
-                   <button className="text-[10px] uppercase font-bold text-center mt-4" onClick={() => setIsDropping(null)}>ABORT</button>
-                 </div>
-               ) : (
-                 <div className="flex flex-col gap-4">
-                    <input type="file" className="tactical-input" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
-                    {tempTier === 'gold' && <input type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} className="tactical-input" placeholder="SET PIN" />}
-                    {tempTier === 'silver' && (
-                       <>
-                          <input type="number" value={maxOpensInput} onChange={e=>setMaxOpensInput(e.target.value)} className="tactical-input" placeholder="MAX USERS" />
-                          <input type="number" value={expiryInput} onChange={e=>setExpiryInput(e.target.value)} className="tactical-input" placeholder="TIMER (HOURS)" />
-                       </>
-                    )}
-                    <button className="tactical-btn primary h-14" onClick={finalizeDrop}>COMMENCE DROP</button>
-                    <button className="text-xs text-center" onClick={() => setDropStep('tier')}>BACK</button>
-                 </div>
-               )}
+          <div className="fixed inset-0 flex items-center justify-center p-6 z-[300] bg-slate-900/50 backdrop-blur-sm">
+             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="w-full max-w-lg bg-[#5ba4e5] rounded-[2.5rem] border-2 border-black p-8 text-black shadow-2xl relative">
+                
+                <div className="flex gap-6 justify-center mb-8">
+                   <button onClick={() => setTempTier('gold')} className={`w-[70px] h-[70px] flex items-center justify-center rounded transition-all ${tempTier === 'gold' ? 'border-4 border-blue-700 bg-yellow-400' : 'bg-yellow-400 opacity-90'}`}>
+                      <Package size={36} className="text-white drop-shadow" />
+                   </button>
+                   <button onClick={() => setTempTier('silver')} className={`w-[70px] h-[70px] flex items-center justify-center rounded transition-all ${tempTier === 'silver' ? 'border-4 border-blue-700 bg-gray-300' : 'bg-gray-300 opacity-90'}`}>
+                      <Package size={36} className="text-white drop-shadow" />
+                   </button>
+                   <button onClick={() => setTempTier('platinum')} className={`w-[70px] h-[70px] flex items-center justify-center rounded transition-all ${tempTier === 'platinum' ? 'border-4 border-blue-700 bg-slate-800' : 'bg-slate-800 opacity-90'}`}>
+                      <Package size={36} className="text-white drop-shadow" />
+                   </button>
+                </div>
+
+                <div className="w-full min-h-[120px] mb-4 flex flex-col justify-center items-center">
+                   {tempTier === 'platinum' && (
+                      <h3 className="text-xl text-black font-semibold mb-6">Fully free</h3>
+                   )}
+
+                   {tempTier === 'silver' && (
+                      <div className="flex flex-col items-center w-full">
+                         <div className="flex w-full justify-around mb-6 text-black font-medium text-sm">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                               <input type="radio" name="silverMode" checked={silverMode==='timer'} onChange={()=>setSilverMode('timer')} className="w-4 h-4 accent-black" /> timer
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                               <input type="radio" name="silverMode" checked={silverMode==='count'} onChange={()=>setSilverMode('count')} className="w-4 h-4 accent-black" /> count
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                               <input type="radio" name="silverMode" checked={silverMode==='ads'} onChange={()=>setSilverMode('ads')} className="w-4 h-4 accent-black" /> ads
+                            </label>
+                         </div>
+                         <div className="flex items-center gap-4">
+                            <input 
+                               type="number" 
+                               value={silverValue} onChange={e=>setSilverValue(e.target.value)} 
+                               className="w-16 h-12 bg-transparent border-2 border-black rounded-xl text-center text-xl font-bold focus:outline-none" 
+                            />
+                            <span className="text-lg font-medium">
+                               {silverMode === 'timer' && 'hour'}
+                               {silverMode === 'count' && 'People can open'}
+                               {silverMode === 'ads' && 'Ads view'}
+                            </span>
+                         </div>
+                      </div>
+                   )}
+                   
+                   {tempTier === 'gold' && (
+                      <div className="w-full flex items-center justify-center h-full"> 
+                      </div>
+                   )}
+                </div>
+
+                <div className="w-full px-4 flex flex-col gap-4">
+                   <label className="w-full border-2 border-black rounded-lg p-3 text-black font-medium cursor-pointer overflow-hidden flex items-center">
+                      <input type="file" onChange={e => setSelectedFile(e.target.files?.[0] || null)} className="hidden" />
+                      {selectedFile ? selectedFile.name : 'Choose file'}
+                   </label>
+                   
+                   {tempTier === 'gold' && (
+                      <input 
+                         type="password" 
+                         value={pinInput} 
+                         onChange={e => setPinInput(e.target.value)} 
+                         placeholder="password" 
+                         className="w-full border-2 border-black rounded-lg p-3 bg-transparent text-black placeholder-black/60 focus:outline-none font-medium" 
+                      />
+                   )}
+                </div>
+
+                <div className="absolute -bottom-16 left-0 right-0 flex justify-center gap-4">
+                   <button className="bg-white/10 text-white border border-white/30 px-6 py-2 rounded-full font-bold uppercase hover:bg-white/20" onClick={() => setIsDropping(null)}>Abort</button>
+                   <button className="bg-orange-500 text-white px-8 py-2 rounded-full font-black uppercase hover:bg-orange-600 shadow-xl" onClick={finalizeDrop}>Commence Drop</button>
+                </div>
              </motion.div>
           </div>
         )}
