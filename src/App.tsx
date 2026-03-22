@@ -356,6 +356,15 @@ export default function App() {
     }
   };
 
+  const handleDeleteDrop = async (id: string) => {
+    if (!confirm('CONFIRM DELETION OF INTEL?')) return;
+    try {
+      await axios.delete(`${API_URL}/chests/${id}`);
+      setChests(prev => prev.filter(c => c._id !== id && c.id !== id));
+      alert('REMOVED FROM SECTOR');
+    } catch (e: any) { alert('DELETE FAILED'); }
+  };
+
   const handleRequestAction = async (chestId: string, fromUser: string, status: 'accepted' | 'rejected') => {
     await axios.patch(`${API_URL}/chests/${chestId}/requests`, { from: fromUser, status });
     axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data));
@@ -486,6 +495,38 @@ export default function App() {
           <span style={{ fontSize: 12, fontWeight: 900, color: '#f97316', letterSpacing: 2, textTransform: 'uppercase' }}>TOTAL<br />DROPS</span>
         </div>
       </div>
+
+      {/* MY DROPS SHELF (BOTTOM CENTER) */}
+      {currentUser && (
+        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 300, width: 'calc(100% - 40px)', maxWidth: 800 }}>
+           <div style={{ background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(20px)', border: '2px solid rgba(255,255,255,0.1)', borderRadius: 28, padding: '16px 24px', boxShadow: '0 -10px 40px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                 <p style={{ fontSize: 10, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>📡 YOUR ACTIVE DROPS</p>
+                 <span style={{ fontSize: 10, background: '#f97316', color: '#000', padding: '2px 8px', borderRadius: 4, fontWeight: 900 }}>{chests.filter(c => c.droppedBy === currentUser.username).length} UNIT(S)</span>
+              </div>
+              <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none' }} className="no-scrollbar">
+                 {chests.filter(c => c.droppedBy === currentUser.username).map(drop => (
+                    <div key={drop._id || drop.id} style={{ minWidth: 200, background: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 12, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 20 }}>{drop.tier === 'gold' ? '🥇' : drop.tier === 'silver' ? '🥈' : '🥉'}</span>
+                          <div style={{ overflow: 'hidden' }}>
+                             <p style={{ fontSize: 11, fontWeight: 800, color: '#fff', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drop.fileName}</p>
+                             <p style={{ fontSize: 9, color: '#64748b', margin: 0 }}>📍 {drop.lat.toFixed(2)}, {drop.lng.toFixed(2)}</p>
+                          </div>
+                       </div>
+                       <div style={{ display: 'flex', gap: 6, marginTop: 'auto' }}>
+                          <button onClick={() => setSelectedChest(drop)} style={{ flex: 1, background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', fontSize: 9, fontWeight: 700, padding: '6px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase' }}>VIEW</button>
+                          <button onClick={() => handleDeleteDrop((drop._id || drop.id)!)} style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#ef4444', fontSize: 9, fontWeight: 700, padding: '6px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase' }}>DELETE</button>
+                       </div>
+                    </div>
+                 ))}
+                 {chests.filter(c => c.droppedBy === currentUser.username).length === 0 && (
+                    <p style={{ fontSize: 13, color: '#475569', textAlign: 'center', width: '100%', fontStyle: 'italic', padding: '20px 0' }}>No deployments registered in this sector.</p>
+                 )}
+              </div>
+           </div>
+        </div>
+      )}
 
       <AnimatePresence>
         {/* LOGIN MODAL */}
