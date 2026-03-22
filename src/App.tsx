@@ -248,6 +248,7 @@ export default function App() {
   const [isExploding, setIsExploding] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
   const [mapMode, setMapMode] = useState<'3d' | '2d'>('3d');
+  const [isDeploying, setIsDeploying] = useState(false);
 
   useEffect(() => {
     const fn = () => axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
@@ -324,7 +325,8 @@ export default function App() {
   };
 
   const finalizeDrop = async () => {
-    if (!isDropping || !currentUser || !tempTier) return;
+    if (!isDropping || !currentUser || !tempTier || isDeploying) return;
+    setIsDeploying(true);
     const formData = new FormData();
     formData.append('lat', isDropping.lat.toString());
     formData.append('lng', isDropping.lng.toString());
@@ -343,11 +345,15 @@ export default function App() {
     if (selectedFile) formData.append('file', selectedFile);
 
     try {
-      const res = await axios.post(`${API_URL}/chests`, formData, { timeout: 45000 });
+      const res = await axios.post(`${API_URL}/chests`, formData, { timeout: 60000 });
       setChests(prev => [...prev, res.data]);
       setIsDropping(null); setTempTier('bronze'); setSilverValue(''); setSelectedFile(null); setPinInput('');
-      alert('DEPLOYED');
-    } catch (e: any) { alert(`FAILED: ${e.response?.data?.error || e.message}`); }
+      alert('SUCCESS: INTEL DEPLOYED TO SECTOR');
+    } catch (e: any) { 
+      alert(`FAILED: ${e.response?.data?.error || e.message}`); 
+    } finally {
+      setIsDeploying(false);
+    }
   };
 
   const handleRequestAction = async (chestId: string, fromUser: string, status: 'accepted' | 'rejected') => {
@@ -547,8 +553,10 @@ export default function App() {
 
               {/* ACTION BUTTONS */}
               <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
-                <button style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', border: '2px solid #000', padding: '12px 28px', borderRadius: 24, fontWeight: 700, fontSize: 14, cursor: 'pointer', letterSpacing: 1, textTransform: 'uppercase' }} onClick={() => setIsDropping(null)}>✕ Abort</button>
-                <button style={{ background: '#000', color: '#5ba4e5', padding: '12px 32px', borderRadius: 24, fontWeight: 900, fontSize: 15, cursor: 'pointer', letterSpacing: 1, textTransform: 'uppercase', border: '2px solid #000', boxShadow: '0 4px 0 #000' }} onClick={finalizeDrop}>🚀 Commence Drop</button>
+                <button style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', border: '2px solid #000', padding: '12px 28px', borderRadius: 24, fontWeight: 700, fontSize: 14, cursor: isDeploying ? 'not-allowed' : 'pointer', opacity: isDeploying ? 0.6 : 1, letterSpacing: 1, textTransform: 'uppercase' }} onClick={() => setIsDropping(null)} disabled={isDeploying}>✕ Abort</button>
+                <button style={{ background: '#000', color: '#5ba4e5', padding: '12px 32px', borderRadius: 24, fontWeight: 900, fontSize: 15, cursor: isDeploying ? 'not-allowed' : 'pointer', opacity: isDeploying ? 0.6 : 1, letterSpacing: 1, textTransform: 'uppercase', border: '2px solid #000', boxShadow: '0 4px 0 #000' }} onClick={finalizeDrop} disabled={isDeploying}>
+                  {isDeploying ? '⏳ DEPLOYING...' : '🚀 Commence Drop'}
+                </button>
               </div>
             </motion.div>
           </div>
