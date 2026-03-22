@@ -48,6 +48,121 @@ interface UserProfile {
 
 const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
 
+const AdminPanel = () => {
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [adminUser, setAdminUser] = useState('');
+  const [adminPass, setAdminPass] = useState('');
+  const [activeTab, setActiveTab] = useState<'DROPS' | 'ADS'>('DROPS');
+  const [chests, setChests] = useState<Chest[]>([]);
+
+  useEffect(() => {
+    if (isAdminLoggedIn) {
+      axios.get(`${API_URL}/chests`).then(res => setChests(res.data));
+    }
+  }, [isAdminLoggedIn]);
+
+  const handleLogin = (e: any) => {
+    e.preventDefault();
+    if (adminUser === 'aslam' && adminPass === '313 aslam 786') {
+      setIsAdminLoggedIn(true);
+    } else {
+      alert('Invalid admin credentials');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+     if (window.confirm('Delete this drop?')) {
+        await axios.delete(`${API_URL}/chests/${id}`);
+        setChests(chests.filter(c => c._id !== id && c.id !== id));
+     }
+  };
+
+  if (!isAdminLoggedIn) {
+     return (
+       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
+          <form onSubmit={handleLogin} className="bg-[#5ba4e5] p-10 rounded-[2.5rem] border-2 border-black flex flex-col gap-6 w-full max-w-sm shadow-2xl">
+             <h2 className="text-3xl font-black text-center mb-4 uppercase text-black">Admin Access</h2>
+             <input type="text" value={adminUser} onChange={e=>setAdminUser(e.target.value)} placeholder="Username" className="p-4 rounded-xl border-2 border-black font-bold text-lg bg-white/60"/>
+             <input type="password" value={adminPass} onChange={e=>setAdminPass(e.target.value)} placeholder="Password" className="p-4 rounded-xl border-2 border-black font-bold text-lg bg-white/60"/>
+             <button type="submit" className="bg-black text-[#5ba4e5] font-black py-4 rounded-xl text-xl uppercase tracking-widest hover:bg-black/80 shadow-[0_4px_0_0_#fff] active:shadow-none active:translate-y-1">Login</button>
+          </form>
+       </div>
+     );
+  }
+
+  return (
+    <div className="min-h-screen bg-white text-black font-sans p-10 flex gap-8">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col pt-4 max-w-5xl">
+         {/* TABS */}
+         <div className="flex w-full mb-10 h-16">
+            <button onClick={() => setActiveTab('DROPS')} className={`flex-1 text-3xl font-bold border-2 border-black bg-[#5ba4e5] transition-all shadow-md ${activeTab==='DROPS'? 'border-red-500 border-4 z-10' : ''}`}>DROPS</button>
+            <button onClick={() => setActiveTab('ADS')} className={`flex-1 text-3xl font-bold border-2 border-black bg-[#5ba4e5] -ml-[2px] transition-all shadow-md ${activeTab==='ADS'? 'border-red-500 border-4 z-10' : ''}`}>ADS</button>
+         </div>
+
+         {/* TAB CONTENT: DROPS */}
+         {activeTab === 'DROPS' && (
+            <div className="flex flex-col gap-5">
+               {chests.map(chest => (
+                  <div key={chest._id || chest.id} className="w-full bg-[#5ba4e5] border-2 border-black p-3 flex items-center shadow-md">
+                     <button onClick={() => handleDelete(chest._id || chest.id!)} className="w-10 h-10 rounded-full border-2 border-black bg-white flex items-center justify-center hover:bg-black hover:text-white transition-colors group">
+                        <X size={16} className="opacity-0 group-hover:opacity-100" />
+                     </button>
+                     <a href={chest.fileUrl || '#'} target="_blank" rel="noreferrer" className="flex-1 ml-6 text-xl tracking-wide font-mono hover:underline hover:text-blue-900 truncate">
+                        {chest.droppedBy}
+                     </a>
+                     <div className="w-16 h-full flex items-center justify-center border-l-2 border-black/20 pl-4">
+                        <span className="text-3xl drop-shadow-md" style={{filter: `drop-shadow(0 0 5px ${chest.tier === 'platinum' ? '#38bdf8' : chest.tier === 'gold' ? '#fbbf24' : chest.tier === 'silver' ? '#fff' : '#000'})`}}>
+                           {chest.tier === 'platinum' ? '📦' : chest.tier === 'gold' ? '🧰' : '🎁'}
+                        </span>
+                     </div>
+                  </div>
+               ))}
+               {chests.length === 0 && <p className="text-2xl text-center font-bold text-gray-500 mt-10">No active drops available.</p>}
+            </div>
+         )}
+
+         {/* TAB CONTENT: ADS */}
+         {activeTab === 'ADS' && (
+            <div className="flex flex-col gap-8">
+               <div className="flex items-center gap-6">
+                  <div className="flex-1 border-4 border-black bg-[#5ba4e5] rounded-xl p-4 font-bold text-xl uppercase shadow-md cursor-pointer hover:bg-[#4a93d4] transition-colors">Choose video for ads</div>
+                  <span className="font-medium text-gray-600 text-lg">Only 15 second</span>
+               </div>
+               <div className="grid grid-cols-4 gap-6">
+                  {Array.from({length: 16}).map((_, i) => (
+                     <div key={i} className="aspect-square bg-[#5ba4e5] border-2 border-black rounded-[2rem] flex items-center justify-center shadow-lg hover:scale-105 transition-transform cursor-pointer">
+                        <span className="font-semibold text-lg text-black/80">Preview of ads</span>
+                     </div>
+                  ))}
+               </div>
+            </div>
+         )}
+      </div>
+
+      {/* RIGHT HUD */}
+      <div className="w-[300px] flex flex-col gap-10 pt-4 px-8 border-l-2 border-dashed border-gray-300">
+         <div className="flex items-center justify-between text-2xl font-black w-full text-black">
+            <span>TOTAL:{chests.length}</span>
+            <div className="w-12 h-12 bg-slate-800 rounded flex flex-col items-center justify-center shadow-md"><span className="text-xl">📦</span></div>
+         </div>
+         <div className="flex items-center justify-between text-2xl font-black w-full text-black">
+            <span>GOLD:{chests.filter(c=>c.tier==='gold').length}</span>
+            <div className="w-12 h-12 bg-yellow-400 rounded flex flex-col items-center justify-center shadow-md"><span className="text-xl">🧰</span></div>
+         </div>
+         <div className="flex items-center justify-between text-2xl font-black w-full text-black">
+            <span>SILVER:{chests.filter(c=>c.tier==='silver').length}</span>
+            <div className="w-12 h-12 bg-gray-300/80 rounded flex flex-col items-center justify-center shadow-md"><span className="text-xl">🎁</span></div>
+         </div>
+         <div className="flex items-center justify-between text-2xl font-black w-full text-black">
+            <span>PLATINUM:{chests.filter(c=>c.tier==='platinum').length}</span>
+            <div className="w-12 h-12 bg-slate-800 rounded flex flex-col items-center justify-center shadow-md"><span className="text-xl">📦</span></div>
+         </div>
+      </div>
+    </div>
+  );
+};
+
 const StarField = () => {
   const [stars, setStars] = useState<{ x: number, y: number, size: number, duration: number }[]>([]);
   useEffect(() => {
@@ -95,6 +210,10 @@ const LoginScreen = ({ onLogin, onCancel }: { onLogin: (user: UserProfile) => vo
 };
 
 export default function App() {
+  if (window.location.pathname === '/admin') {
+     return <AdminPanel />;
+  }
+
   const globeEl = useRef<any>();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('dataDropperUser');
