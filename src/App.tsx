@@ -68,6 +68,7 @@ const AdminPanel = () => {
   const [deviceType, setDeviceType] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
   const [isAddingAd, setIsAddingAd] = useState(false);
   const [newAd, setNewAd] = useState({ title: '', imageUrl: '', videoUrl: '', link: '' });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -831,23 +832,7 @@ export default function App() {
     <div className="world-map relative w-full h-screen overflow-hidden bg-black">
       <StarField />
 
-      {/* MAP TOGGLE */}
-      <div style={{ position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 200 }}>
-        <div style={{ display: 'flex', background: 'rgba(0,0,0,0.7)', padding: '4px', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)' }}>
-          <button
-            style={{ padding: '8px 24px', borderRadius: '999px', fontWeight: 900, fontSize: '11px', letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', border: 'none', transition: 'all 0.2s', background: mapMode === '3d' ? '#5ba4e5' : 'transparent', color: mapMode === '3d' ? '#000' : '#94a3b8' }}
-            onClick={() => setMapMode('3d')}
-          >
-            🌍 3D Globe
-          </button>
-          <button
-            style={{ padding: '8px 24px', borderRadius: '999px', fontWeight: 900, fontSize: '11px', letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', border: 'none', transition: 'all 0.2s', background: mapMode === '2d' ? '#f97316' : 'transparent', color: mapMode === '2d' ? '#000' : '#94a3b8' }}
-            onClick={() => setMapMode('2d')}
-          >
-            🗺️ Street View
-          </button>
-        </div>
-      </div>
+      {/* OPTIONAL: MAP TOGGLE REMOVED FOR SEAMLESS AUTO-ZOOM EFFECT */}
 
       {/* 3D GLOBE RENDERED PUBLICLY */}
       <div style={{ position: 'absolute', inset: 0, zIndex: mapMode === '3d' ? 10 : 0, opacity: mapMode === '3d' ? 1 : 0, pointerEvents: mapMode === '3d' ? 'auto' : 'none', transition: 'opacity 0.5s' }} className="globe-container">
