@@ -8,7 +8,9 @@ import {
   Bell,
   X,
   Smartphone,
-  Monitor
+  Monitor,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Globe from 'react-globe.gl';
@@ -383,16 +385,19 @@ const AdminPanel = () => {
                          <div style={{ position: 'absolute', inset: 0, background: '#000', borderRadius: 24, overflow: 'hidden' }}>
                             {ad.videoUrl.includes('youtube.com/embed') ? (
                                <iframe 
-                                 src={`${ad.videoUrl}?autoplay=0&controls=1&mute=1`}
+                                 src={`${ad.videoUrl}${ad.videoUrl.includes('?') ? '&' : '?'}autoplay=1&mute=1&loop=1&playlist=${ad.videoUrl.split('/').pop()?.split('?')[0]}`}
                                  title={ad.title}
                                  style={{ width: '100%', height: '100%', border: 'none' }}
+                                 allow="autoplay"
                                  allowFullScreen
                                />
                             ) : (
                                <video 
                                  src={ad.videoUrl}
-                                 controls
+                                 autoPlay
                                  muted
+                                 loop
+                                 playsInline
                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />
                             )}
@@ -636,6 +641,7 @@ export default function App() {
   const [isDeploying, setIsDeploying] = useState(false);
   const [deviceType, setDeviceType] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
   const [transferProgress, setTransferProgress] = useState<number | null>(null);
+  const [isAdMuted, setIsAdMuted] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -1208,7 +1214,29 @@ export default function App() {
         <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/98 p-10">
           <div style={{ position: 'relative', width: '100%', maxWidth: 800, aspectRatio: '16/9', background: '#0f172a', borderRadius: 40, overflow: 'hidden', border: '2px solid rgba(234, 88, 12, 0.3)', boxShadow: '0 0 100px rgba(234, 88, 12, 0.2)' }}>
              {activeAd.videoUrl ? (
-                <iframe src={activeAd.videoUrl.includes('youtube.com') ? activeAd.videoUrl.replace('watch?v=', 'embed/') + '?autoplay=1&mute=0' : activeAd.videoUrl} style={{ width: '100%', height: '100%', border: 'none' }} allow="autoplay; fullscreen" />
+                <>
+                  {activeAd.videoUrl.includes('youtube.com') ? (
+                    <iframe 
+                      src={`${activeAd.videoUrl.includes('embed/') ? activeAd.videoUrl : activeAd.videoUrl.replace('watch?v=', 'embed/')}?autoplay=1&mute=${isAdMuted ? 1 : 0}&controls=0`} 
+                      style={{ width: '100%', height: '100%', border: 'none' }} 
+                      allow="autoplay; fullscreen" 
+                    />
+                  ) : (
+                    <video 
+                      src={activeAd.videoUrl} 
+                      autoPlay 
+                      muted={isAdMuted}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                    />
+                  )}
+                  {/* Mute Toggle */}
+                  <button 
+                    onClick={() => setIsAdMuted(!isAdMuted)}
+                    style={{ position: 'absolute', top: 24, left: 24, background: 'rgba(0,0,0,0.6)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: 12, borderRadius: 16, cursor: 'pointer', zIndex: 10, backdropFilter: 'blur(10px)' }}
+                  >
+                    {isAdMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                  </button>
+                </>
              ) : (
                 <img src={activeAd.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
              )}
@@ -1217,12 +1245,12 @@ export default function App() {
                 <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: 2 }}>Seconds<br />Remaining</div>
              </div>
              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 40, background: 'linear-gradient(to top, rgba(0,0,0,0.95), transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                <div>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 4, marginBottom: 8 }}>Operational Broadcast</div>
-                  <h3 style={{ fontSize: 24, fontWeight: 900, margin: 0, color: '#fff' }}>{activeAd.title}</h3>
+                  <h3 style={{ fontSize: 24, fontWeight: 900, margin: 0, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeAd.title}</h3>
                 </div>
                 {activeAd.link && (
-                  <a href={activeAd.link} target="_blank" rel="noopener noreferrer" style={{ backgroundColor: '#fff', color: '#000', padding: '16px 32px', borderRadius: 20, fontWeight: 900, fontSize: 12, textTransform: 'uppercase', letterSpacing: 2, textDecoration: 'none' }}>Visit Tactical Sector</a>
+                  <a href={activeAd.link} target="_blank" rel="noopener noreferrer" style={{ backgroundColor: '#fff', color: '#000', padding: '16px 32px', borderRadius: 20, fontWeight: 900, fontSize: 12, textTransform: 'uppercase', letterSpacing: 2, textDecoration: 'none', marginLeft: 20 }}>Visit Tactical Sector</a>
                 )}
              </div>
           </div>
