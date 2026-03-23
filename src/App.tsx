@@ -314,23 +314,26 @@ const AdminPanel = () => {
                 exit={{ opacity: 0, x: 20 }}
                 style={{ display: 'grid', gridTemplateColumns: deviceType === 'DESKTOP' ? 'repeat(auto-fill, minmax(350px, 1fr))' : deviceType === 'TABLET' ? '1fr 1fr' : '1fr', gap: 16 }}
               >
-                {chests.map((chest, i) => (
-                  <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-                    <div style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, border: '1px solid rgba(255, 255, 255, 0.01)' }}>
-                      {chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🎁' : '📦'}
+                {chests.map((chest, i) => {
+                  const displayTier = chest.tier === 'platinum' ? 'bronze' : chest.tier;
+                  return (
+                    <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+                      <div style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, border: '1px solid rgba(255, 255, 255, 0.01)' }}>
+                        🎁
+                      </div>
+                      <div style={{ flex: 1, marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}>
+                        <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Node: {chest.droppedBy}</div>
+                        <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chest.fileName}</div>
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteChest((chest._id || chest.id)!)}
+                        style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: 'rgba(239, 68, 68, 0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', cursor: 'pointer', transition: 'all 0.2s' }}
+                      >
+                        <X size={20} />
+                      </button>
                     </div>
-                    <div style={{ flex: 1, marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}>
-                      <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Node: {chest.droppedBy}</div>
-                      <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chest.fileName}</div>
-                    </div>
-                    <button 
-                      onClick={() => handleDeleteChest((chest._id || chest.id)!)}
-                      style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: 'rgba(239, 68, 68, 0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', cursor: 'pointer', transition: 'all 0.2s' }}
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
                 {chests.length === 0 && (
                   <div style={{ gridColumn: '1 / -1', padding: 80, backgroundColor: 'rgba(15, 23, 42, 0.2)', borderRadius: 48, border: '2px dashed rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
                     <p style={{ fontSize: 24, fontWeight: 700, color: '#475569', fontStyle: 'italic', margin: 0 }}>No intel drops deployed in this sector.</p>
@@ -436,7 +439,7 @@ const AdminPanel = () => {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div style={{ fontSize: 10, fontWeight: 900, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '2px' }}>Bronze Assets</div>
-                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#d97706', textTransform: 'uppercase' }}>{chests.filter(c => c.tier === 'bronze').length}</div>
+                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#d97706', textTransform: 'uppercase' }}>{chests.filter(c => c.tier === 'bronze' || c.tier === 'platinum').length}</div>
                 </div>
                 <div style={{ width: 64, height: 64, backgroundColor: 'rgba(217, 119, 6, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
                    <span style={{ fontSize: 32 }}>📦</span>
@@ -724,9 +727,10 @@ export default function App() {
           htmlElementsData={chests}
           htmlElement={(d: any) => {
             const el = document.createElement('div');
+            const displayTier = d.tier === 'platinum' ? 'bronze' : d.tier;
             el.innerHTML = `
                <div style="display: flex; flex-direction: column; align-items: center;">
-                 <div style="filter: drop-shadow(0 0 10px ${d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : d.tier === 'bronze' ? '#d97706' : '#fff'});">${d.tier === 'gold' ? '🥇' : d.tier === 'silver' ? '🎁' : '📦'}</div>
+                 <div style="filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : displayTier === 'bronze' ? '#d97706' : '#fff'});">🎁</div>
                  <div style="font-size: 8px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; margin-top: 2px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${d.droppedBy}</div>
                </div>
             `;
@@ -737,18 +741,15 @@ export default function App() {
           }}
           htmlLat="lat" htmlLng="lng"
           htmlAltitude={(d: any) => (d.tier === 'gold' ? 0.4 : d.tier === 'silver' ? 0.3 : 0.2)}
-          onZoom={(zoom: any) => {
-             // Zoom automation: distance threshold
-             if (globeEl.current) {
-                const dist = globeEl.current.controls().getDistance();
-                if (dist < 180 && mapMode === '3d') {
-                   setMapMode('2d');
-                }
+          onCameraMove={(v: any) => {
+             // Precise zoom automation: switch to 2D Street View below altitude threshold
+             if (v.altitude < 0.4 && mapMode === '3d') {
+                setMapMode('2d');
              }
           }}
           ringsData={chests}
           ringLat="lat" ringLng="lng"
-          ringColor={(d: any) => (d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#cd7f32')}
+          ringColor={(d: any) => (d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#c0c0c0' : '#d97706')}
           ringMaxRadius={2} ringPropagationSpeed={2}
         />
       </div>
@@ -773,16 +774,18 @@ export default function App() {
             <LeafletMapEvents 
               onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} 
               onZoomEnd={(zoom: number) => {
-                if (zoom <= 2) {
+                // Robust 2D to 3D zoom-out transition
+                if (zoom <= 2 && mapMode === '2d') {
                   setMapMode('3d');
                 }
               }}
             />
             {chests.map((chest) => {
+              const displayTier = chest.tier === 'platinum' ? 'bronze' : chest.tier;
               const chestIcon = L.divIcon({
                 html: `
                   <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; width: 80px; transform: translateX(-20px);">
-                    <div style="font-size: 32px; filter: drop-shadow(0 0 10px ${chest.tier === 'gold' ? '#fbbf24' : '#fff'})">${chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🎁' : '📦'}</div>
+                    <div style="font-size: 32px; filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'})">🎁</div>
                     <div style="font-size: 7px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 3px; margin-top: 1px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${chest.droppedBy}</div>
                   </div>
                 `,
@@ -832,17 +835,17 @@ export default function App() {
 
       {/* PUBLIC STATISTICS HUD (LEFT) */}
       <div style={{ position: 'fixed', top: 130, left: 20, zIndex: 100, display: 'flex', flexDirection: 'column', gap: 10, pointerEvents: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #fbbf24', borderRadius: 10 }}>
-          <span style={{ fontSize: 20 }}>🥇</span>
-          <span style={{ fontSize: 12, fontWeight: 900, color: '#fbbf24', letterSpacing: 3, textTransform: 'uppercase' }}>GOLD: {chests.filter(c => c.tier === 'gold').length}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #eab308', borderRadius: 10 }}>
+          <span style={{ fontSize: 20 }}>🎁</span>
+          <span style={{ fontSize: 12, fontWeight: 900, color: '#eab308', letterSpacing: 3, textTransform: 'uppercase' }}>GOLD: {chests.filter(c => c.tier === 'gold').length}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #94a3b8', borderRadius: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.[...])', borderLeft: '4px solid #94a3b8', borderRadius: 10 }}>
           <span style={{ fontSize: 20 }}>🎁</span>
           <span style={{ fontSize: 12, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>SILVER: {chests.filter(c => c.tier === 'silver').length}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #d97706', borderRadius: 10 }}>
-          <span style={{ fontSize: 20 }}>📦</span>
-          <span style={{ fontSize: 12, fontWeight: 900, color: '#f59e0b', letterSpacing: 3, textTransform: 'uppercase' }}>BRONZE: {chests.filter(c => c.tier === 'bronze').length}</span>
+          <span style={{ fontSize: 20 }}>🎁</span>
+          <span style={{ fontSize: 12, fontWeight: 900, color: '#f59e0b', letterSpacing: 3, textTransform: 'uppercase' }}>BRONZE: {chests.filter(c => c.tier === 'bronze' || c.tier === 'platinum').length}</span>
         </div>
       </div>
 
@@ -868,7 +871,7 @@ export default function App() {
                  {chests.filter(c => c.droppedBy === currentUser.username).map(drop => (
                     <div key={drop._id || drop.id} style={{ minWidth: 200, background: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 12, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 20 }}>{drop.tier === 'gold' ? '🥇' : drop.tier === 'silver' ? '🎁' : '📦'}</span>
+                          <span style={{ fontSize: 20 }}>🎁</span>
                           <div style={{ overflow: 'hidden' }}>
                              <p style={{ fontSize: 11, fontWeight: 800, color: '#fff', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drop.fileName}</p>
                              <p style={{ fontSize: 9, color: '#64748b', margin: 0 }}>📍 {drop.lat.toFixed(2)}, {drop.lng.toFixed(2)}</p>
@@ -906,9 +909,9 @@ export default function App() {
 
               {/* TIER SELECTION */}
               <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginBottom: 24 }}>
-                <button onClick={() => setTempTier('bronze')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#78350f', border: tempTier === 'bronze' ? '4px solid #d97706' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>📦</button>
-                <button onClick={() => setTempTier('gold')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#fbbf24', border: tempTier === 'gold' ? '4px solid #fbbf24' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🥇</button>
-                <button onClick={() => setTempTier('silver')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#d1d5db', border: tempTier === 'silver' ? '4px solid #94a3b8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🎁</button>
+                <button onClick={() => setTempTier('bronze')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#78350f', border: tempTier === 'bronze' ? '4px solid #d97706' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🎁</button>
+                <button onClick={() => setTempTier('gold')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#eab308', border: tempTier === 'gold' ? '4px solid #fbbf24' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🎁</button>
+                <button onClick={() => setTempTier('silver')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#94a3b8', border: tempTier === 'silver' ? '4px solid #94a3b8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🎁</button>
               </div>
 
               {/* TIER INFO */}
