@@ -862,7 +862,7 @@ export default function App() {
           }}
           ringsData={chests}
           ringLat="lat" ringLng="lng"
-          ringColor={(d: any) => (d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#c0c0c0' : '#d97706')}
+          ringColor={(d: any) => (d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#d97706')}
           ringMaxRadius={2} ringPropagationSpeed={2}
         />
       </div>
