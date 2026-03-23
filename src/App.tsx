@@ -43,6 +43,7 @@ interface Chest {
   expiresAt?: number;
   requiresRequest: boolean;
   requests?: { from: string, status: 'pending' | 'accepted' | 'rejected' }[];
+  adsRequired?: number;
 }
 
 interface UserProfile {
@@ -609,6 +610,7 @@ export default function App() {
   const [ads, setAds] = useState<any[]>([]);
   const [activeAd, setActiveAd] = useState<any>(null);
   const [adTimer, setAdTimer] = useState<number | null>(null);
+  const [adQueue, setAdQueue] = useState<any[]>([]);
   const [isExploding, setIsExploding] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
   const [mapMode, setMapMode] = useState<'3d' | '2d'>('3d');
@@ -653,8 +655,18 @@ export default function App() {
     if (adTimer !== null && adTimer > 0) {
       const t = setTimeout(() => setAdTimer(adTimer - 1), 1000);
       return () => clearTimeout(t);
-    } else if (adTimer === 0) setAdTimer(null);
-  }, [adTimer]);
+    } else if (adTimer === 0) {
+      if (adQueue.length > 0) {
+        setActiveAd(adQueue[0]);
+        setAdQueue(prev => prev.slice(1));
+        setAdTimer(15);
+      } else {
+        setAdTimer(null);
+        setActiveAd(null);
+        if (selectedChest) processOpen();
+      }
+    }
+  }, [adTimer, adQueue.length, selectedChest]);
 
   const handleGlobeClick = ({ lat, lng }: { lat: number, lng: number }) => {
     if (!currentUser) { setShowLoginModal(true); return; }
@@ -672,8 +684,14 @@ export default function App() {
     if (selectedChest.tier === 'bronze') { processOpen(); return; }
 
     if (selectedChest.tier === 'silver' && adTimer === null) { 
-      const randomAd = ads.length > 0 ? ads[Math.floor(Math.random() * ads.length)] : { title: 'Broadcast Payload', imageUrl: 'https://res.cloudinary.com/dw7wcsate/image/upload/v1711132000/dummy_ad.png' };
-      setActiveAd(randomAd);
+      const required = selectedChest.adsRequired || 1;
+      let availableAds = ads.length > 0 ? [...ads].sort(() => 0.5 - Math.random()) : [];
+      let queue = [];
+      for (let i = 0; i < required; i++) {
+        queue.push(availableAds.length > 0 ? availableAds[i % availableAds.length] : { title: 'Broadcast Payload', imageUrl: 'https://res.cloudinary.com/dw7wcsate/image/upload/v1711132000/dummy_ad.png' });
+      }
+      setActiveAd(queue[0]);
+      setAdQueue(queue.slice(1));
       setAdTimer(15); 
       return; 
     }
@@ -1080,7 +1098,7 @@ export default function App() {
         )}
 
         {/* CHEST MODAL */}
-        {selectedChest && adTimer === null && (
+        {selectedChest && adTimer === null && !isExploding && (
           <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 500, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedChest(null)}>
             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 380, background: '#5ba4e5', borderRadius: 40, border: '2px solid #000', padding: 32, color: '#000', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: 20 }}>
 

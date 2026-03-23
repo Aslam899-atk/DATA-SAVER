@@ -55,6 +55,7 @@ const ChestSchema = new mongoose.Schema({
   currentOpens: { type: Number, default: 0 },
   expiresAt: Number, 
   requiresRequest: { type: Boolean, default: false },
+  adsRequired: { type: Number, default: 0 },
   requests: [{
     from: String,
     status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' }
@@ -106,9 +107,8 @@ app.get('/api/chests', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.post('/api/chests', upload.single('file'), async (req, res) => {
   try {
-    const { lat, lng, tier, droppedBy, pin, maxOpens, expiresAt, requiresRequest } = req.body;
+    const { lat, lng, tier, droppedBy, pin, maxOpens, expiresAt, requiresRequest, adsRequired } = req.body;
     let fileUrl = '';
     let fileName = 'DATA.DAT';
     let fileSize = 'UNKNOWN';
@@ -126,6 +126,7 @@ app.post('/api/chests', upload.single('file'), async (req, res) => {
       maxOpens: maxOpens ? Number(maxOpens) : undefined,
       expiresAt: expiresAt ? Number(expiresAt) : undefined,
       requiresRequest: requiresRequest === 'true',
+      adsRequired: adsRequired ? Number(adsRequired) : 0,
       currentOpens: 0
     });
 
