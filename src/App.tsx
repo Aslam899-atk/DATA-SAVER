@@ -380,9 +380,23 @@ const AdminPanel = () => {
                   {ads.map((ad: any, i) => (
                     <div key={ad._id || i} style={{ aspectRatio: '16/9', backgroundColor: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 24, overflow: 'hidden', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
                       {ad.videoUrl ? (
-                         <div style={{ position: 'absolute', inset: 0, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Monitor size={48} style={{ color: '#ea580c', opacity: 0.5 }} />
-                            <div style={{ position: 'absolute', bottom: 12, left: 12, backgroundColor: '#ea580c', color: '#fff', fontSize: 8, fontWeight: 900, padding: '4px 8px', borderRadius: 4 }}>VIDEO ASSET</div>
+                         <div style={{ position: 'absolute', inset: 0, background: '#000', borderRadius: 24, overflow: 'hidden' }}>
+                            {ad.videoUrl.includes('youtube.com/embed') ? (
+                               <iframe 
+                                 src={`${ad.videoUrl}?autoplay=0&controls=1&mute=1`}
+                                 title={ad.title}
+                                 style={{ width: '100%', height: '100%', border: 'none' }}
+                                 allowFullScreen
+                               />
+                            ) : (
+                               <video 
+                                 src={ad.videoUrl}
+                                 controls
+                                 muted
+                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                            )}
+                            <div style={{ position: 'absolute', bottom: 12, left: 12, backgroundColor: '#ea580c', color: '#fff', fontSize: 8, fontWeight: 900, padding: '4px 8px', borderRadius: 4, zIndex: 5, pointerEvents: 'none' }}>VIDEO ASSET</div>
                          </div>
                       ) : (
                         <img src={ad.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
