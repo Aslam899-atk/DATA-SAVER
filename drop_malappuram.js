@@ -4,7 +4,7 @@ require('dotenv').config({ path: './server/.env' });
 const ChestSchema = new mongoose.Schema({
   lat: Number,
   lng: Number,
-  tier: { type: String, enum: ['gold', 'silver', 'bronze'] },
+  tier: { type: String, enum: ['gold', 'silver', 'platinum'] },
   fileName: String,
   fileSize: String,
   fileUrl: String,   

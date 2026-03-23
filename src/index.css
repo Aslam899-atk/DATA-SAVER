@@ -7,7 +7,7 @@
   --glass-border: rgba(255, 255, 255, 0.08);
   --tier-gold: #fbbf24;
   --tier-silver: #94a3b8;
-  --tier-bronze: #78350f;
+  --tier-platinum: #3b82f6;
 }
 
 * {
@@ -210,11 +210,11 @@ body {
 
 .tier-gold { --beam-color: var(--tier-gold); }
 .tier-silver { --beam-color: var(--tier-silver); }
-.tier-bronze { --beam-color: var(--tier-bronze); }
+.tier-platinum { --beam-color: var(--tier-platinum); }
 
 .tier-gold .face { border-color: var(--tier-gold); }
 .tier-silver .face { border-color: var(--tier-silver); }
-.tier-bronze .face { border-color: var(--tier-bronze); }
+.tier-platinum .face { border-color: var(--tier-platinum); }
 
 /* Player Sprite */
 .player-sprite {
