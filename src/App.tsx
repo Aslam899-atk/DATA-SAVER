@@ -94,57 +94,61 @@ const AdminPanel = () => {
 
   if (!isAdminLoggedIn) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 relative overflow-hidden">
+      <div style={{ minHeight: '100vh', backgroundColor: '#020617', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative', overflow: 'hidden' }}>
         {/* Animated Background Elements */}
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[120px] rounded-full animate-pulse"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-orange-600/20 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
+        <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '40%', height: '40%', backgroundColor: 'rgba(37, 99, 235, 0.2)', filter: 'blur(120px)', borderRadius: '50%' }}></div>
+        <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '40%', height: '40%', backgroundColor: 'rgba(234, 88, 12, 0.2)', filter: 'blur(120px)', borderRadius: '50%' }}></div>
 
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative z-10 w-full max-w-md"
+          style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: 450 }}
         >
           <form 
             onSubmit={handleLogin} 
-            className="bg-slate-900/80 backdrop-blur-xl p-12 rounded-[3rem] border-2 border-white/10 flex flex-col gap-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+            style={{ backgroundColor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(24px)', padding: 48, borderRadius: '40px', border: '2px solid rgba(255, 255, 255, 0.1)', display: 'flex', flexDirection: 'column', gap: 32, boxShadow: '0 20px 80px rgba(0,0,0,0.6)' }}
           >
-            <div className="text-center space-y-2">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-3xl mb-4 shadow-lg shadow-blue-600/20">
-                <span className="text-4xl">🔐</span>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 80, height: 80, backgroundColor: '#2563eb', borderRadius: 24, marginBottom: 20, boxShadow: '0 10px 30px rgba(37, 99, 235, 0.3)' }}>
+                <span style={{ fontSize: 36 }}>🔐</span>
               </div>
-              <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic">Admin Portal</h2>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">Authorized Personnel Only</p>
+              <h2 style={{ fontSize: 32, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '-1px', fontStyle: 'italic', margin: 0 }}>Admin Portal</h2>
+              <p style={{ color: '#94a3b8', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '4px', marginTop: 8 }}>Authorized Personnel Only</p>
             </div>
 
-            <div className="space-y-4">
-              <div className="relative">
-                <input 
-                  type="text" 
-                  value={adminUser} 
-                  onChange={e => setAdminUser(e.target.value)} 
-                  placeholder="Username" 
-                  className="w-full p-5 rounded-2xl border-2 border-white/5 bg-white/5 text-white font-bold text-lg focus:border-blue-500 focus:bg-white/10 transition-all outline-none" 
-                />
-              </div>
-              <div className="relative">
-                <input 
-                  type="password" 
-                  value={adminPass} 
-                  onChange={e => setAdminPass(e.target.value)} 
-                  placeholder="Access Code" 
-                  className="w-full p-5 rounded-2xl border-2 border-white/5 bg-white/5 text-white font-bold text-lg focus:border-blue-500 focus:bg-white/10 transition-all outline-none" 
-                />
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <input 
+                type="text" 
+                value={adminUser} 
+                onChange={e => setAdminUser(e.target.value)} 
+                placeholder="Username" 
+                style={{ width: '100%', padding: 20, borderRadius: 16, border: '2px solid rgba(255, 255, 255, 0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700, fontSize: 18, outline: 'none', transition: 'all 0.2s' }}
+                onFocus={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)'}
+              />
+              <input 
+                type="password" 
+                value={adminPass} 
+                onChange={e => setAdminPass(e.target.value)} 
+                placeholder="Access Code" 
+                style={{ width: '100%', padding: 20, borderRadius: 16, border: '2px solid rgba(255, 255, 255, 0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700, fontSize: 18, outline: 'none', transition: 'all 0.2s' }}
+                onFocus={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)'}
+              />
             </div>
 
             <button 
               type="submit" 
-              className="bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl text-xl uppercase tracking-widest transition-all shadow-[0_8px_0_0_#1e3a8a] active:shadow-none active:translate-y-1"
+              style={{ backgroundColor: '#2563eb', color: '#fff', fontWeight: 900, padding: 20, borderRadius: 16, fontSize: 20, textTransform: 'uppercase', letterSpacing: '2px', cursor: 'pointer', border: 'none', transition: 'all 0.2s', boxShadow: '0 8px 0 #1e3a8a' }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+              onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(4px)'; e.currentTarget.style.boxShadow = '0 4px 0 #1e3a8a'; }}
+              onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 0 #1e3a8a'; }}
             >
               Initiate Login
             </button>
 
-            <p className="text-center text-slate-500 text-[10px] font-medium uppercase tracking-widest">
+            <p style={{ textAlign: 'center', color: '#475569', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>
               Secured Connection • System v4.0.2
             </p>
           </form>
@@ -154,56 +158,62 @@ const AdminPanel = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0f1d] text-white font-sans selection:bg-blue-500/30">
+    <div style={{ minHeight: '100vh', backgroundColor: '#0a0f1d', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* HEADER */}
-      <header className="fixed top-0 left-0 right-0 h-20 bg-slate-900/50 backdrop-blur-md border-b border-white/5 z-50 flex items-center justify-between px-12">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
-            <span className="text-xl">💼</span>
+      <header style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 80, backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 48px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 40, height: 40, backgroundColor: '#2563eb', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }}>
+            <span style={{ fontSize: 20 }}>💼</span>
           </div>
-          <h1 className="text-xl font-black uppercase tracking-widest italic">Command Center</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '4px', fontStyle: 'italic', margin: 0 }}>Command Center</h1>
         </div>
         <button 
           onClick={() => { setIsAdminLoggedIn(false); localStorage.removeItem('isAdminLoggedIn'); }}
-          className="flex items-center gap-3 bg-white/5 hover:bg-white/10 px-6 py-2.5 rounded-xl border border-white/10 transition-all font-bold text-sm uppercase"
+          style={{ display: 'flex', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255, 255, 255, 0.05)', hover: { backgroundColor: 'rgba(255, 255, 255, 0.1)' }, padding: '10px 24px', borderRadius: 12, border: '1px solid rgba(255, 255, 255, 0.1)', transition: 'all 0.2s', fontWeight: 700, fontSize: 14, textTransform: 'uppercase', color: '#fff', cursor: 'pointer' } as any}
         >
           <LogOut size={16} />
           Terminal Exit
         </button>
       </header>
 
-      <div className="pt-32 pb-20 px-12 flex gap-12 max-w-[1800px] mx-auto">
+      <div style={{ paddingTop: 128, paddingBottom: 80, paddingLeft: 48, paddingRight: 48, display: 'flex', gap: 48, maxWidth: 1800, margin: '0 auto' }}>
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col pt-4">
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* TABS */}
-          <div className="flex gap-4 mb-10 overflow-x-auto pb-4 no-scrollbar">
+          <div style={{ display: 'flex', gap: 16, marginBottom: 40, overflowX: 'auto', paddingBottom: 16 }}>
             <button 
               onClick={() => setActiveTab('OPERATORS')} 
-              className={`px-10 py-5 text-xl font-black rounded-2xl transition-all border-2 flex-shrink-0 ${
-                activeTab === 'OPERATORS' 
-                ? 'bg-blue-600 border-blue-400 shadow-[0_0_30px_rgba(37,99,235,0.3)]' 
-                : 'bg-slate-900 border-white/5 text-slate-500 hover:border-white/10'
-              }`}
+              style={{ flexShrink: 0, padding: '20px 40px', fontSize: 20, fontWeight: 900, borderRadius: 20, transition: 'all 0.3s', border: '2px solid', 
+                backgroundColor: activeTab === 'OPERATORS' ? '#2563eb' : '#0f172a',
+                borderColor: activeTab === 'OPERATORS' ? '#60a5fa' : 'rgba(255, 255, 255, 0.05)',
+                color: activeTab === 'OPERATORS' ? '#fff' : '#64748b',
+                boxShadow: activeTab === 'OPERATORS' ? '0 0 30px rgba(37, 99, 235, 0.3)' : 'none',
+                cursor: 'pointer'
+              }}
             >
               OPERATORS
             </button>
             <button 
               onClick={() => setActiveTab('DROPS')} 
-              className={`px-10 py-5 text-xl font-black rounded-2xl transition-all border-2 flex-shrink-0 ${
-                activeTab === 'DROPS' 
-                ? 'bg-emerald-600 border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]' 
-                : 'bg-slate-900 border-white/5 text-slate-500 hover:border-white/10'
-              }`}
+              style={{ flexShrink: 0, padding: '20px 40px', fontSize: 20, fontWeight: 900, borderRadius: 20, transition: 'all 0.3s', border: '2px solid', 
+                backgroundColor: activeTab === 'DROPS' ? '#10b981' : '#0f172a',
+                borderColor: activeTab === 'DROPS' ? '#34d399' : 'rgba(255, 255, 255, 0.05)',
+                color: activeTab === 'DROPS' ? '#fff' : '#64748b',
+                boxShadow: activeTab === 'DROPS' ? '0 0 30px rgba(16, 185, 129, 0.3)' : 'none',
+                cursor: 'pointer'
+              }}
             >
               INTEL DROPS
             </button>
             <button 
               onClick={() => setActiveTab('ADS')} 
-              className={`px-10 py-5 text-xl font-black rounded-2xl transition-all border-2 flex-shrink-0 ${
-                activeTab === 'ADS' 
-                ? 'bg-orange-600 border-orange-400 shadow-[0_0_30px_rgba(234,88,12,0.3)]' 
-                : 'bg-slate-900 border-white/5 text-slate-500 hover:border-white/10'
-              }`}
+              style={{ flexShrink: 0, padding: '20px 40px', fontSize: 20, fontWeight: 900, borderRadius: 20, transition: 'all 0.3s', border: '2px solid', 
+                backgroundColor: activeTab === 'ADS' ? '#ea580c' : '#0f172a',
+                borderColor: activeTab === 'ADS' ? '#fb923c' : 'rgba(255, 255, 255, 0.05)',
+                color: activeTab === 'ADS' ? '#fff' : '#64748b',
+                boxShadow: activeTab === 'ADS' ? '0 0 30px rgba(234, 88, 12, 0.3)' : 'none',
+                cursor: 'pointer'
+              }}
             >
               ADS ENGINE
             </button>
@@ -217,27 +227,25 @@ const AdminPanel = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="grid grid-cols-1 xl:grid-cols-2 gap-6"
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: 24 }}
               >
                 {users.map((user, i) => (
-                  <div key={user.id || i} className="group bg-slate-900/40 backdrop-blur-sm border border-white/5 p-6 rounded-3xl flex items-center hover:border-blue-500/50 transition-all shadow-xl">
-                    <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center font-black text-2xl text-blue-500 border border-white/5 shadow-inner">
+                  <div key={user.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+                    <div style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 24, color: '#3b82f6', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                       {String(i + 1).padStart(2, '0')}
                     </div>
-                    <div className="flex-1 ml-6 space-y-1">
-                      <div className="text-sm font-black text-slate-500 uppercase tracking-widest">Operator Node</div>
-                      <div className="text-xl font-bold font-mono text-slate-200">
-                        {user.email}
-                      </div>
+                    <div style={{ flex: 1, marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px' }}>Operator Node</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace', color: '#e2e8f0' }}>{user.email}</div>
                     </div>
-                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform cursor-pointer">
+                    <div style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60a5fa' }}>
                       <Smartphone size={20} />
                     </div>
                   </div>
                 ))}
                 {users.length === 0 && (
-                  <div className="col-span-full py-20 bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-white/5 text-center">
-                    <p className="text-2xl font-bold text-slate-600 italic">No operators detected in sector.</p>
+                  <div style={{ gridColumn: '1 / -1', padding: 80, backgroundColor: 'rgba(15, 23, 42, 0.2)', borderRadius: 48, border: '2px dashed rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
+                    <p style={{ fontSize: 24, fontWeight: 700, color: '#475569', fontStyle: 'italic', margin: 0 }}>No operators detected in sector.</p>
                   </div>
                 )}
               </motion.div>
@@ -250,30 +258,28 @@ const AdminPanel = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="grid grid-cols-1 xl:grid-cols-2 gap-6"
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: 24 }}
               >
                 {chests.map((chest, i) => (
-                  <div key={chest._id || chest.id || i} className="group bg-slate-900/40 backdrop-blur-sm border border-white/5 p-6 rounded-3xl flex items-center hover:border-emerald-500/50 transition-all shadow-xl">
-                    <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center font-black text-4xl shadow-inner border border-white/5">
+                  <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+                    <div style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, border: '1px solid rgba(255, 255, 255, 0.01)' }}>
                       {chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🥈' : '🛡️'}
                     </div>
-                    <div className="flex-1 ml-6 space-y-1 overflow-hidden">
-                      <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest truncate">Node: {chest.droppedBy}</div>
-                      <div className="text-lg font-bold font-mono text-slate-200 truncate pr-4">
-                        {chest.fileName}
-                      </div>
+                    <div style={{ flex: 1, marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}>
+                      <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Node: {chest.droppedBy}</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chest.fileName}</div>
                     </div>
                     <button 
                       onClick={() => handleDeleteChest((chest._id || chest.id)!)}
-                      className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-lg"
+                      style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: 'rgba(239, 68, 68, 0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', cursor: 'pointer', transition: 'all 0.2s' }}
                     >
                       <X size={20} />
                     </button>
                   </div>
                 ))}
                 {chests.length === 0 && (
-                  <div className="col-span-full py-20 bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-white/5 text-center">
-                    <p className="text-2xl font-bold text-slate-600 italic">No intel drops deployed in this sector.</p>
+                  <div style={{ gridColumn: '1 / -1', padding: 80, backgroundColor: 'rgba(15, 23, 42, 0.2)', borderRadius: 48, border: '2px dashed rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
+                    <p style={{ fontSize: 24, fontWeight: 700, color: '#475569', fontStyle: 'italic', margin: 0 }}>No intel drops deployed in this sector.</p>
                   </div>
                 )}
               </motion.div>
@@ -286,26 +292,26 @@ const AdminPanel = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="space-y-8"
+                style={{ display: 'flex', flexDirection: 'column', gap: 32 }}
               >
-                <div className="bg-gradient-to-r from-orange-600/20 to-transparent border-l-4 border-orange-500 p-8 rounded-3xl flex items-center justify-between">
+                <div style={{ background: 'linear-gradient(to right, rgba(234, 88, 12, 0.2), transparent)', borderLeft: '4px solid #ea580c', padding: 32, borderRadius: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <h3 className="text-3xl font-black uppercase italic tracking-tighter">Broadcast Distribution</h3>
-                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Global Ad Network Management</p>
+                    <h3 style={{ fontSize: 28, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-1px', margin: 0 }}>Broadcast Distribution</h3>
+                    <p style={{ color: '#94a3b8', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '2px', marginTop: 4 }}>Global Ad Network Management</p>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <span className="font-black text-slate-500 text-lg italic">Max Payload: 15s</span>
-                    <button className="bg-white text-black font-black px-8 py-4 rounded-2xl uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+                    <span style={{ fontWeight: 900, color: '#64748b', fontSize: 18, fontStyle: 'italic' }}>Max Payload: 15s</span>
+                    <button style={{ backgroundColor: '#fff', color: '#000', fontWeight: 900, padding: '16px 32px', borderRadius: 16, textTransform: 'uppercase', letterSpacing: '2px', cursor: 'pointer', border: 'none', transition: 'all 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
                       Upload Strategic Asset
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 gap-6">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 24 }}>
                   {Array.from({ length: 18 }).map((_, i) => (
-                    <div key={i} className="aspect-square bg-slate-900 border border-white/5 rounded-[2.5rem] flex flex-col items-center justify-center gap-4 shadow-xl hover:border-orange-500/50 hover:scale-[1.02] transition-all cursor-pointer group">
-                      <span className="text-4xl group-hover:animate-bounce">📺</span>
-                      <span className="font-black text-[10px] text-slate-500 uppercase tracking-widest">Slot {i + 1} Empty</span>
+                    <div key={i} style={{ aspectRatio: '1/1', backgroundColor: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, boxShadow: '0 10px 20px rgba(0,0,0,0.2)', cursor: 'pointer', transition: 'all 0.2s' }}>
+                      <span style={{ fontSize: 40 }}>📺</span>
+                      <span style={{ fontWeight: 900, fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px' }}>Slot {i + 1} Empty</span>
                     </div>
                   ))}
                 </div>
@@ -315,56 +321,64 @@ const AdminPanel = () => {
         </div>
 
         {/* RIGHT HUD */}
-        <aside className="w-[400px] flex flex-col gap-6">
-          <div className="bg-slate-950 p-10 rounded-[3rem] border-2 border-white/5 shadow-2xl sticky top-32 space-y-10">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-ping"></div>
-              <h4 className="text-xs font-black uppercase text-slate-500 tracking-[0.3em]">Operational Metrics</h4>
+        <aside style={{ width: 400, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ backgroundColor: '#020617', padding: 40, borderRadius: 48, border: '2px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', position: 'sticky', top: 128, display: 'flex', flexDirection: 'column', gap: 40 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ width: 8, height: 8, backgroundColor: '#3b82f6', borderRadius: '50%' }}></div>
+              <h4 style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', color: '#64748b', letterSpacing: '4px', margin: 0 }}>Operational Metrics</h4>
             </div>
 
-            <div className="space-y-8">
-              <div className="flex items-center justify-between group">
-                <div className="space-y-1">
-                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Operators</div>
-                  <div className="text-4xl font-black italic">{users.length}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px' }}>Total Operators</div>
+                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic' }}>{users.length}</div>
                 </div>
-                <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center border border-white/5 group-hover:rotate-12 transition-transform"><span className="text-2xl">📦</span></div>
+                <div style={{ width: 64, height: 64, backgroundColor: '#0f172a', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <span style={{ fontSize: 32 }}>📦</span>
+                </div>
               </div>
 
-              <div className="h-px bg-white/5 w-full"></div>
+              <div style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.05)', width: '100%' }}></div>
 
-              <div className="flex items-center justify-between group">
-                <div className="space-y-1">
-                  <div className="text-[10px] font-black text-yellow-500/50 uppercase tracking-widest">Gold Assets</div>
-                  <div className="text-4xl font-black italic text-yellow-500">{chests.filter(c => c.tier === 'gold').length}</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, color: 'rgba(234, 179, 8, 0.5)', textTransform: 'uppercase', letterSpacing: '2px' }}>Gold Assets</div>
+                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#eab308' }}>{chests.filter(c => c.tier === 'gold').length}</div>
                 </div>
-                <div className="w-16 h-16 bg-yellow-500/10 rounded-2xl flex items-center justify-center border border-yellow-500/20 group-hover:rotate-[-12deg] transition-transform"><span className="text-2xl">🧰</span></div>
+                <div style={{ width: 64, height: 64, backgroundColor: 'rgba(234, 179, 8, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
+                  <span style={{ fontSize: 32 }}>🧰</span>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between group">
-                <div className="space-y-1">
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Silver Assets</div>
-                  <div className="text-4xl font-black italic text-slate-300">{chests.filter(c => c.tier === 'silver').length}</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px' }}>Silver Assets</div>
+                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#cbd5e1' }}>{chests.filter(c => c.tier === 'silver').length}</div>
                 </div>
-                <div className="w-16 h-16 bg-slate-400/10 rounded-2xl flex items-center justify-center border border-slate-400/20 group-hover:rotate-12 transition-transform"><span className="text-2xl">🎁</span></div>
+                <div style={{ width: 64, height: 64, backgroundColor: 'rgba(148, 163, 184, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(148, 163, 184, 0.2)' }}>
+                  <span style={{ fontSize: 32 }}>🎁</span>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between group">
-                <div className="space-y-1">
-                  <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Platinum Assets</div>
-                  <div className="text-4xl font-black italic text-blue-500 uppercase">{chests.filter(c => c.tier === 'platinum').length}</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '2px' }}>Platinum Assets</div>
+                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#3b82f6', textTransform: 'uppercase' }}>{chests.filter(c => c.tier === 'platinum').length}</div>
                 </div>
-                <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/20 group-hover:rotate-[-6deg] transition-transform"><span className="text-2xl">🛡️</span></div>
+                <div style={{ width: 64, height: 64, backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                  <span style={{ fontSize: 32 }}>🛡️</span>
+                </div>
               </div>
             </div>
 
-            <div className="bg-blue-600/10 border border-blue-500/20 p-6 rounded-2xl flex items-center gap-4">
-              <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center animate-pulse">
-                <Monitor size={20} className="text-white" />
+            <div style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)', border: '1px solid rgba(37, 99, 235, 0.2)', padding: 24, borderRadius: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ width: 40, height: 40, backgroundColor: '#2563eb', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Monitor size={20} style={{ color: '#fff' }} />
               </div>
-              <div className="flex-1">
-                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">System Status</p>
-                <p className="text-xs font-bold text-white">All Secure • Uplink Live</p>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 10, fontWeight: 900, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>System Status</p>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', margin: 0 }}>All Secure • Uplink Live</p>
               </div>
             </div>
           </div>
