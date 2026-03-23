@@ -107,6 +107,7 @@ app.get('/api/chests', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+app.post('/api/chests', upload.single('file'), async (req, res) => {
   try {
     const { lat, lng, tier, droppedBy, pin, maxOpens, expiresAt, requiresRequest, adsRequired } = req.body;
     let fileUrl = '';
