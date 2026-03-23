@@ -614,6 +614,7 @@ export default function App() {
   const [mapMode, setMapMode] = useState<'3d' | '2d'>('3d');
   const [isDeploying, setIsDeploying] = useState(false);
   const [deviceType, setDeviceType] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
+  const [transferProgress, setTransferProgress] = useState<number | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -693,20 +694,40 @@ export default function App() {
     }
   };
 
-  const forceDownload = (url: string, filename: string) => {
+  const forceDownload = async (url: string, filename: string) => {
     // If it's a Cloudinary URL, we can force the attachment flag
     let downloadUrl = url;
     if (url.includes('res.cloudinary.com')) {
       downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
     }
     
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.target = '_blank';
-    link.setAttribute('download', filename || 'DATA_SECURE.dat');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      setTransferProgress(0);
+      const response = await axios({
+        url: downloadUrl,
+        method: 'GET',
+        responseType: 'blob',
+        onDownloadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            setTransferProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
+          }
+        }
+      });
+
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', filename || 'DATA_SECURE.dat');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      // Fallback if blob fetch fails (CORS etc)
+      window.open(downloadUrl, '_blank');
+    } finally {
+      setTimeout(() => setTransferProgress(null), 1000);
+    }
   };
 
   const processOpen = async () => {
@@ -764,7 +785,13 @@ export default function App() {
     if (selectedFile) formData.append('file', selectedFile);
 
     try {
-      const res = await axios.post(`${API_URL}/chests`, formData, { timeout: 60000 });
+      setTransferProgress(0);
+      const res = await axios.post(`${API_URL}/chests`, formData, { 
+        timeout: 60000,
+        onUploadProgress: (p) => {
+          if (p.total) setTransferProgress(Math.round((p.loaded * 100) / p.total));
+        }
+      });
       setChests(prev => [...prev, res.data]);
       setIsDropping(null); setTempTier('bronze'); setSilverValue(''); setSelectedFile(null); setPinInput('');
       alert('SUCCESS: INTEL DEPLOYED TO SECTOR');
@@ -772,6 +799,7 @@ export default function App() {
       alert(`FAILED: ${e.response?.data?.error || e.message}`); 
     } finally {
       setIsDeploying(false);
+      setTimeout(() => setTransferProgress(null), 1000);
     }
   };
 
@@ -1172,6 +1200,22 @@ export default function App() {
           <p style={{ marginTop: 40, fontSize: 10, fontWeight: 900, color: '#475569', textTransform: 'uppercase', letterSpacing: 8 }}>Decryption in Progress • Please Stand By</p>
         </div>
       )}
+
+      {/* GLOBAL TRANSFER PROGRESS OVERLAY */}
+      <AnimatePresence>
+        {transferProgress !== null && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.9)', backdropFilter: 'blur(32px)' }}>
+             <div style={{ width: '100%', maxWidth: 400, padding: 40, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, fontWeight: 900, color: '#f97316', textTransform: 'uppercase', letterSpacing: 8, marginBottom: 24 }}>System Data Transfer</div>
+                <div style={{ position: 'relative', width: '100%', height: 4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                   <motion.div initial={{ width: 0 }} animate={{ width: `${transferProgress}%` }} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, backgroundColor: '#f97316', boxShadow: '0 0 20px #f97316' }} />
+                </div>
+                <div style={{ marginTop: 24, fontSize: 48, fontWeight: 900, fontStyle: 'italic', letterSpacing: -2, color: '#fff' }}>{transferProgress}%</div>
+                <p style={{ fontSize: 9, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginTop: 12 }}>Syncing with Strategic Cloud Network</p>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
