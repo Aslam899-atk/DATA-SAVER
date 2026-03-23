@@ -64,6 +64,13 @@ const AdminPanel = () => {
   const [chests, setChests] = useState<Chest[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [ads, setAds] = useState<any[]>([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (isAdminLoggedIn) {
@@ -182,12 +189,12 @@ const AdminPanel = () => {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0a0f1d', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* HEADER */}
-      <header style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 80, backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 48px' }}>
+      <header style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 80, backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 20px' : '0 48px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ width: 40, height: 40, backgroundColor: '#2563eb', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }}>
-            <span style={{ fontSize: 20 }}>💼</span>
+          <div style={{ width: 32, height: 32, backgroundColor: '#2563eb', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 16 }}>💼</span>
           </div>
-          <h1 style={{ fontSize: 20, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '4px', fontStyle: 'italic', margin: 0 }}>Command Center</h1>
+          <h1 style={{ fontSize: isMobile ? 16 : 20, fontWeight: 900, textTransform: 'uppercase', letterSpacing: isMobile ? '1px' : '4px', fontStyle: 'italic', margin: 0 }}>Command Center</h1>
         </div>
         <button 
           onClick={() => { setIsAdminLoggedIn(false); localStorage.removeItem('isAdminLoggedIn'); }}
@@ -198,18 +205,17 @@ const AdminPanel = () => {
         </button>
       </header>
 
-      <div style={{ paddingTop: 128, paddingBottom: 80, paddingLeft: 48, paddingRight: 48, display: 'flex', gap: 48, maxWidth: 1800, margin: '0 auto' }}>
+      <div style={{ paddingTop: 100, paddingBottom: 80, paddingLeft: isMobile ? 20 : 48, paddingRight: isMobile ? 20 : 48, display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 24 : 48, maxWidth: 1800, margin: '0 auto' }}>
         {/* Main Content Area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
           {/* TABS */}
-          <div style={{ display: 'flex', gap: 16, marginBottom: 40, overflowX: 'auto', paddingBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 12, marginBottom: isMobile ? 24 : 40, overflowX: 'auto', paddingBottom: 8 }} className="hide-scrollbar">
             <button 
               onClick={() => setActiveTab('OPERATORS')} 
-              style={{ flexShrink: 0, padding: '20px 40px', fontSize: 20, fontWeight: 900, borderRadius: 20, transition: 'all 0.3s', border: '2px solid', 
+              style={{ flexShrink: 0, padding: isMobile ? '12px 24px' : '20px 40px', fontSize: isMobile ? 14 : 20, fontWeight: 900, borderRadius: 12, transition: 'all 0.3s', border: '2px solid', 
                 backgroundColor: activeTab === 'OPERATORS' ? '#2563eb' : '#0f172a',
                 borderColor: activeTab === 'OPERATORS' ? '#60a5fa' : 'rgba(255, 255, 255, 0.05)',
                 color: activeTab === 'OPERATORS' ? '#fff' : '#64748b',
-                boxShadow: activeTab === 'OPERATORS' ? '0 0 30px rgba(37, 99, 235, 0.3)' : 'none',
                 cursor: 'pointer'
               }}
             >
@@ -217,27 +223,25 @@ const AdminPanel = () => {
             </button>
             <button 
               onClick={() => setActiveTab('DROPS')} 
-              style={{ flexShrink: 0, padding: '20px 40px', fontSize: 20, fontWeight: 900, borderRadius: 20, transition: 'all 0.3s', border: '2px solid', 
+              style={{ flexShrink: 0, padding: isMobile ? '12px 24px' : '20px 40px', fontSize: isMobile ? 14 : 20, fontWeight: 900, borderRadius: 12, transition: 'all 0.3s', border: '2px solid', 
                 backgroundColor: activeTab === 'DROPS' ? '#10b981' : '#0f172a',
                 borderColor: activeTab === 'DROPS' ? '#34d399' : 'rgba(255, 255, 255, 0.05)',
                 color: activeTab === 'DROPS' ? '#fff' : '#64748b',
-                boxShadow: activeTab === 'DROPS' ? '0 0 30px rgba(16, 185, 129, 0.3)' : 'none',
                 cursor: 'pointer'
               }}
             >
-              INTEL DROPS
+              DROPS
             </button>
             <button 
               onClick={() => setActiveTab('ADS')} 
-              style={{ flexShrink: 0, padding: '20px 40px', fontSize: 20, fontWeight: 900, borderRadius: 20, transition: 'all 0.3s', border: '2px solid', 
+              style={{ flexShrink: 0, padding: isMobile ? '12px 24px' : '20px 40px', fontSize: isMobile ? 14 : 20, fontWeight: 900, borderRadius: 12, transition: 'all 0.3s', border: '2px solid', 
                 backgroundColor: activeTab === 'ADS' ? '#ea580c' : '#0f172a',
                 borderColor: activeTab === 'ADS' ? '#fb923c' : 'rgba(255, 255, 255, 0.05)',
                 color: activeTab === 'ADS' ? '#fff' : '#64748b',
-                boxShadow: activeTab === 'ADS' ? '0 0 30px rgba(234, 88, 12, 0.3)' : 'none',
                 cursor: 'pointer'
               }}
             >
-              ADS ENGINE
+              ADS
             </button>
           </div>
 
@@ -249,7 +253,7 @@ const AdminPanel = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: 24 }}
+                style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(350px, 1fr))', gap: 16 }}
               >
                 {users.map((user, i) => (
                   <div key={user.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
@@ -280,12 +284,12 @@ const AdminPanel = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: 24 }}
+                style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(350px, 1fr))', gap: 16 }}
               >
                 {chests.map((chest, i) => (
                   <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
                     <div style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, border: '1px solid rgba(255, 255, 255, 0.01)' }}>
-                      {chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🥈' : '🛡️'}
+                      {chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🎁' : '🛡️'}
                     </div>
                     <div style={{ flex: 1, marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}>
                       <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Node: {chest.droppedBy}</div>
@@ -329,7 +333,7 @@ const AdminPanel = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
                   {ads.map((ad: any, i) => (
                     <div key={ad._id || i} style={{ aspectRatio: '16/9', backgroundColor: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 24, overflow: 'hidden', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
                       <img src={ad.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
@@ -341,8 +345,8 @@ const AdminPanel = () => {
                     </div>
                   ))}
                   {ads.length === 0 && (
-                    <div style={{ gridColumn: '1 / -1', padding: 80, backgroundColor: 'rgba(15, 23, 42, 0.2)', borderRadius: 48, border: '2px dashed rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
-                      <p style={{ fontSize: 24, fontWeight: 700, color: '#475569', fontStyle: 'italic', margin: 0 }}>No active broadcasts (Add an ad to see previews).</p>
+                    <div style={{ gridColumn: '1 / -1', padding: isMobile ? 40 : 80, backgroundColor: 'rgba(15, 23, 42, 0.2)', borderRadius: 48, border: '2px dashed rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
+                      <p style={{ fontSize: isMobile ? 18 : 24, fontWeight: 700, color: '#475569', fontStyle: 'italic', margin: 0 }}>No active broadcasts (Add an ad to see previews).</p>
                     </div>
                   )}
                 </div>
@@ -352,8 +356,8 @@ const AdminPanel = () => {
         </div>
 
         {/* RIGHT HUD */}
-        <aside style={{ width: 400, display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div style={{ backgroundColor: '#020617', padding: 40, borderRadius: 48, border: '2px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', position: 'sticky', top: 128, display: 'flex', flexDirection: 'column', gap: 40 }}>
+        <aside style={{ width: isMobile ? '100%' : 400, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ backgroundColor: '#020617', padding: isMobile ? 24 : 40, borderRadius: isMobile ? 32 : 48, border: '2px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', position: isMobile ? 'relative' : 'sticky', top: isMobile ? 0 : 128, display: 'flex', flexDirection: 'column', gap: isMobile ? 24 : 40 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{ width: 8, height: 8, backgroundColor: '#3b82f6', borderRadius: '50%' }}></div>
               <h4 style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', color: '#64748b', letterSpacing: '4px', margin: 0 }}>Operational Metrics</h4>
@@ -510,6 +514,13 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(false);
   const [mapMode, setMapMode] = useState<'3d' | '2d'>('3d');
   const [isDeploying, setIsDeploying] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const fn = () => axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
@@ -664,7 +675,7 @@ export default function App() {
             const el = document.createElement('div');
             el.innerHTML = `
                <div style="display: flex; flex-direction: column; align-items: center;">
-                 <div style="filter: drop-shadow(0 0 10px ${d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : d.tier === 'platinum' ? '#3b82f6' : '#fff'});">${d.tier === 'gold' ? '🥇' : d.tier === 'silver' ? '🥈' : '🛡️'}</div>
+                 <div style="filter: drop-shadow(0 0 10px ${d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : d.tier === 'platinum' ? '#3b82f6' : '#fff'});">${d.tier === 'gold' ? '🥇' : d.tier === 'silver' ? '🎁' : '🛡️'}</div>
                  <div style="font-size: 8px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; margin-top: 2px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${d.droppedBy}</div>
                </div>
             `;
@@ -697,7 +708,7 @@ export default function App() {
               const chestIcon = L.divIcon({
                 html: `
                   <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; width: 80px; transform: translateX(-20px);">
-                    <div style="font-size: 32px; filter: drop-shadow(0 0 10px ${chest.tier === 'gold' ? '#fbbf24' : '#fff'})">${chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🥈' : '🛡️'}</div>
+                    <div style="font-size: 32px; filter: drop-shadow(0 0 10px ${chest.tier === 'gold' ? '#fbbf24' : '#fff'})">${chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🎁' : '🛡️'}</div>
                     <div style="font-size: 7px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 3px; margin-top: 1px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${chest.droppedBy}</div>
                   </div>
                 `,
@@ -719,11 +730,11 @@ export default function App() {
       </div>
 
       {/* TOP USER BAR */}
-      <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 300, display: 'flex', alignItems: 'center', gap: 16, padding: '12px 28px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, minWidth: 280, boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}>
-        {/* APP LOGO */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 20, paddingRight: 20, borderRight: '1px solid rgba(255,255,255,0.1)' }}>
-          <span style={{ fontSize: 24 }}>📦</span>
-          <span style={{ fontSize: 14, fontWeight: 900, color: '#5ba4e5', letterSpacing: 1, textTransform: 'uppercase' }}>DATA SAVER</span>
+      <div style={{ position: 'fixed', top: 20, left: isMobile ? 10 : '50%', right: isMobile ? 10 : 'auto', transform: isMobile ? 'none' : 'translateX(-50%)', zIndex: 300, display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16, padding: isMobile ? '8px 16px' : '12px 28px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 10px 40px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+        {/* APP LOGO - Hide text on mobile to save space */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: isMobile ? 8 : 20, paddingRight: isMobile ? 8 : 20, borderRight: '1px solid rgba(255,255,255,0.1)' }}>
+          <span style={{ fontSize: isMobile ? 20 : 24 }}>📦</span>
+          {!isMobile && <span style={{ fontSize: 14, fontWeight: 900, color: '#5ba4e5', letterSpacing: 1, textTransform: 'uppercase' }}>DATA SAVER</span>}
         </div>
         {currentUser ? (
           <>
@@ -752,7 +763,7 @@ export default function App() {
           <span style={{ fontSize: 12, fontWeight: 900, color: '#fbbf24', letterSpacing: 3, textTransform: 'uppercase' }}>GOLD: {chests.filter(c => c.tier === 'gold').length}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #94a3b8', borderRadius: 10 }}>
-          <span style={{ fontSize: 20 }}>🥈</span>
+          <span style={{ fontSize: 20 }}>🎁</span>
           <span style={{ fontSize: 12, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>SILVER: {chests.filter(c => c.tier === 'silver').length}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #cd7f32', borderRadius: 10 }}>
@@ -761,13 +772,15 @@ export default function App() {
         </div>
       </div>
 
-      {/* PUBLIC STATISTICS HUD (RIGHT) */}
-      <div style={{ position: 'fixed', top: 130, right: 20, zIndex: 100, pointerEvents: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRight: '4px solid #f97316', borderRadius: 10 }}>
-          <span style={{ fontSize: 26, fontWeight: 900, color: '#fff', fontStyle: 'italic' }}>{chests.length}</span>
-          <span style={{ fontSize: 12, fontWeight: 900, color: '#f97316', letterSpacing: 2, textTransform: 'uppercase' }}>TOTAL<br />DROPS</span>
+      {/* PUBLIC STATISTICS HUD (RIGHT) - Hide on mobile map to avoid clutter */}
+      {!isMobile && (
+        <div style={{ position: 'fixed', top: 130, right: 20, zIndex: 100, pointerEvents: 'none' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRight: '4px solid #f97316', borderRadius: 10 }}>
+            <span style={{ fontSize: 26, fontWeight: 900, color: '#fff', fontStyle: 'italic' }}>{chests.length}</span>
+            <span style={{ fontSize: 12, fontWeight: 900, color: '#f97316', letterSpacing: 2, textTransform: 'uppercase' }}>TOTAL<br />DROPS</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* MY DROPS SHELF (BOTTOM CENTER) */}
       {currentUser && (
@@ -781,7 +794,7 @@ export default function App() {
                  {chests.filter(c => c.droppedBy === currentUser.username).map(drop => (
                     <div key={drop._id || drop.id} style={{ minWidth: 200, background: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 12, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 20 }}>{drop.tier === 'gold' ? '🥇' : drop.tier === 'silver' ? '🥈' : '🛡️'}</span>
+                          <span style={{ fontSize: 20 }}>{drop.tier === 'gold' ? '🥇' : drop.tier === 'silver' ? '🎁' : '🛡️'}</span>
                           <div style={{ overflow: 'hidden' }}>
                              <p style={{ fontSize: 11, fontWeight: 800, color: '#fff', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drop.fileName}</p>
                              <p style={{ fontSize: 9, color: '#64748b', margin: 0 }}>📍 {drop.lat.toFixed(2)}, {drop.lng.toFixed(2)}</p>
@@ -821,7 +834,7 @@ export default function App() {
               <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginBottom: 24 }}>
                 <button onClick={() => setTempTier('platinum')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#1e293b', border: tempTier === 'platinum' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🛡️</button>
                 <button onClick={() => setTempTier('gold')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#fbbf24', border: tempTier === 'gold' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🥇</button>
-                <button onClick={() => setTempTier('silver')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#d1d5db', border: tempTier === 'silver' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🥈</button>
+                <button onClick={() => setTempTier('silver')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#d1d5db', border: tempTier === 'silver' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🎁</button>
               </div>
 
               {/* TIER INFO */}
