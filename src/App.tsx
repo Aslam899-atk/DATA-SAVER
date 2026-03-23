@@ -636,18 +636,45 @@ export default function App() {
     }
   };
 
+  const forceDownload = (url: string, filename: string) => {
+    // If it's a Cloudinary URL, we can force the attachment flag
+    let downloadUrl = url;
+    if (url.includes('res.cloudinary.com')) {
+      downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
+    }
+    
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.target = '_blank';
+    link.setAttribute('download', filename || 'DATA_SECURE.dat');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const processOpen = async () => {
     if (!selectedChest) return;
     try {
-      const res = await axios.patch(`${API_URL}/chests/${selectedChest._id || selectedChest.id}/open`);
+      // Use POST to match the new backend and pass security data
+      const res = await axios.post(`${API_URL}/chests/${selectedChest._id || selectedChest.id}/open`, {
+        pin: pinInput,
+        username: currentUser?.username
+      });
+
       setChests(prev => prev.map(c => (c._id === selectedChest._id || c.id === selectedChest.id) ? res.data : c));
       setIsExploding(true);
+
       setTimeout(() => {
         setIsExploding(false);
-        if (selectedChest.fileUrl) window.open(selectedChest.fileUrl, '_blank');
+        if (res.data.fileUrl) {
+          forceDownload(res.data.fileUrl, res.data.fileName);
+        }
         setSelectedChest(null);
-      }, 800);
-    } catch (e: any) { alert(e.response?.data?.message || 'Failed'); }
+        setPinInput('');
+      }, 1000);
+    } catch (e: any) { 
+      alert(e.response?.data?.message || 'ENCRYPTION LOCK ACTIVE: ACCESS DENIED'); 
+    }
   };
 
   const finalizeDrop = async () => {

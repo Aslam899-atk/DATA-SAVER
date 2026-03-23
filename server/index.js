@@ -135,12 +135,28 @@ app.post('/api/chests', upload.single('file'), async (req, res) => {
 });
 
 // Update Opens
-app.patch('/api/chests/:id/open', async (req, res) => {
+app.post('/api/chests/:id/open', async (req, res) => {
   try {
+    const { pin, username } = req.body;
     const chest = await Chest.findById(req.params.id);
-    if (!chest) return res.status(404).json({ message: "Not found" });
-    if (chest.maxOpens && chest.currentOpens >= chest.maxOpens) return res.status(403).json({ message: "Limit Reached" });
-    if (chest.expiresAt && Date.now() > chest.expiresAt) return res.status(403).json({ message: "Expired" });
+    if (!chest) return res.status(404).json({ message: "SECURE INTEL NOT FOUND" });
+    
+    // VALIDATE PIN
+    if (chest.hasPin && chest.pin !== pin) {
+      return res.status(401).json({ message: "ACCESS DENIED: INVALID DECRYPTION PIN" });
+    }
+
+    // VALIDATE REQUEST
+    if (chest.requiresRequest) {
+      const userReq = chest.requests.find(r => r.from === username);
+      if (!userReq || userReq.status !== 'accepted') {
+        return res.status(403).json({ message: "ACCESS DENIED: CLEARANCE NOT GRANTED" });
+      }
+    }
+
+    // CHECK LIMITS
+    if (chest.maxOpens && chest.currentOpens >= chest.maxOpens) return res.status(403).json({ message: "INTEL SHREDDED: DOWNLOAD LIMIT REACHED" });
+    if (chest.expiresAt && Date.now() > chest.expiresAt) return res.status(403).json({ message: "INTEL STALE: LINK EXPIRED" });
 
     chest.currentOpens += 1;
     await chest.save();
