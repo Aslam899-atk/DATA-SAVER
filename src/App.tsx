@@ -63,11 +63,13 @@ const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState<'OPERATORS' | 'ADS' | 'DROPS'>('OPERATORS');
   const [chests, setChests] = useState<Chest[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [ads, setAds] = useState<any[]>([]);
 
   useEffect(() => {
     if (isAdminLoggedIn) {
       axios.get(`${API_URL}/chests`).then(res => setChests(res.data));
       axios.get(`${API_URL}/users`).then(res => setUsers(res.data));
+      axios.get(`${API_URL}/ads`).then(res => setAds(res.data));
     }
   }, [isAdminLoggedIn]);
 
@@ -89,6 +91,26 @@ const AdminPanel = () => {
     if (window.confirm('WARNING: PERMANENTLY DELETE THIS INTEL DROP?')) {
       await axios.delete(`${API_URL}/chests/${id}`);
       setChests(chests.filter(c => c._id !== id && c.id !== id));
+    }
+  };
+
+  const handleAddAd = async () => {
+    const title = prompt('Ad Title (e.g., "Special Rewards")');
+    if (!title) return;
+    const imageUrl = prompt('Image URL (Optional)', 'https://res.cloudinary.com/dw7wcsate/image/upload/v1711132000/dummy_ad.png');
+    const link = prompt('Link (Optional)', 'https://google.com');
+    
+    try {
+      const res = await axios.post(`${API_URL}/ads`, { title, imageUrl, link });
+      setAds([res.data, ...ads]);
+      alert('AD BROADCASTED LIVE');
+    } catch (e) { alert('UPLOAD FAILED'); }
+  };
+
+  const handleDeleteAd = async (id: string) => {
+    if (confirm('REMOVE AD FROM BROADCAST?')) {
+      await axios.delete(`${API_URL}/ads/${id}`);
+      setAds(ads.filter(a => a._id !== id));
     }
   };
 
@@ -301,19 +323,28 @@ const AdminPanel = () => {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
                     <span style={{ fontWeight: 900, color: '#64748b', fontSize: 18, fontStyle: 'italic' }}>Max Payload: 15s</span>
-                    <button style={{ backgroundColor: '#fff', color: '#000', fontWeight: 900, padding: '16px 32px', borderRadius: 16, textTransform: 'uppercase', letterSpacing: '2px', cursor: 'pointer', border: 'none', transition: 'all 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
+                    <button onClick={handleAddAd} style={{ backgroundColor: '#fff', color: '#000', fontWeight: 900, padding: '16px 32px', borderRadius: 16, textTransform: 'uppercase', letterSpacing: '2px', cursor: 'pointer', border: 'none', transition: 'all 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
                       Upload Strategic Asset
                     </button>
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 24 }}>
-                  {Array.from({ length: 18 }).map((_, i) => (
-                    <div key={i} style={{ aspectRatio: '1/1', backgroundColor: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, boxShadow: '0 10px 20px rgba(0,0,0,0.2)', cursor: 'pointer', transition: 'all 0.2s' }}>
-                      <span style={{ fontSize: 40 }}>📺</span>
-                      <span style={{ fontWeight: 900, fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px' }}>Slot {i + 1} Empty</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
+                  {ads.map((ad: any, i) => (
+                    <div key={ad._id || i} style={{ aspectRatio: '16/9', backgroundColor: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 24, overflow: 'hidden', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
+                      <img src={ad.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
+                      <div style={{ position: 'absolute', inset: 0, padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)' }}>
+                        <div style={{ fontSize: 10, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Broadcasting • Asset {i+1}</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 4 }}>{ad.title}</div>
+                        <button onClick={() => handleDeleteAd(ad._id)} style={{ position: 'absolute', top: 12, right: 12, border: 'none', background: 'rgba(239,68,68,0.2)', color: '#f87171', padding: '6px 12px', borderRadius: 8, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>REMOVE</button>
+                      </div>
                     </div>
                   ))}
+                  {ads.length === 0 && (
+                    <div style={{ gridColumn: '1 / -1', padding: 80, backgroundColor: 'rgba(15, 23, 42, 0.2)', borderRadius: 48, border: '2px dashed rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
+                      <p style={{ fontSize: 24, fontWeight: 700, color: '#475569', fontStyle: 'italic', margin: 0 }}>No active broadcasts (Add an ad to see previews).</p>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -631,13 +662,14 @@ export default function App() {
           htmlElementsData={chests}
           htmlElement={(d: any) => {
             const el = document.createElement('div');
-            el.innerHTML = `📦`;
-            el.style.fontSize = '32px';
-            el.style.filter = `drop-shadow(0 0 10px ${d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : d.tier === 'platinum' ? '#1e293b' : '#fff'})`;
-            el.style.cursor = 'pointer';
+            el.innerHTML = `
+               <div style="display: flex; flex-direction: column; align-items: center;">
+                 <div style="filter: drop-shadow(0 0 10px ${d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : d.tier === 'platinum' ? '#3b82f6' : '#fff'});">${d.tier === 'gold' ? '🥇' : d.tier === 'silver' ? '🥈' : '🛡️'}</div>
+                 <div style="font-size: 8px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; margin-top: 2px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${d.droppedBy}</div>
+               </div>
+            `;
             el.style.pointerEvents = 'auto';
             el.title = d.fileName;
-            el.innerHTML = d.tier === 'gold' ? '🥇' : d.tier === 'silver' ? '🥈' : '🛡️';
             el.onclick = (e) => { e.stopPropagation(); handlePointClick(d); };
             return el;
           }}
@@ -663,7 +695,12 @@ export default function App() {
             <LeafletMapEvents onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} />
             {chests.map((chest) => {
               const chestIcon = L.divIcon({
-                html: `<div style="font-size: 32px; filter: drop-shadow(0 0 10px ${chest.tier === 'gold' ? '#fbbf24' : chest.tier === 'silver' ? '#fff' : chest.tier === 'platinum' ? '#000' : '#000'}); display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer;">${chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🥈' : '🛡️'}</div>`,
+                html: `
+                  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; width: 80px; transform: translateX(-20px);">
+                    <div style="font-size: 32px; filter: drop-shadow(0 0 10px ${chest.tier === 'gold' ? '#fbbf24' : '#fff'})">${chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🥈' : '🛡️'}</div>
+                    <div style="font-size: 7px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 3px; margin-top: 1px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${chest.droppedBy}</div>
+                  </div>
+                `,
                 className: 'custom-chest-icon',
                 iconSize: [40, 40],
                 iconAnchor: [20, 20]
