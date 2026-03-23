@@ -65,6 +65,8 @@ const AdminPanel = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [ads, setAds] = useState<any[]>([]);
   const [deviceType, setDeviceType] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
+  const [isAddingAd, setIsAddingAd] = useState(false);
+  const [newAd, setNewAd] = useState({ title: '', imageUrl: '', videoUrl: '', link: '' });
 
   useEffect(() => {
     const handleResize = () => {
@@ -117,18 +119,16 @@ const AdminPanel = () => {
      }
   };
 
-  const handleAddAd = async () => {
-    const title = prompt('Ad Title (e.g., "Special Rewards")');
-    if (!title) return;
-    const imageUrl = prompt('Banner Image URL (Optional)', 'https://res.cloudinary.com/dw7wcsate/image/upload/v1711132000/dummy_ad.png');
-    const videoUrl = prompt('Video URL (Optional - direct .mp4 or youtube embed link)');
-    const link = prompt('Call-to-Action Link (e.g. Website/App URL)');
-    
+  const handleAddAdSubmit = async (e: any) => {
+    e.preventDefault();
+    if (!newAd.title) return;
     try {
-      const res = await axios.post(`${API_URL}/ads`, { title, imageUrl, videoUrl, link });
+      const res = await axios.post(`${API_URL}/ads`, newAd);
       setAds([res.data, ...ads]);
+      setIsAddingAd(false);
+      setNewAd({ title: '', imageUrl: '', videoUrl: '', link: '' });
       alert('AD BROADCASTED LIVE');
-    } catch (e) { alert('UPLOAD FAILED'); }
+    } catch (e) { alert('BROADCAST FAILED'); }
   };
 
   const handleDeleteAd = async (id: string) => {
@@ -358,7 +358,7 @@ const AdminPanel = () => {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
                     <span style={{ fontWeight: 900, color: '#64748b', fontSize: 18, fontStyle: 'italic' }}>Max Payload: 15s</span>
-                    <button onClick={handleAddAd} style={{ backgroundColor: '#fff', color: '#000', fontWeight: 900, padding: '16px 32px', borderRadius: 16, textTransform: 'uppercase', letterSpacing: '2px', cursor: 'pointer', border: 'none', transition: 'all 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
+                    <button onClick={() => setIsAddingAd(true)} style={{ backgroundColor: '#fff', color: '#000', fontWeight: 900, padding: '16px 32px', borderRadius: 16, textTransform: 'uppercase', letterSpacing: '2px', cursor: 'pointer', border: 'none', transition: 'all 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
                       Upload Strategic Asset
                     </button>
                   </div>
@@ -391,7 +391,49 @@ const AdminPanel = () => {
                 </div>
               </motion.div>
             )}
-          </AnimatePresence>
+            {/* AD CREATION MODAL */}
+            <AnimatePresence>
+              {isAddingAd && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  style={{ position: 'fixed', inset: 0, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                >
+                  <motion.div 
+                    initial={{ scale: 0.9, y: 20 }}
+                    animate={{ scale: 1, y: 0 }}
+                    style={{ backgroundColor: '#0f172a', width: '100%', maxWidth: 640, borderRadius: 32, border: '1px solid rgba(255, 255, 255, 0.1)', padding: deviceType === 'MOBILE' ? 24 : 48, position: 'relative' }}
+                  >
+                    <button onClick={() => setIsAddingAd(false)} style={{ position: 'absolute', top: 24, right: 24, background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={32} /></button>
+                    <h2 style={{ fontSize: 32, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', margin: '0 0 8px 0' }}>Deploy Strategic Asset</h2>
+                    <p style={{ color: '#64748b', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 4, margin: '0 0 40px 0' }}>Ads Engine Broadcast System</p>
+                    
+                    <form onSubmit={handleAddAdSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Asset Title</label>
+                        <input required value={newAd.title} onChange={e => setNewAd({...newAd, title: e.target.value})} placeholder="e.g. Special Rewards v2" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Image Banner URL</label>
+                        <input value={newAd.imageUrl} onChange={e => setNewAd({...newAd, imageUrl: e.target.value})} placeholder="https://..." style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Video URL (Optional Embed/Direct)</label>
+                        <input value={newAd.videoUrl} onChange={e => setNewAd({...newAd, videoUrl: e.target.value})} placeholder="https://youtube.com/..." style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Call-to-Action Link</label>
+                        <input value={newAd.link} onChange={e => setNewAd({...newAd, link: e.target.value})} placeholder="https://google.com" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />
+                      </div>
+                      <button type="submit" style={{ backgroundColor: '#ea580c', color: '#fff', fontWeight: 900, padding: 20, borderRadius: 16, border: 'none', cursor: 'pointer', transition: 'all 0.2s', marginTop: 16, fontSize: 14, textTransform: 'uppercase', letterSpacing: 4 }}>
+                        Initiate Global Broadcast
+                      </button>
+                    </form>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
         </div>
 
         <aside style={{ width: deviceType === 'DESKTOP' ? 400 : '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
