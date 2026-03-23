@@ -892,6 +892,13 @@ export default function App() {
               maxZoom={19}
               noWrap={true}
             />
+            {/* Overlay for transparent Country and State labels */}
+            <TileLayer
+              url="https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+              maxZoom={19}
+              noWrap={true}
+              zIndex={10}
+            />
             <LeafletMapEvents 
               onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} 
               onZoomEnd={(zoom: number) => {
