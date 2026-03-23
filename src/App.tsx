@@ -315,10 +315,10 @@ const AdminPanel = () => {
                 style={{ display: 'grid', gridTemplateColumns: deviceType === 'DESKTOP' ? 'repeat(auto-fill, minmax(350px, 1fr))' : deviceType === 'TABLET' ? '1fr 1fr' : '1fr', gap: 16 }}
               >
                 {chests.map((chest, i) => {
-                  const displayTier = chest.tier === 'platinum' ? 'bronze' : chest.tier;
+                  const displayTier = (chest.tier as any) === 'platinum' ? 'bronze' : chest.tier;
                   return (
                     <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, border: '1px solid rgba(255, 255, 255, 0.01)' }}>
+                      <div style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, border: '2px solid', borderColor: displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706', boxShadow: `0 0 15px ${displayTier === 'gold' ? '#fbbf2433' : '#ffffff11'}` }}>
                         🎁
                       </div>
                       <div style={{ flex: 1, marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}>
@@ -391,6 +391,7 @@ const AdminPanel = () => {
                 </div>
               </motion.div>
             )}
+          </AnimatePresence>
             {/* AD CREATION MODAL */}
             <AnimatePresence>
               {isAddingAd && (
@@ -719,6 +720,15 @@ export default function App() {
     }
   };
 
+  const handleDeleteDrop = async (id: string) => {
+    if (!window.confirm('PERMANENTLY SHRED THIS INTEL DROP?')) return;
+    try {
+      await axios.delete(`${API_URL}/chests/${id}`);
+      setChests(chests.filter(c => (c._id !== id && c.id !== id)));
+      alert('CLEARED: SECURE WIPEOUT COMPLETE');
+    } catch (e) { alert('WIPEOUT FAILED'); }
+  };
+
   const finalizeDrop = async () => {
     if (!isDropping || !currentUser || !tempTier || isDeploying) return;
     setIsDeploying(true);
@@ -751,14 +761,6 @@ export default function App() {
     }
   };
 
-  const handleDeleteDrop = async (id: string) => {
-    if (!confirm('CONFIRM DELETION OF INTEL?')) return;
-    try {
-      await axios.delete(`${API_URL}/chests/${id}`);
-      setChests(prev => prev.filter(c => c._id !== id && c.id !== id));
-      alert('REMOVED FROM SECTOR');
-    } catch (e: any) { alert('DELETE FAILED'); }
-  };
 
   const handleRequestAction = async (chestId: string, fromUser: string, status: 'accepted' | 'rejected') => {
     await axios.patch(`${API_URL}/chests/${chestId}/requests`, { from: fromUser, status });
