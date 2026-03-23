@@ -122,11 +122,20 @@ const AdminPanel = () => {
   const handleAddAdSubmit = async (e: any) => {
     e.preventDefault();
     if (!newAd.title) return;
+    
+    const formData = new FormData();
+    formData.append('title', newAd.title);
+    if (newAd.imageUrl) formData.append('imageUrl', newAd.imageUrl);
+    if (newAd.videoUrl) formData.append('videoUrl', newAd.videoUrl);
+    if (newAd.link) formData.append('link', newAd.link);
+    if (selectedFile) formData.append('file', selectedFile);
+
     try {
-      const res = await axios.post(`${API_URL}/ads`, newAd);
+      const res = await axios.post(`${API_URL}/ads`, formData);
       setAds([res.data, ...ads]);
       setIsAddingAd(false);
       setNewAd({ title: '', imageUrl: '', videoUrl: '', link: '' });
+      setSelectedFile(null);
       alert('AD BROADCASTED LIVE');
     } catch (e) { alert('BROADCAST FAILED'); }
   };
@@ -415,6 +424,11 @@ const AdminPanel = () => {
                         <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Asset Title</label>
                         <input required value={newAd.title} onChange={e => setNewAd({...newAd, title: e.target.value})} placeholder="e.g. Special Rewards v2" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />
                       </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <label style={{ fontSize: 9, fontWeight: 900, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: 2 }}>Option 1: Strategic Asset File (Img/Vid)</label>
+                        <input type="file" accept="image/*,video/*" onChange={e => setSelectedFile(e.target.files?.[0] || null)} style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid #3b82f633', padding: 16, borderRadius: 12, color: '#fff', fontSize: 14 }} />
+                      </div>
+                      <div style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center', fontSize: 9, fontWeight: 900, color: '#64748b' }}>--- OR MANUALLY PROVIDE DATA ---</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Image Banner URL</label>
                         <input value={newAd.imageUrl} onChange={e => setNewAd({...newAd, imageUrl: e.target.value})} placeholder="https://..." style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />

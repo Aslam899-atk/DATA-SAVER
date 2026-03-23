@@ -203,9 +203,19 @@ app.get('/api/ads', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.post('/api/ads', async (req, res) => {
+app.post('/api/ads', upload.single('file'), async (req, res) => {
   try {
-    const { title, imageUrl, videoUrl, link } = req.body;
+    let { title, imageUrl, videoUrl, link } = req.body;
+    
+    // If a file was uploaded from the admin panel
+    if (req.file) {
+      if (req.file.mimetype.startsWith('video/')) {
+        videoUrl = req.file.path;
+      } else {
+        imageUrl = req.file.path;
+      }
+    }
+
     const newAd = new Ad({ title, imageUrl, videoUrl, link });
     await newAd.save();
     res.status(201).json(newAd);
