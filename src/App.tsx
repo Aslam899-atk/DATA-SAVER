@@ -64,10 +64,16 @@ const AdminPanel = () => {
   const [chests, setChests] = useState<Chest[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [ads, setAds] = useState<any[]>([]);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [deviceType, setDeviceType] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    const handleResize = () => {
+      const w = window.innerWidth;
+      if (w < 640) setDeviceType('MOBILE');
+      else if (w < 1024) setDeviceType('TABLET');
+      else setDeviceType('DESKTOP');
+    };
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -200,12 +206,12 @@ const AdminPanel = () => {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0a0f1d', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* HEADER */}
-      <header style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 80, backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 20px' : '0 48px' }}>
+      <header style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 80, backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: deviceType === 'MOBILE' ? '0 16px' : '0 48px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ width: 32, height: 32, backgroundColor: '#2563eb', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ fontSize: 16 }}>💼</span>
           </div>
-          <h1 style={{ fontSize: isMobile ? 16 : 20, fontWeight: 900, textTransform: 'uppercase', letterSpacing: isMobile ? '1px' : '4px', fontStyle: 'italic', margin: 0 }}>Command Center</h1>
+          <h1 style={{ fontSize: deviceType === 'MOBILE' ? 14 : 20, fontWeight: 900, textTransform: 'uppercase', letterSpacing: deviceType === 'MOBILE' ? '1px' : '4px', fontStyle: 'italic', margin: 0 }}>Command Center</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={handleMigrateTiers} style={{ fontSize: 9, background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid #3b82f6', padding: '10px 16px', borderRadius: 10, cursor: 'pointer', fontWeight: 900, textTransform: 'uppercase' }}>MIGRATE ASSETS</button>
@@ -219,14 +225,14 @@ const AdminPanel = () => {
         </div>
       </header>
 
-      <div style={{ paddingTop: 100, paddingBottom: 80, paddingLeft: isMobile ? 20 : 48, paddingRight: isMobile ? 20 : 48, display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 24 : 48, maxWidth: 1800, margin: '0 auto' }}>
+      <div style={{ paddingTop: 100, paddingBottom: 80, paddingLeft: deviceType === 'MOBILE' ? 16 : 48, paddingRight: deviceType === 'MOBILE' ? 16 : 48, display: 'flex', flexDirection: deviceType === 'DESKTOP' ? 'row' : 'column', gap: deviceType === 'MOBILE' ? 24 : 48, maxWidth: 1800, margin: '0 auto' }}>
         {/* Main Content Area */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
           {/* TABS */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: isMobile ? 24 : 40, overflowX: 'auto', paddingBottom: 8 }} className="hide-scrollbar">
+          <div style={{ display: 'flex', gap: 12, marginBottom: 32, overflowX: 'auto', paddingBottom: 8 }} className="hide-scrollbar">
             <button 
               onClick={() => setActiveTab('OPERATORS')} 
-              style={{ flexShrink: 0, padding: isMobile ? '12px 24px' : '20px 40px', fontSize: isMobile ? 14 : 20, fontWeight: 900, borderRadius: 12, transition: 'all 0.3s', border: '2px solid', 
+              style={{ flexShrink: 0, padding: deviceType === 'MOBILE' ? '12px 24px' : '20px 40px', fontSize: deviceType === 'MOBILE' ? 12 : 18, fontWeight: 900, borderRadius: 12, transition: 'all 0.3s', border: '2px solid', 
                 backgroundColor: activeTab === 'OPERATORS' ? '#2563eb' : '#0f172a',
                 borderColor: activeTab === 'OPERATORS' ? '#60a5fa' : 'rgba(255, 255, 255, 0.05)',
                 color: activeTab === 'OPERATORS' ? '#fff' : '#64748b',
@@ -237,7 +243,7 @@ const AdminPanel = () => {
             </button>
             <button 
               onClick={() => setActiveTab('DROPS')} 
-              style={{ flexShrink: 0, padding: isMobile ? '12px 24px' : '20px 40px', fontSize: isMobile ? 14 : 20, fontWeight: 900, borderRadius: 12, transition: 'all 0.3s', border: '2px solid', 
+              style={{ flexShrink: 0, padding: deviceType === 'MOBILE' ? '12px 24px' : '20px 40px', fontSize: deviceType === 'MOBILE' ? 14 : 20, fontWeight: 900, borderRadius: 12, transition: 'all 0.3s', border: '2px solid', 
                 backgroundColor: activeTab === 'DROPS' ? '#10b981' : '#0f172a',
                 borderColor: activeTab === 'DROPS' ? '#34d399' : 'rgba(255, 255, 255, 0.05)',
                 color: activeTab === 'DROPS' ? '#fff' : '#64748b',
@@ -248,7 +254,7 @@ const AdminPanel = () => {
             </button>
             <button 
               onClick={() => setActiveTab('ADS')} 
-              style={{ flexShrink: 0, padding: isMobile ? '12px 24px' : '20px 40px', fontSize: isMobile ? 14 : 20, fontWeight: 900, borderRadius: 12, transition: 'all 0.3s', border: '2px solid', 
+              style={{ flexShrink: 0, padding: deviceType === 'MOBILE' ? '12px 24px' : '20px 40px', fontSize: deviceType === 'MOBILE' ? 14 : 20, fontWeight: 900, borderRadius: 12, transition: 'all 0.3s', border: '2px solid', 
                 backgroundColor: activeTab === 'ADS' ? '#ea580c' : '#0f172a',
                 borderColor: activeTab === 'ADS' ? '#fb923c' : 'rgba(255, 255, 255, 0.05)',
                 color: activeTab === 'ADS' ? '#fff' : '#64748b',
@@ -267,7 +273,7 @@ const AdminPanel = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(350px, 1fr))', gap: 16 }}
+                style={{ display: 'grid', gridTemplateColumns: deviceType === 'DESKTOP' ? 'repeat(auto-fill, minmax(350px, 1fr))' : deviceType === 'TABLET' ? '1fr 1fr' : '1fr', gap: 16 }}
               >
                 {Array.from(new Set([...users.map(u => u.username), ...chests.map(c => c.droppedBy)])).filter(Boolean).map((username, i) => {
                   const user = users.find(u => u.username === username);
@@ -306,7 +312,7 @@ const AdminPanel = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(350px, 1fr))', gap: 16 }}
+                style={{ display: 'grid', gridTemplateColumns: deviceType === 'DESKTOP' ? 'repeat(auto-fill, minmax(350px, 1fr))' : deviceType === 'TABLET' ? '1fr 1fr' : '1fr', gap: 16 }}
               >
                 {chests.map((chest, i) => (
                   <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
@@ -355,7 +361,7 @@ const AdminPanel = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: deviceType === 'DESKTOP' ? 'repeat(auto-fill, minmax(280px, 1fr))' : deviceType === 'TABLET' ? '1fr 1fr' : '1fr', gap: 16 }}>
                   {ads.map((ad: any, i) => (
                     <div key={ad._id || i} style={{ aspectRatio: '16/9', backgroundColor: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 24, overflow: 'hidden', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
                       {ad.videoUrl ? (
@@ -375,8 +381,8 @@ const AdminPanel = () => {
                     </div>
                   ))}
                   {ads.length === 0 && (
-                    <div style={{ gridColumn: '1 / -1', padding: isMobile ? 40 : 80, backgroundColor: 'rgba(15, 23, 42, 0.2)', borderRadius: 48, border: '2px dashed rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
-                      <p style={{ fontSize: isMobile ? 18 : 24, fontWeight: 700, color: '#475569', fontStyle: 'italic', margin: 0 }}>No active broadcasts (Add an ad to see previews).</p>
+                    <div style={{ gridColumn: '1 / -1', padding: deviceType === 'MOBILE' ? 40 : 80, backgroundColor: 'rgba(15, 23, 42, 0.2)', borderRadius: 48, border: '2px dashed rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
+                      <p style={{ fontSize: deviceType === 'MOBILE' ? 18 : 24, fontWeight: 700, color: '#475569', fontStyle: 'italic', margin: 0 }}>No active broadcasts (Add an ad to see previews).</p>
                     </div>
                   )}
                 </div>
@@ -385,9 +391,8 @@ const AdminPanel = () => {
           </AnimatePresence>
         </div>
 
-        {/* RIGHT HUD */}
-        <aside style={{ width: isMobile ? '100%' : 400, display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div style={{ backgroundColor: '#020617', padding: isMobile ? 24 : 40, borderRadius: isMobile ? 32 : 48, border: '2px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', position: isMobile ? 'relative' : 'sticky', top: isMobile ? 0 : 128, display: 'flex', flexDirection: 'column', gap: isMobile ? 24 : 40 }}>
+        <aside style={{ width: deviceType === 'DESKTOP' ? 400 : '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ backgroundColor: '#020617', padding: deviceType === 'MOBILE' ? 24 : 40, borderRadius: deviceType === 'MOBILE' ? 32 : 48, border: '2px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', position: deviceType === 'DESKTOP' ? 'sticky' : 'relative', top: deviceType === 'DESKTOP' ? 128 : 0, display: 'flex', flexDirection: 'column', gap: deviceType === 'MOBILE' ? 24 : 40 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{ width: 8, height: 8, backgroundColor: '#3b82f6', borderRadius: '50%' }}></div>
               <h4 style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', color: '#64748b', letterSpacing: '4px', margin: 0 }}>Operational Metrics</h4>
@@ -548,10 +553,16 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(false);
   const [mapMode, setMapMode] = useState<'3d' | '2d'>('3d');
   const [isDeploying, setIsDeploying] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [deviceType, setDeviceType] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    const handleResize = () => {
+      const w = window.innerWidth;
+      if (w < 640) setDeviceType('MOBILE');
+      else if (w < 1024) setDeviceType('TABLET');
+      else setDeviceType('DESKTOP');
+    };
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -793,11 +804,11 @@ export default function App() {
       </div>
 
       {/* TOP USER BAR */}
-      <div style={{ position: 'fixed', top: 20, left: isMobile ? 10 : '50%', right: isMobile ? 10 : 'auto', transform: isMobile ? 'none' : 'translateX(-50%)', zIndex: 300, display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16, padding: isMobile ? '8px 16px' : '12px 28px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 10px 40px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-        {/* APP LOGO - Hide text on mobile to save space */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: isMobile ? 8 : 20, paddingRight: isMobile ? 8 : 20, borderRight: '1px solid rgba(255,255,255,0.1)' }}>
-          <span style={{ fontSize: isMobile ? 20 : 24 }}>📦</span>
-          {!isMobile && <span style={{ fontSize: 14, fontWeight: 900, color: '#5ba4e5', letterSpacing: 1, textTransform: 'uppercase' }}>DATA SAVER</span>}
+      <div style={{ position: 'fixed', top: 20, left: deviceType === 'MOBILE' ? 10 : '50%', right: deviceType === 'MOBILE' ? 10 : 'auto', transform: deviceType === 'MOBILE' ? 'none' : 'translateX(-50%)', zIndex: 300, display: 'flex', alignItems: 'center', gap: deviceType === 'MOBILE' ? 8 : 16, padding: deviceType === 'MOBILE' ? '8px 16px' : '12px 28px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 10px 40px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+        {/* APP LOGO */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: deviceType === 'MOBILE' ? 8 : 20, paddingRight: deviceType === 'MOBILE' ? 8 : 20, borderRight: '1px solid rgba(255,255,255,0.1)' }}>
+          <span style={{ fontSize: deviceType === 'MOBILE' ? 20 : 24 }}>📦</span>
+          {deviceType !== 'MOBILE' && <span style={{ fontSize: 14, fontWeight: 900, color: '#5ba4e5', letterSpacing: 1, textTransform: 'uppercase' }}>DATA SAVER</span>}
         </div>
         {currentUser ? (
           <>
@@ -836,7 +847,7 @@ export default function App() {
       </div>
 
       {/* PUBLIC STATISTICS HUD (RIGHT) - Hide on mobile map to avoid clutter */}
-      {!isMobile && (
+      {deviceType !== 'MOBILE' && (
         <div style={{ position: 'fixed', top: 130, right: 20, zIndex: 100, pointerEvents: 'none' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRight: '4px solid #f97316', borderRadius: 10 }}>
             <span style={{ fontSize: 26, fontWeight: 900, color: '#fff', fontStyle: 'italic' }}>{chests.length}</span>
