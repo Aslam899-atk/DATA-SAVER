@@ -861,7 +861,7 @@ export default function App() {
             return el;
           }}
           htmlLat="lat" htmlLng="lng"
-          htmlAltitude={(d: any) => (d.tier === 'gold' ? 0.4 : d.tier === 'silver' ? 0.3 : 0.2)}
+          htmlAltitude={0.02}
           {...({ onCameraMove: ((v: any) => {
              // Precise zoom automation: switch to 2D Street View below altitude threshold
              if (v.altitude < 0.4 && mapMode === '3d') {
