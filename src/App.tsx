@@ -31,7 +31,7 @@ interface Chest {
   _id?: string;
   lat: number;
   lng: number;
-  tier: 'gold' | 'silver' | 'bronze';
+  tier: 'gold' | 'silver' | 'bronze' | 'platinum';
   fileName: string;
   fileSize: string;
   fileUrl?: string;
@@ -51,6 +51,7 @@ interface UserProfile {
   email: string;
   username: string;
   isAdmin: boolean;
+  avatarUrl?: string;
 }
 
 const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
@@ -114,7 +115,7 @@ const AdminPanel = () => {
   const handleMigrateTiers = async () => {
      if (confirm('PERMANENTLY MIGRATE ALL LEGACY ASSETS TO BRONZE?')) {
        try {
-         const res = await axios.post(`${API_URL}/admin/migrate-tiers`);
+         await axios.post(`${API_URL}/admin/migrate-tiers`);
          alert(`MIGRATION SUCCESS: units updated`);
          window.location.reload();
        } catch (e) { alert('MIGRATION FAILED'); }
@@ -522,11 +523,14 @@ const AdminPanel = () => {
   );
 };
 
-const LeafletMapEvents = ({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) => {
-  useMapEvents({
+const LeafletMapEvents = ({ onMapClick, onZoomEnd }: { onMapClick: (lat: number, lng: number) => void, onZoomEnd?: (zoom: number) => void }) => {
+  const map = useMapEvents({
     click(e: any) {
       onMapClick(e.latlng.lat, e.latlng.lng);
     },
+    zoomend() {
+      if (onZoomEnd) onZoomEnd(map.getZoom());
+    }
   });
   return null;
 };
@@ -836,6 +840,7 @@ export default function App() {
 
       {/* 3D GLOBE RENDERED PUBLICLY */}
       <div style={{ position: 'absolute', inset: 0, zIndex: mapMode === '3d' ? 10 : 0, opacity: mapMode === '3d' ? 1 : 0, pointerEvents: mapMode === '3d' ? 'auto' : 'none', transition: 'opacity 0.5s' }} className="globe-container">
+        {/* @ts-ignore - react-globe.gl types might not include onCameraMove even though it works */}
         <Globe
           ref={globeEl}
           globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
@@ -857,12 +862,12 @@ export default function App() {
           }}
           htmlLat="lat" htmlLng="lng"
           htmlAltitude={(d: any) => (d.tier === 'gold' ? 0.4 : d.tier === 'silver' ? 0.3 : 0.2)}
-          onCameraMove={(v: any) => {
+          {...({ onCameraMove: ((v: any) => {
              // Precise zoom automation: switch to 2D Street View below altitude threshold
              if (v.altitude < 0.4 && mapMode === '3d') {
                 setMapMode('2d');
              }
-          }}
+          }) } as any)}
           ringsData={chests}
           ringLat="lat" ringLng="lng"
           ringColor={(d: any) => (d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#d97706')}
