@@ -55,10 +55,12 @@ interface UserProfile {
 const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
 
 const AdminPanel = () => {
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
+    return localStorage.getItem('isAdminLoggedIn') === 'true';
+  });
   const [adminUser, setAdminUser] = useState('');
   const [adminPass, setAdminPass] = useState('');
-  const [activeTab, setActiveTab] = useState<'DROPS' | 'ADS'>('DROPS');
+  const [activeTab, setActiveTab] = useState<'OPERATORS' | 'ADS' | 'DROPS'>('OPERATORS');
   const [chests, setChests] = useState<Chest[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
 
@@ -76,6 +78,7 @@ const AdminPanel = () => {
     
     if (cleanUser === 'aslam' && cleanPass === '313 aslam 786') {
       setIsAdminLoggedIn(true);
+      localStorage.setItem('isAdminLoggedIn', 'true');
       setAdminPass(''); // Clear sensitive info
     } else {
       alert('ACCESS DENIED: Invalid Admin Credentials');
@@ -161,7 +164,7 @@ const AdminPanel = () => {
           <h1 className="text-xl font-black uppercase tracking-widest italic">Command Center</h1>
         </div>
         <button 
-          onClick={() => setIsAdminLoggedIn(false)}
+          onClick={() => { setIsAdminLoggedIn(false); localStorage.removeItem('isAdminLoggedIn'); }}
           className="flex items-center gap-3 bg-white/5 hover:bg-white/10 px-6 py-2.5 rounded-xl border border-white/10 transition-all font-bold text-sm uppercase"
         >
           <LogOut size={16} />
@@ -173,11 +176,11 @@ const AdminPanel = () => {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col pt-4">
           {/* TABS */}
-          <div className="flex gap-4 mb-10">
+          <div className="flex gap-4 mb-10 overflow-x-auto pb-4 no-scrollbar">
             <button 
-              onClick={() => setActiveTab('DROPS')} 
-              className={`px-12 py-5 text-2xl font-black rounded-2xl transition-all border-2 ${
-                activeTab === 'DROPS' 
+              onClick={() => setActiveTab('OPERATORS')} 
+              className={`px-10 py-5 text-xl font-black rounded-2xl transition-all border-2 flex-shrink-0 ${
+                activeTab === 'OPERATORS' 
                 ? 'bg-blue-600 border-blue-400 shadow-[0_0_30px_rgba(37,99,235,0.3)]' 
                 : 'bg-slate-900 border-white/5 text-slate-500 hover:border-white/10'
               }`}
@@ -185,8 +188,18 @@ const AdminPanel = () => {
               OPERATORS
             </button>
             <button 
+              onClick={() => setActiveTab('DROPS')} 
+              className={`px-10 py-5 text-xl font-black rounded-2xl transition-all border-2 flex-shrink-0 ${
+                activeTab === 'DROPS' 
+                ? 'bg-emerald-600 border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]' 
+                : 'bg-slate-900 border-white/5 text-slate-500 hover:border-white/10'
+              }`}
+            >
+              INTEL DROPS
+            </button>
+            <button 
               onClick={() => setActiveTab('ADS')} 
-              className={`px-12 py-5 text-2xl font-black rounded-2xl transition-all border-2 ${
+              className={`px-10 py-5 text-xl font-black rounded-2xl transition-all border-2 flex-shrink-0 ${
                 activeTab === 'ADS' 
                 ? 'bg-orange-600 border-orange-400 shadow-[0_0_30px_rgba(234,88,12,0.3)]' 
                 : 'bg-slate-900 border-white/5 text-slate-500 hover:border-white/10'
@@ -196,11 +209,11 @@ const AdminPanel = () => {
             </button>
           </div>
 
-          {/* TAB CONTENT: DROPS (Shows Users) */}
           <AnimatePresence mode="wait">
-            {activeTab === 'DROPS' && (
+            {/* TAB CONTENT: OPERATORS */}
+            {activeTab === 'OPERATORS' && (
               <motion.div 
-                key="drops"
+                key="operators"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
@@ -225,6 +238,42 @@ const AdminPanel = () => {
                 {users.length === 0 && (
                   <div className="col-span-full py-20 bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-white/5 text-center">
                     <p className="text-2xl font-bold text-slate-600 italic">No operators detected in sector.</p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* TAB CONTENT: INTEL DROPS */}
+            {activeTab === 'DROPS' && (
+              <motion.div 
+                key="intel-drops"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="grid grid-cols-1 xl:grid-cols-2 gap-6"
+              >
+                {chests.map((chest, i) => (
+                  <div key={chest._id || chest.id || i} className="group bg-slate-900/40 backdrop-blur-sm border border-white/5 p-6 rounded-3xl flex items-center hover:border-emerald-500/50 transition-all shadow-xl">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center font-black text-4xl shadow-inner border border-white/5">
+                      {chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🥈' : '🛡️'}
+                    </div>
+                    <div className="flex-1 ml-6 space-y-1 overflow-hidden">
+                      <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest truncate">Node: {chest.droppedBy}</div>
+                      <div className="text-lg font-bold font-mono text-slate-200 truncate pr-4">
+                        {chest.fileName}
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => handleDeleteChest((chest._id || chest.id)!)}
+                      className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-lg"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                ))}
+                {chests.length === 0 && (
+                  <div className="col-span-full py-20 bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-white/5 text-center">
+                    <p className="text-2xl font-bold text-slate-600 italic">No intel drops deployed in this sector.</p>
                   </div>
                 )}
               </motion.div>
