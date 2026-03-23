@@ -32,10 +32,19 @@ mongoose.connect(process.env.MONGODB_URI).then(() => console.log("MongoDB Connec
   .catch((err) => console.log("MongoDB Error: ", err));
 
 // --- Schemas & Models ---
+const UserSchema = new mongoose.Schema({
+  googleId: String,
+  email: String,
+  username: String,
+  lastLogin: { type: Date, default: Date.now }
+});
+
+const User = mongoose.model('User', UserSchema);
+
 const ChestSchema = new mongoose.Schema({
   lat: Number,
   lng: Number,
-  tier: { type: String, enum: ['platinum', 'gold', 'silver', 'bronze'] },
+  tier: { type: String, enum: ['platinum', 'gold', 'silver'] },
   fileName: String,
   fileSize: String,
   fileUrl: String,   
@@ -56,6 +65,28 @@ const ChestSchema = new mongoose.Schema({
 const Chest = mongoose.model('Chest', ChestSchema);
 
 // --- Routes ---
+
+app.post('/api/users/login', async (req, res) => {
+  try {
+    const { googleId, email, username } = req.body;
+    let user = await User.findOne({ googleId });
+    if (user) {
+      user.lastLogin = Date.now();
+      await user.save();
+    } else {
+      user = new User({ googleId, email, username });
+      await user.save();
+    }
+    res.json(user);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await User.find().sort({ lastLogin: -1 });
+    res.json(users);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
 app.get('/api/chests', async (req, res) => {
   try {
     const chests = await Chest.find();

@@ -31,7 +31,7 @@ interface Chest {
   _id?: string;
   lat: number;
   lng: number;
-  tier: 'gold' | 'silver' | 'bronze';
+  tier: 'gold' | 'silver' | 'platinum';
   fileName: string;
   fileSize: string;
   fileUrl?: string;
@@ -60,24 +60,30 @@ const AdminPanel = () => {
   const [adminPass, setAdminPass] = useState('');
   const [activeTab, setActiveTab] = useState<'DROPS' | 'ADS'>('DROPS');
   const [chests, setChests] = useState<Chest[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
 
   useEffect(() => {
     if (isAdminLoggedIn) {
       axios.get(`${API_URL}/chests`).then(res => setChests(res.data));
+      axios.get(`${API_URL}/users`).then(res => setUsers(res.data));
     }
   }, [isAdminLoggedIn]);
 
   const handleLogin = (e: any) => {
     e.preventDefault();
-    if (adminUser === 'aslam' && adminPass === '313 aslam 786') {
+    const cleanUser = adminUser.trim().toLowerCase();
+    const cleanPass = adminPass.trim();
+    
+    if (cleanUser === 'aslam' && cleanPass === '313 aslam 786') {
       setIsAdminLoggedIn(true);
+      setAdminPass(''); // Clear sensitive info
     } else {
-      alert('Invalid admin credentials');
+      alert('ACCESS DENIED: Invalid Admin Credentials');
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Delete this drop?')) {
+  const handleDeleteChest = async (id: string) => {
+    if (window.confirm('WARNING: PERMANENTLY DELETE THIS INTEL DROP?')) {
       await axios.delete(`${API_URL}/chests/${id}`);
       setChests(chests.filter(c => c._id !== id && c.id !== id));
     }
@@ -85,85 +91,235 @@ const AdminPanel = () => {
 
   if (!isAdminLoggedIn) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
-        <form onSubmit={handleLogin} className="bg-[#5ba4e5] p-10 rounded-[2.5rem] border-2 border-black flex flex-col gap-6 w-full max-w-sm shadow-2xl">
-          <h2 className="text-3xl font-black text-center mb-4 uppercase text-black">Admin Access</h2>
-          <input type="text" value={adminUser} onChange={e => setAdminUser(e.target.value)} placeholder="Username" className="p-4 rounded-xl border-2 border-black font-bold text-lg bg-white/60" />
-          <input type="password" value={adminPass} onChange={e => setAdminPass(e.target.value)} placeholder="Password" className="p-4 rounded-xl border-2 border-black font-bold text-lg bg-white/60" />
-          <button type="submit" className="bg-black text-[#5ba4e5] font-black py-4 rounded-xl text-xl uppercase tracking-widest hover:bg-black/80 shadow-[0_4px_0_0_#fff] active:shadow-none active:translate-y-1">Login</button>
-        </form>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 relative overflow-hidden">
+        {/* Animated Background Elements */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[120px] rounded-full animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-orange-600/20 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative z-10 w-full max-w-md"
+        >
+          <form 
+            onSubmit={handleLogin} 
+            className="bg-slate-900/80 backdrop-blur-xl p-12 rounded-[3rem] border-2 border-white/10 flex flex-col gap-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+          >
+            <div className="text-center space-y-2">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-3xl mb-4 shadow-lg shadow-blue-600/20">
+                <span className="text-4xl">🔐</span>
+              </div>
+              <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic">Admin Portal</h2>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">Authorized Personnel Only</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={adminUser} 
+                  onChange={e => setAdminUser(e.target.value)} 
+                  placeholder="Username" 
+                  className="w-full p-5 rounded-2xl border-2 border-white/5 bg-white/5 text-white font-bold text-lg focus:border-blue-500 focus:bg-white/10 transition-all outline-none" 
+                />
+              </div>
+              <div className="relative">
+                <input 
+                  type="password" 
+                  value={adminPass} 
+                  onChange={e => setAdminPass(e.target.value)} 
+                  placeholder="Access Code" 
+                  className="w-full p-5 rounded-2xl border-2 border-white/5 bg-white/5 text-white font-bold text-lg focus:border-blue-500 focus:bg-white/10 transition-all outline-none" 
+                />
+              </div>
+            </div>
+
+            <button 
+              type="submit" 
+              className="bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl text-xl uppercase tracking-widest transition-all shadow-[0_8px_0_0_#1e3a8a] active:shadow-none active:translate-y-1"
+            >
+              Initiate Login
+            </button>
+
+            <p className="text-center text-slate-500 text-[10px] font-medium uppercase tracking-widest">
+              Secured Connection • System v4.0.2
+            </p>
+          </form>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white text-black font-sans p-10 flex gap-8">
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col pt-4 max-w-5xl">
-        {/* TABS */}
-        <div className="flex w-full mb-10 h-16">
-          <button onClick={() => setActiveTab('DROPS')} className={`flex-1 text-3xl font-bold border-2 border-black bg-[#5ba4e5] transition-all shadow-md ${activeTab === 'DROPS' ? 'border-red-500 border-4 z-10' : ''}`}>DROPS</button>
-          <button onClick={() => setActiveTab('ADS')} className={`flex-1 text-3xl font-bold border-2 border-black bg-[#5ba4e5] -ml-[2px] transition-all shadow-md ${activeTab === 'ADS' ? 'border-red-500 border-4 z-10' : ''}`}>ADS</button>
+    <div className="min-h-screen bg-[#0a0f1d] text-white font-sans selection:bg-blue-500/30">
+      {/* HEADER */}
+      <header className="fixed top-0 left-0 right-0 h-20 bg-slate-900/50 backdrop-blur-md border-b border-white/5 z-50 flex items-center justify-between px-12">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
+            <span className="text-xl">💼</span>
+          </div>
+          <h1 className="text-xl font-black uppercase tracking-widest italic">Command Center</h1>
+        </div>
+        <button 
+          onClick={() => setIsAdminLoggedIn(false)}
+          className="flex items-center gap-3 bg-white/5 hover:bg-white/10 px-6 py-2.5 rounded-xl border border-white/10 transition-all font-bold text-sm uppercase"
+        >
+          <LogOut size={16} />
+          Terminal Exit
+        </button>
+      </header>
+
+      <div className="pt-32 pb-20 px-12 flex gap-12 max-w-[1800px] mx-auto">
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col pt-4">
+          {/* TABS */}
+          <div className="flex gap-4 mb-10">
+            <button 
+              onClick={() => setActiveTab('DROPS')} 
+              className={`px-12 py-5 text-2xl font-black rounded-2xl transition-all border-2 ${
+                activeTab === 'DROPS' 
+                ? 'bg-blue-600 border-blue-400 shadow-[0_0_30px_rgba(37,99,235,0.3)]' 
+                : 'bg-slate-900 border-white/5 text-slate-500 hover:border-white/10'
+              }`}
+            >
+              OPERATORS
+            </button>
+            <button 
+              onClick={() => setActiveTab('ADS')} 
+              className={`px-12 py-5 text-2xl font-black rounded-2xl transition-all border-2 ${
+                activeTab === 'ADS' 
+                ? 'bg-orange-600 border-orange-400 shadow-[0_0_30px_rgba(234,88,12,0.3)]' 
+                : 'bg-slate-900 border-white/5 text-slate-500 hover:border-white/10'
+              }`}
+            >
+              ADS ENGINE
+            </button>
+          </div>
+
+          {/* TAB CONTENT: DROPS (Shows Users) */}
+          <AnimatePresence mode="wait">
+            {activeTab === 'DROPS' && (
+              <motion.div 
+                key="drops"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="grid grid-cols-1 xl:grid-cols-2 gap-6"
+              >
+                {users.map((user, i) => (
+                  <div key={user.id || i} className="group bg-slate-900/40 backdrop-blur-sm border border-white/5 p-6 rounded-3xl flex items-center hover:border-blue-500/50 transition-all shadow-xl">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center font-black text-2xl text-blue-500 border border-white/5 shadow-inner">
+                      {String(i + 1).padStart(2, '0')}
+                    </div>
+                    <div className="flex-1 ml-6 space-y-1">
+                      <div className="text-sm font-black text-slate-500 uppercase tracking-widest">Operator Node</div>
+                      <div className="text-xl font-bold font-mono text-slate-200">
+                        {user.email}
+                      </div>
+                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform cursor-pointer">
+                      <Smartphone size={20} />
+                    </div>
+                  </div>
+                ))}
+                {users.length === 0 && (
+                  <div className="col-span-full py-20 bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-white/5 text-center">
+                    <p className="text-2xl font-bold text-slate-600 italic">No operators detected in sector.</p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* TAB CONTENT: ADS */}
+            {activeTab === 'ADS' && (
+              <motion.div 
+                key="ads"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="space-y-8"
+              >
+                <div className="bg-gradient-to-r from-orange-600/20 to-transparent border-l-4 border-orange-500 p-8 rounded-3xl flex items-center justify-between">
+                  <div>
+                    <h3 className="text-3xl font-black uppercase italic tracking-tighter">Broadcast Distribution</h3>
+                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Global Ad Network Management</p>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <span className="font-black text-slate-500 text-lg italic">Max Payload: 15s</span>
+                    <button className="bg-white text-black font-black px-8 py-4 rounded-2xl uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg">
+                      Upload Strategic Asset
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 gap-6">
+                  {Array.from({ length: 18 }).map((_, i) => (
+                    <div key={i} className="aspect-square bg-slate-900 border border-white/5 rounded-[2.5rem] flex flex-col items-center justify-center gap-4 shadow-xl hover:border-orange-500/50 hover:scale-[1.02] transition-all cursor-pointer group">
+                      <span className="text-4xl group-hover:animate-bounce">📺</span>
+                      <span className="font-black text-[10px] text-slate-500 uppercase tracking-widest">Slot {i + 1} Empty</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* TAB CONTENT: DROPS */}
-        {activeTab === 'DROPS' && (
-          <div className="flex flex-col gap-5">
-            {chests.map(chest => (
-              <div key={chest._id || chest.id} className="w-full bg-[#5ba4e5] border-2 border-black p-3 flex items-center shadow-md">
-                <button onClick={() => handleDelete(chest._id || chest.id!)} className="w-10 h-10 rounded-full border-2 border-black bg-white flex items-center justify-center hover:bg-black hover:text-white transition-colors group">
-                  <X size={16} className="opacity-0 group-hover:opacity-100" />
-                </button>
-                <a href={chest.fileUrl || '#'} target="_blank" rel="noreferrer" className="flex-1 ml-6 text-xl tracking-wide font-mono hover:underline hover:text-blue-900 truncate">
-                  {chest.droppedBy}
-                </a>
-                <div className="w-16 h-full flex items-center justify-center border-l-2 border-black/20 pl-4">
-                  <span className="text-3xl drop-shadow-md" style={{ filter: `drop-shadow(0 0 5px ${chest.tier === 'gold' ? '#fbbf24' : chest.tier === 'silver' ? '#94a3b8' : '#cd7f32'})` }}>
-                    {chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🥈' : '🥉'}
-                  </span>
+        {/* RIGHT HUD */}
+        <aside className="w-[400px] flex flex-col gap-6">
+          <div className="bg-slate-950 p-10 rounded-[3rem] border-2 border-white/5 shadow-2xl sticky top-32 space-y-10">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-ping"></div>
+              <h4 className="text-xs font-black uppercase text-slate-500 tracking-[0.3em]">Operational Metrics</h4>
+            </div>
+
+            <div className="space-y-8">
+              <div className="flex items-center justify-between group">
+                <div className="space-y-1">
+                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Operators</div>
+                  <div className="text-4xl font-black italic">{users.length}</div>
                 </div>
+                <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center border border-white/5 group-hover:rotate-12 transition-transform"><span className="text-2xl">📦</span></div>
               </div>
-            ))}
-            {chests.length === 0 && <p className="text-2xl text-center font-bold text-gray-500 mt-10">No active drops available.</p>}
-          </div>
-        )}
 
-        {/* TAB CONTENT: ADS */}
-        {activeTab === 'ADS' && (
-          <div className="flex flex-col gap-8">
-            <div className="flex items-center gap-6">
-              <div className="flex-1 border-4 border-black bg-[#5ba4e5] rounded-xl p-4 font-bold text-xl uppercase shadow-md cursor-pointer hover:bg-[#4a93d4] transition-colors">Choose video for ads</div>
-              <span className="font-medium text-gray-600 text-lg">Only 15 second</span>
-            </div>
-            <div className="grid grid-cols-4 gap-6">
-              {Array.from({ length: 16 }).map((_, i) => (
-                <div key={i} className="aspect-square bg-[#5ba4e5] border-2 border-black rounded-[2rem] flex items-center justify-center shadow-lg hover:scale-105 transition-transform cursor-pointer">
-                  <span className="font-semibold text-lg text-black/80">Preview of ads</span>
+              <div className="h-px bg-white/5 w-full"></div>
+
+              <div className="flex items-center justify-between group">
+                <div className="space-y-1">
+                  <div className="text-[10px] font-black text-yellow-500/50 uppercase tracking-widest">Gold Assets</div>
+                  <div className="text-4xl font-black italic text-yellow-500">{chests.filter(c => c.tier === 'gold').length}</div>
                 </div>
-              ))}
+                <div className="w-16 h-16 bg-yellow-500/10 rounded-2xl flex items-center justify-center border border-yellow-500/20 group-hover:rotate-[-12deg] transition-transform"><span className="text-2xl">🧰</span></div>
+              </div>
+
+              <div className="flex items-center justify-between group">
+                <div className="space-y-1">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Silver Assets</div>
+                  <div className="text-4xl font-black italic text-slate-300">{chests.filter(c => c.tier === 'silver').length}</div>
+                </div>
+                <div className="w-16 h-16 bg-slate-400/10 rounded-2xl flex items-center justify-center border border-slate-400/20 group-hover:rotate-12 transition-transform"><span className="text-2xl">🎁</span></div>
+              </div>
+
+              <div className="flex items-center justify-between group">
+                <div className="space-y-1">
+                  <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Platinum Assets</div>
+                  <div className="text-4xl font-black italic text-blue-500 uppercase">{chests.filter(c => c.tier === 'platinum').length}</div>
+                </div>
+                <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/20 group-hover:rotate-[-6deg] transition-transform"><span className="text-2xl">🛡️</span></div>
+              </div>
+            </div>
+
+            <div className="bg-blue-600/10 border border-blue-500/20 p-6 rounded-2xl flex items-center gap-4">
+              <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center animate-pulse">
+                <Monitor size={20} className="text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">System Status</p>
+                <p className="text-xs font-bold text-white">All Secure • Uplink Live</p>
+              </div>
             </div>
           </div>
-        )}
-      </div>
-
-      {/* RIGHT HUD */}
-      <div className="w-[300px] flex flex-col gap-10 pt-4 px-8 border-l-2 border-dashed border-gray-300">
-        <div className="flex items-center justify-between text-2xl font-black w-full text-black">
-          <span>TOTAL:{chests.length}</span>
-          <div className="w-12 h-12 bg-slate-800 rounded flex flex-col items-center justify-center shadow-md"><span className="text-xl">📦</span></div>
-        </div>
-        <div className="flex items-center justify-between text-2xl font-black w-full text-black">
-          <span>GOLD:{chests.filter(c => c.tier === 'gold').length}</span>
-          <div className="w-12 h-12 bg-yellow-400 rounded flex flex-col items-center justify-center shadow-md"><span className="text-xl">🧰</span></div>
-        </div>
-        <div className="flex items-center justify-between text-2xl font-black w-full text-black">
-          <span>SILVER:{chests.filter(c => c.tier === 'silver').length}</span>
-          <div className="w-12 h-12 bg-gray-300/80 rounded flex flex-col items-center justify-center shadow-md"><span className="text-xl">🎁</span></div>
-        </div>
-        <div className="flex items-center justify-between text-2xl font-black w-full text-black">
-          <span>BRONZE:{chests.filter(c => c.tier === 'bronze').length}</span>
-          <div className="w-12 h-12 bg-amber-700 rounded flex flex-col items-center justify-center shadow-md"><span className="text-xl">🥉</span></div>
-        </div>
+        </aside>
       </div>
     </div>
   );
@@ -197,15 +353,26 @@ const StarField = () => {
 };
 
 const LoginScreen = ({ onLogin, onCancel }: { onLogin: (user: UserProfile) => void, onCancel: () => void }) => {
-  const handleGoogleSuccess = (credentialResponse: any) => {
+  const handleGoogleSuccess = async (credentialResponse: any) => {
     if (credentialResponse.credential) {
       const decoded: any = jwtDecode(credentialResponse.credential);
-      onLogin({
+      const userProfile: UserProfile = {
         id: decoded.sub,
         email: decoded.email,
         username: decoded.given_name || decoded.email.split('@')[0],
         isAdmin: decoded.email === 'admin@gmail.com' || decoded.email.includes('admin')
-      });
+      };
+
+      // Save to server
+      try {
+        await axios.post(`${API_URL}/users/login`, {
+          googleId: decoded.sub,
+          email: decoded.email,
+          username: userProfile.username
+        });
+      } catch (e) { console.error('Error saving user:', e); }
+
+      onLogin(userProfile);
     }
   };
   return (
@@ -238,7 +405,7 @@ export default function App() {
   const [chests, setChests] = useState<Chest[]>([]);
   const [selectedChest, setSelectedChest] = useState<Chest | null>(null);
   const [isDropping, setIsDropping] = useState<{ lat: number, lng: number } | null>(null);
-  const [tempTier, setTempTier] = useState<'gold' | 'silver' | 'bronze'>('bronze');
+  const [tempTier, setTempTier] = useState<'gold' | 'silver' | 'platinum'>('platinum');
   const [silverMode, setSilverMode] = useState<'timer' | 'count' | 'ads'>('count');
   const [silverValue, setSilverValue] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -281,7 +448,7 @@ export default function App() {
     if (!currentUser) { setShowLoginModal(true); return; }
     if (selectedChest || adTimer !== null || isDropping) return;
     setIsDropping({ lat, lng });
-    setTempTier('bronze'); setSilverMode('count'); setSilverValue(''); setPinInput(''); setSelectedFile(null);
+    setTempTier('platinum'); setSilverMode('count'); setSilverValue(''); setPinInput(''); setSelectedFile(null);
   };
 
   const handlePointClick = (pt: any) => {
@@ -290,7 +457,7 @@ export default function App() {
 
   const handleChestAction = async () => {
     if (!selectedChest) return;
-    if (selectedChest.tier === 'bronze') { processOpen(); return; }
+    if (selectedChest.tier === 'platinum') { processOpen(); return; }
 
     if (selectedChest.tier === 'silver' && adTimer === null) { setAdTimer(15); return; }
 
@@ -347,7 +514,7 @@ export default function App() {
     try {
       const res = await axios.post(`${API_URL}/chests`, formData, { timeout: 60000 });
       setChests(prev => [...prev, res.data]);
-      setIsDropping(null); setTempTier('bronze'); setSilverValue(''); setSelectedFile(null); setPinInput('');
+      setIsDropping(null); setTempTier('platinum'); setSilverValue(''); setSelectedFile(null); setPinInput('');
       alert('SUCCESS: INTEL DEPLOYED TO SECTOR');
     } catch (e: any) { 
       alert(`FAILED: ${e.response?.data?.error || e.message}`); 
@@ -403,11 +570,11 @@ export default function App() {
             const el = document.createElement('div');
             el.innerHTML = `📦`;
             el.style.fontSize = '32px';
-            el.style.filter = `drop-shadow(0 0 10px ${d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : d.tier === 'bronze' ? '#cd7f32' : '#fff'})`;
+            el.style.filter = `drop-shadow(0 0 10px ${d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : d.tier === 'platinum' ? '#1e293b' : '#fff'})`;
             el.style.cursor = 'pointer';
             el.style.pointerEvents = 'auto';
             el.title = d.fileName;
-            el.innerHTML = d.tier === 'gold' ? '🥇' : d.tier === 'silver' ? '🥈' : '🥉';
+            el.innerHTML = d.tier === 'gold' ? '🥇' : d.tier === 'silver' ? '🥈' : '🛡️';
             el.onclick = (e) => { e.stopPropagation(); handlePointClick(d); };
             return el;
           }}
@@ -433,7 +600,7 @@ export default function App() {
             <LeafletMapEvents onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} />
             {chests.map((chest) => {
               const chestIcon = L.divIcon({
-                html: `<div style="font-size: 32px; filter: drop-shadow(0 0 10px ${chest.tier === 'gold' ? '#fbbf24' : chest.tier === 'silver' ? '#fff' : chest.tier === 'bronze' ? '#cd7f32' : '#000'}); display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer;">${chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🥈' : '🥉'}</div>`,
+                html: `<div style="font-size: 32px; filter: drop-shadow(0 0 10px ${chest.tier === 'gold' ? '#fbbf24' : chest.tier === 'silver' ? '#fff' : chest.tier === 'platinum' ? '#000' : '#000'}); display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer;">${chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🥈' : '🛡️'}</div>`,
                 className: 'custom-chest-icon',
                 iconSize: [40, 40],
                 iconAnchor: [20, 20]
@@ -453,6 +620,11 @@ export default function App() {
 
       {/* TOP USER BAR */}
       <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 300, display: 'flex', alignItems: 'center', gap: 16, padding: '12px 28px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, minWidth: 280, boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}>
+        {/* APP LOGO */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 20, paddingRight: 20, borderRight: '1px solid rgba(255,255,255,0.1)' }}>
+          <span style={{ fontSize: 24 }}>📦</span>
+          <span style={{ fontSize: 14, fontWeight: 900, color: '#5ba4e5', letterSpacing: 1, textTransform: 'uppercase' }}>DATA SAVER</span>
+        </div>
         {currentUser ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -484,8 +656,8 @@ export default function App() {
           <span style={{ fontSize: 12, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>SILVER: {chests.filter(c => c.tier === 'silver').length}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #cd7f32', borderRadius: 10 }}>
-          <span style={{ fontSize: 20 }}>🥉</span>
-          <span style={{ fontSize: 12, fontWeight: 900, color: '#cd7f32', letterSpacing: 3, textTransform: 'uppercase' }}>BRONZE: {chests.filter(c => c.tier === 'bronze').length}</span>
+          <span style={{ fontSize: 20 }}>🛡️</span>
+          <span style={{ fontSize: 12, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>PLATINUM: {chests.filter(c => c.tier === 'platinum').length}</span>
         </div>
       </div>
 
@@ -509,7 +681,7 @@ export default function App() {
                  {chests.filter(c => c.droppedBy === currentUser.username).map(drop => (
                     <div key={drop._id || drop.id} style={{ minWidth: 200, background: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 12, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 20 }}>{drop.tier === 'gold' ? '🥇' : drop.tier === 'silver' ? '🥈' : '🥉'}</span>
+                          <span style={{ fontSize: 20 }}>{drop.tier === 'gold' ? '🥇' : drop.tier === 'silver' ? '🥈' : '🛡️'}</span>
                           <div style={{ overflow: 'hidden' }}>
                              <p style={{ fontSize: 11, fontWeight: 800, color: '#fff', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drop.fileName}</p>
                              <p style={{ fontSize: 9, color: '#64748b', margin: 0 }}>📍 {drop.lat.toFixed(2)}, {drop.lng.toFixed(2)}</p>
@@ -547,14 +719,14 @@ export default function App() {
 
               {/* TIER SELECTION */}
               <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginBottom: 24 }}>
+                <button onClick={() => setTempTier('platinum')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#1e293b', border: tempTier === 'platinum' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🛡️</button>
                 <button onClick={() => setTempTier('gold')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#fbbf24', border: tempTier === 'gold' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🥇</button>
                 <button onClick={() => setTempTier('silver')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#d1d5db', border: tempTier === 'silver' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🥈</button>
-                <button onClick={() => setTempTier('bronze')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#cd7f32', border: tempTier === 'bronze' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🥉</button>
               </div>
 
               {/* TIER INFO */}
               <div style={{ minHeight: 100, marginBottom: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                {tempTier === 'bronze' && <p style={{ fontSize: 18, fontWeight: 600 }}>🥉 Fully Free — Anyone can download</p>}
+                {tempTier === 'platinum' && <p style={{ fontSize: 18, fontWeight: 600 }}>🛡️ Fully Free — Anyone can download</p>}
 
                 {tempTier === 'silver' && (
                   <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
