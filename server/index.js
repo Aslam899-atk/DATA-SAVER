@@ -44,7 +44,7 @@ const User = mongoose.model('User', UserSchema);
 const ChestSchema = new mongoose.Schema({
   lat: Number,
   lng: Number,
-  tier: { type: String, enum: ['platinum', 'gold', 'silver'] },
+  tier: { type: String, enum: ['gold', 'silver', 'bronze'] },
   fileName: String,
   fileSize: String,
   fileUrl: String,   
@@ -67,6 +67,7 @@ const Chest = mongoose.model('Chest', ChestSchema);
 const AdSchema = new mongoose.Schema({
   title: String,
   imageUrl: String,
+  videoUrl: String,
   link: String,
   createdAt: { type: Date, default: Date.now },
 });
@@ -188,8 +189,8 @@ app.get('/api/ads', async (req, res) => {
 
 app.post('/api/ads', async (req, res) => {
   try {
-    const { title, imageUrl, link } = req.body;
-    const newAd = new Ad({ title, imageUrl, link });
+    const { title, imageUrl, videoUrl, link } = req.body;
+    const newAd = new Ad({ title, imageUrl, videoUrl, link });
     await newAd.save();
     res.status(201).json(newAd);
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -199,6 +200,13 @@ app.delete('/api/ads/:id', async (req, res) => {
   try {
     await Ad.findByIdAndDelete(req.params.id);
     res.json({ message: "Deleted" });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/admin/migrate-tiers', async (req, res) => {
+  try {
+     const result = await Chest.updateMany({ tier: 'bronze' }, { $set: { tier: 'platinum' } });
+     res.json({ message: 'Migration successful', modifiedCount: result.modifiedCount });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 

@@ -31,7 +31,7 @@ interface Chest {
   _id?: string;
   lat: number;
   lng: number;
-  tier: 'gold' | 'silver' | 'platinum';
+  tier: 'gold' | 'silver' | 'bronze';
   fileName: string;
   fileSize: string;
   fileUrl?: string;
@@ -101,14 +101,25 @@ const AdminPanel = () => {
     }
   };
 
+  const handleMigrateTiers = async () => {
+     if (confirm('PERMANENTLY MIGRATE ALL LEGACY ASSETS TO BRONZE?')) {
+       try {
+         const res = await axios.post(`${API_URL}/admin/migrate-tiers`);
+         alert(`MIGRATION SUCCESS: units updated`);
+         window.location.reload();
+       } catch (e) { alert('MIGRATION FAILED'); }
+     }
+  };
+
   const handleAddAd = async () => {
     const title = prompt('Ad Title (e.g., "Special Rewards")');
     if (!title) return;
-    const imageUrl = prompt('Image URL (Optional)', 'https://res.cloudinary.com/dw7wcsate/image/upload/v1711132000/dummy_ad.png');
-    const link = prompt('Link (Optional)', 'https://google.com');
+    const imageUrl = prompt('Banner Image URL (Optional)', 'https://res.cloudinary.com/dw7wcsate/image/upload/v1711132000/dummy_ad.png');
+    const videoUrl = prompt('Video URL (Optional - direct .mp4 or youtube embed link)');
+    const link = prompt('Call-to-Action Link (e.g. Website/App URL)');
     
     try {
-      const res = await axios.post(`${API_URL}/ads`, { title, imageUrl, link });
+      const res = await axios.post(`${API_URL}/ads`, { title, imageUrl, videoUrl, link });
       setAds([res.data, ...ads]);
       alert('AD BROADCASTED LIVE');
     } catch (e) { alert('UPLOAD FAILED'); }
@@ -196,13 +207,16 @@ const AdminPanel = () => {
           </div>
           <h1 style={{ fontSize: isMobile ? 16 : 20, fontWeight: 900, textTransform: 'uppercase', letterSpacing: isMobile ? '1px' : '4px', fontStyle: 'italic', margin: 0 }}>Command Center</h1>
         </div>
-        <button 
-          onClick={() => { setIsAdminLoggedIn(false); localStorage.removeItem('isAdminLoggedIn'); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255, 255, 255, 0.05)', hover: { backgroundColor: 'rgba(255, 255, 255, 0.1)' }, padding: '10px 24px', borderRadius: 12, border: '1px solid rgba(255, 255, 255, 0.1)', transition: 'all 0.2s', fontWeight: 700, fontSize: 14, textTransform: 'uppercase', color: '#fff', cursor: 'pointer' } as any}
-        >
-          <LogOut size={16} />
-          Terminal Exit
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={handleMigrateTiers} style={{ fontSize: 9, background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid #3b82f6', padding: '10px 16px', borderRadius: 10, cursor: 'pointer', fontWeight: 900, textTransform: 'uppercase' }}>MIGRATE ASSETS</button>
+          <button 
+            onClick={() => { setIsAdminLoggedIn(false); localStorage.removeItem('isAdminLoggedIn'); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '10px 24px', borderRadius: 12, border: '1px solid rgba(255, 255, 255, 0.1)', transition: 'all 0.2s', fontWeight: 700, fontSize: 14, textTransform: 'uppercase', color: '#fff', cursor: 'pointer' }}
+          >
+            <LogOut size={16} />
+            Terminal Exit
+          </button>
+        </div>
       </header>
 
       <div style={{ paddingTop: 100, paddingBottom: 80, paddingLeft: isMobile ? 20 : 48, paddingRight: isMobile ? 20 : 48, display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 24 : 48, maxWidth: 1800, margin: '0 auto' }}>
@@ -255,21 +269,29 @@ const AdminPanel = () => {
                 exit={{ opacity: 0, x: 20 }}
                 style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(350px, 1fr))', gap: 16 }}
               >
-                {users.map((user, i) => (
-                  <div key={user.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-                    <div style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 24, color: '#3b82f6', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                      {String(i + 1).padStart(2, '0')}
+                {Array.from(new Set([...users.map(u => u.username), ...chests.map(c => c.droppedBy)])).filter(Boolean).map((username, i) => {
+                  const user = users.find(u => u.username === username);
+                  return (
+                    <div key={i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+                      <div style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, overflow: 'hidden' }}>
+                        {user?.avatarUrl ? <img src={user.avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👤'}
+                      </div>
+                      <div style={{ flex: 1, marginLeft: 24 }}>
+                        <div style={{ fontSize: 10, fontWeight: 900, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '2px' }}>Operational Agent</div>
+                        <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', marginTop: 4 }}>{username}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                          <div style={{ width: 6, height: 6, backgroundColor: '#10b981', borderRadius: '50%' }}></div>
+                          <span style={{ fontSize: 9, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Sector Active</span>
+                        </div>
+                      </div>
+                      <div style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)', padding: '12px 20px', borderRadius: 16, border: '1px solid rgba(37, 99, 235, 0.2)' }}>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: '#3b82f6' }}>{chests.filter(c => c.droppedBy === username).length}</div>
+                        <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Assets</div>
+                      </div>
                     </div>
-                    <div style={{ flex: 1, marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px' }}>Operator Node</div>
-                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace', color: '#e2e8f0' }}>{user.email}</div>
-                    </div>
-                    <div style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60a5fa' }}>
-                      <Smartphone size={20} />
-                    </div>
-                  </div>
-                ))}
-                {users.length === 0 && (
+                  );
+                })}
+                {users.length === 0 && chests.length === 0 && (
                   <div style={{ gridColumn: '1 / -1', padding: 80, backgroundColor: 'rgba(15, 23, 42, 0.2)', borderRadius: 48, border: '2px dashed rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
                     <p style={{ fontSize: 24, fontWeight: 700, color: '#475569', fontStyle: 'italic', margin: 0 }}>No operators detected in sector.</p>
                   </div>
@@ -289,7 +311,7 @@ const AdminPanel = () => {
                 {chests.map((chest, i) => (
                   <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
                     <div style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, border: '1px solid rgba(255, 255, 255, 0.01)' }}>
-                      {chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🎁' : '🛡️'}
+                      {chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🎁' : '📦'}
                     </div>
                     <div style={{ flex: 1, marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}>
                       <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Node: {chest.droppedBy}</div>
@@ -336,10 +358,18 @@ const AdminPanel = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
                   {ads.map((ad: any, i) => (
                     <div key={ad._id || i} style={{ aspectRatio: '16/9', backgroundColor: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 24, overflow: 'hidden', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
-                      <img src={ad.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
+                      {ad.videoUrl ? (
+                         <div style={{ position: 'absolute', inset: 0, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Monitor size={48} style={{ color: '#ea580c', opacity: 0.5 }} />
+                            <div style={{ position: 'absolute', bottom: 12, left: 12, backgroundColor: '#ea580c', color: '#fff', fontSize: 8, fontWeight: 900, padding: '4px 8px', borderRadius: 4 }}>VIDEO ASSET</div>
+                         </div>
+                      ) : (
+                        <img src={ad.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
+                      )}
                       <div style={{ position: 'absolute', inset: 0, padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)' }}>
                         <div style={{ fontSize: 10, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Broadcasting • Asset {i+1}</div>
                         <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 4 }}>{ad.title}</div>
+                        {ad.link && <div style={{ fontSize: 8, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🔗 {ad.link}</div>}
                         <button onClick={() => handleDeleteAd(ad._id)} style={{ position: 'absolute', top: 12, right: 12, border: 'none', background: 'rgba(239,68,68,0.2)', color: '#f87171', padding: '6px 12px', borderRadius: 8, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>REMOVE</button>
                       </div>
                     </div>
@@ -367,7 +397,9 @@ const AdminPanel = () => {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px' }}>Total Operators</div>
-                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic' }}>{users.length}</div>
+                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic' }}>
+                    {Math.max(users.length, new Set(chests.map(c => c.droppedBy)).size)}
+                  </div>
                 </div>
                 <div style={{ width: 64, height: 64, backgroundColor: '#0f172a', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                   <span style={{ fontSize: 32 }}>📦</span>
@@ -398,11 +430,11 @@ const AdminPanel = () => {
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '2px' }}>Platinum Assets</div>
-                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#3b82f6', textTransform: 'uppercase' }}>{chests.filter(c => c.tier === 'platinum').length}</div>
+                  <div style={{ fontSize: 10, fontWeight: 900, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '2px' }}>Bronze Assets</div>
+                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#d97706', textTransform: 'uppercase' }}>{chests.filter(c => c.tier === 'bronze').length}</div>
                 </div>
-                <div style={{ width: 64, height: 64, backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                  <span style={{ fontSize: 32 }}>🛡️</span>
+                <div style={{ width: 64, height: 64, backgroundColor: 'rgba(217, 119, 6, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
+                   <span style={{ fontSize: 32 }}>📦</span>
                 </div>
               </div>
             </div>
@@ -503,12 +535,14 @@ export default function App() {
   const [chests, setChests] = useState<Chest[]>([]);
   const [selectedChest, setSelectedChest] = useState<Chest | null>(null);
   const [isDropping, setIsDropping] = useState<{ lat: number, lng: number } | null>(null);
-  const [tempTier, setTempTier] = useState<'gold' | 'silver' | 'platinum'>('platinum');
+  const [tempTier, setTempTier] = useState<'gold' | 'silver' | 'bronze'>('bronze');
   const [silverMode, setSilverMode] = useState<'timer' | 'count' | 'ads'>('count');
   const [silverValue, setSilverValue] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [pinInput, setPinInput] = useState('');
   const [showRequests, setShowRequests] = useState(false);
+  const [ads, setAds] = useState<any[]>([]);
+  const [activeAd, setActiveAd] = useState<any>(null);
   const [adTimer, setAdTimer] = useState<number | null>(null);
   const [isExploding, setIsExploding] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
@@ -525,6 +559,7 @@ export default function App() {
   useEffect(() => {
     const fn = () => axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
     fn();
+    axios.get(`${API_URL}/ads`).then(res => setAds(res.data)).catch(console.error);
     const interval = setInterval(fn, 15000); // Faster updates for live maps
     return () => clearInterval(interval);
   }, []);
@@ -553,7 +588,7 @@ export default function App() {
     if (!currentUser) { setShowLoginModal(true); return; }
     if (selectedChest || adTimer !== null || isDropping) return;
     setIsDropping({ lat, lng });
-    setTempTier('platinum'); setSilverMode('count'); setSilverValue(''); setPinInput(''); setSelectedFile(null);
+    setTempTier('bronze'); setSilverMode('count'); setSilverValue(''); setPinInput(''); setSelectedFile(null);
   };
 
   const handlePointClick = (pt: any) => {
@@ -562,9 +597,14 @@ export default function App() {
 
   const handleChestAction = async () => {
     if (!selectedChest) return;
-    if (selectedChest.tier === 'platinum') { processOpen(); return; }
+    if (selectedChest.tier === 'bronze') { processOpen(); return; }
 
-    if (selectedChest.tier === 'silver' && adTimer === null) { setAdTimer(15); return; }
+    if (selectedChest.tier === 'silver' && adTimer === null) { 
+      const randomAd = ads.length > 0 ? ads[Math.floor(Math.random() * ads.length)] : { title: 'Broadcast Payload', imageUrl: 'https://res.cloudinary.com/dw7wcsate/image/upload/v1711132000/dummy_ad.png' };
+      setActiveAd(randomAd);
+      setAdTimer(15); 
+      return; 
+    }
 
     if (selectedChest.tier === 'gold') {
       if (!currentUser) { setShowLoginModal(true); return; }
@@ -619,7 +659,7 @@ export default function App() {
     try {
       const res = await axios.post(`${API_URL}/chests`, formData, { timeout: 60000 });
       setChests(prev => [...prev, res.data]);
-      setIsDropping(null); setTempTier('platinum'); setSilverValue(''); setSelectedFile(null); setPinInput('');
+      setIsDropping(null); setTempTier('bronze'); setSilverValue(''); setSelectedFile(null); setPinInput('');
       alert('SUCCESS: INTEL DEPLOYED TO SECTOR');
     } catch (e: any) { 
       alert(`FAILED: ${e.response?.data?.error || e.message}`); 
@@ -675,7 +715,7 @@ export default function App() {
             const el = document.createElement('div');
             el.innerHTML = `
                <div style="display: flex; flex-direction: column; align-items: center;">
-                 <div style="filter: drop-shadow(0 0 10px ${d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : d.tier === 'platinum' ? '#3b82f6' : '#fff'});">${d.tier === 'gold' ? '🥇' : d.tier === 'silver' ? '🎁' : '🛡️'}</div>
+                 <div style="filter: drop-shadow(0 0 10px ${d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : d.tier === 'bronze' ? '#d97706' : '#fff'});">${d.tier === 'gold' ? '🥇' : d.tier === 'silver' ? '🎁' : '📦'}</div>
                  <div style="font-size: 8px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; margin-top: 2px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${d.droppedBy}</div>
                </div>
             `;
@@ -686,6 +726,15 @@ export default function App() {
           }}
           htmlLat="lat" htmlLng="lng"
           htmlAltitude={(d: any) => (d.tier === 'gold' ? 0.4 : d.tier === 'silver' ? 0.3 : 0.2)}
+          onZoom={(zoom: any) => {
+             // Zoom automation: distance threshold
+             if (globeEl.current) {
+                const dist = globeEl.current.controls().getDistance();
+                if (dist < 180 && mapMode === '3d') {
+                   setMapMode('2d');
+                }
+             }
+          }}
           ringsData={chests}
           ringLat="lat" ringLng="lng"
           ringColor={(d: any) => (d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#cd7f32')}
@@ -694,21 +743,35 @@ export default function App() {
       </div>
 
       {/* 2D TACTICAL SATELLITE MAP */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: mapMode === '2d' ? 20 : 0, opacity: mapMode === '2d' ? 1 : 0, pointerEvents: mapMode === '2d' ? 'auto' : 'none', transition: 'opacity 0.5s' }}>
+      <div style={{ position: 'absolute', inset: 0, zIndex: mapMode === '2d' ? 20 : 0, opacity: mapMode === '2d' ? 1 : 0, pointerEvents: mapMode === '2d' ? 'auto' : 'none', transition: 'opacity 0.8s ease-in-out' }}>
         {mapMode === '2d' && (
-          <MapContainer center={[20, 0]} zoom={3} minZoom={2} style={{ height: '100%', width: '100%', background: '#001020' }} zoomControl={false} maxBounds={[[-90,-180],[90,180]]}>
+          <MapContainer 
+            center={[20, 0]} 
+            zoom={3} 
+            minZoom={2} 
+            style={{ height: '100%', width: '100%', background: '#001020' }} 
+            zoomControl={false} 
+            maxBounds={[[-90,-180],[90,180]]}
+          >
             <TileLayer
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
               attribution="Tiles &copy; Esri"
               maxZoom={19}
               noWrap={true}
             />
-            <LeafletMapEvents onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} />
+            <LeafletMapEvents 
+              onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} 
+              onZoomEnd={(zoom: number) => {
+                if (zoom <= 2) {
+                  setMapMode('3d');
+                }
+              }}
+            />
             {chests.map((chest) => {
               const chestIcon = L.divIcon({
                 html: `
                   <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; width: 80px; transform: translateX(-20px);">
-                    <div style="font-size: 32px; filter: drop-shadow(0 0 10px ${chest.tier === 'gold' ? '#fbbf24' : '#fff'})">${chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🎁' : '🛡️'}</div>
+                    <div style="font-size: 32px; filter: drop-shadow(0 0 10px ${chest.tier === 'gold' ? '#fbbf24' : '#fff'})">${chest.tier === 'gold' ? '🥇' : chest.tier === 'silver' ? '🎁' : '📦'}</div>
                     <div style="font-size: 7px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 3px; margin-top: 1px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${chest.droppedBy}</div>
                   </div>
                 `,
@@ -766,9 +829,9 @@ export default function App() {
           <span style={{ fontSize: 20 }}>🎁</span>
           <span style={{ fontSize: 12, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>SILVER: {chests.filter(c => c.tier === 'silver').length}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #cd7f32', borderRadius: 10 }}>
-          <span style={{ fontSize: 20 }}>🛡️</span>
-          <span style={{ fontSize: 12, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>PLATINUM: {chests.filter(c => c.tier === 'platinum').length}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #d97706', borderRadius: 10 }}>
+          <span style={{ fontSize: 20 }}>📦</span>
+          <span style={{ fontSize: 12, fontWeight: 900, color: '#f59e0b', letterSpacing: 3, textTransform: 'uppercase' }}>BRONZE: {chests.filter(c => c.tier === 'bronze').length}</span>
         </div>
       </div>
 
@@ -794,7 +857,7 @@ export default function App() {
                  {chests.filter(c => c.droppedBy === currentUser.username).map(drop => (
                     <div key={drop._id || drop.id} style={{ minWidth: 200, background: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 12, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 20 }}>{drop.tier === 'gold' ? '🥇' : drop.tier === 'silver' ? '🎁' : '🛡️'}</span>
+                          <span style={{ fontSize: 20 }}>{drop.tier === 'gold' ? '🥇' : drop.tier === 'silver' ? '🎁' : '📦'}</span>
                           <div style={{ overflow: 'hidden' }}>
                              <p style={{ fontSize: 11, fontWeight: 800, color: '#fff', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drop.fileName}</p>
                              <p style={{ fontSize: 9, color: '#64748b', margin: 0 }}>📍 {drop.lat.toFixed(2)}, {drop.lng.toFixed(2)}</p>
@@ -832,14 +895,14 @@ export default function App() {
 
               {/* TIER SELECTION */}
               <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginBottom: 24 }}>
-                <button onClick={() => setTempTier('platinum')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#1e293b', border: tempTier === 'platinum' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🛡️</button>
-                <button onClick={() => setTempTier('gold')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#fbbf24', border: tempTier === 'gold' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🥇</button>
-                <button onClick={() => setTempTier('silver')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#d1d5db', border: tempTier === 'silver' ? '4px solid #1d4ed8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🎁</button>
+                <button onClick={() => setTempTier('bronze')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#78350f', border: tempTier === 'bronze' ? '4px solid #d97706' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>📦</button>
+                <button onClick={() => setTempTier('gold')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#fbbf24', border: tempTier === 'gold' ? '4px solid #fbbf24' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🥇</button>
+                <button onClick={() => setTempTier('silver')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#d1d5db', border: tempTier === 'silver' ? '4px solid #94a3b8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🎁</button>
               </div>
 
               {/* TIER INFO */}
               <div style={{ minHeight: 100, marginBottom: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                {tempTier === 'platinum' && <p style={{ fontSize: 18, fontWeight: 600 }}>🛡️ Fully Free — Anyone can download</p>}
+                {tempTier === 'bronze' && <p style={{ fontSize: 18, fontWeight: 600 }}>📦 Fully Free — Anyone can download</p>}
 
                 {tempTier === 'silver' && (
                   <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
@@ -985,10 +1048,29 @@ export default function App() {
       </AnimatePresence>
 
       {isExploding && <div className="pottitheri-explosion z-[500]"></div>}
-      {adTimer !== null && (
-        <div className="fixed inset-0 z-[500] flex flex-col items-center justify-center bg-slate-950/98 backdrop-blur-3xl">
-          <div className="text-7xl font-black text-orange-500 italic mb-4">{adTimer}</div>
-          <p className="text-slate-500 font-black tracking-[8px] uppercase">Decryption Ongoing</p>
+      {adTimer !== null && activeAd && (
+        <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/98 p-10">
+          <div style={{ position: 'relative', width: '100%', maxWidth: 800, aspectRatio: '16/9', background: '#0f172a', borderRadius: 40, overflow: 'hidden', border: '2px solid rgba(234, 88, 12, 0.3)', boxShadow: '0 0 100px rgba(234, 88, 12, 0.2)' }}>
+             {activeAd.videoUrl ? (
+                <iframe src={activeAd.videoUrl.includes('youtube.com') ? activeAd.videoUrl.replace('watch?v=', 'embed/') + '?autoplay=1&mute=0' : activeAd.videoUrl} style={{ width: '100%', height: '100%', border: 'none' }} allow="autoplay; fullscreen" />
+             ) : (
+                <img src={activeAd.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+             )}
+             <div style={{ position: 'absolute', top: 24, right: 24, backgroundColor: 'rgba(0,0,0,0.8)', padding: '12px 24px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ fontSize: 32, fontWeight: 900, color: '#ea580c', fontStyle: 'italic' }}>{adTimer}</div>
+                <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: 2 }}>Seconds<br />Remaining</div>
+             </div>
+             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 40, background: 'linear-gradient(to top, rgba(0,0,0,0.95), transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 4, marginBottom: 8 }}>Operational Broadcast</div>
+                  <h3 style={{ fontSize: 24, fontWeight: 900, margin: 0, color: '#fff' }}>{activeAd.title}</h3>
+                </div>
+                {activeAd.link && (
+                  <a href={activeAd.link} target="_blank" rel="noopener noreferrer" style={{ backgroundColor: '#fff', color: '#000', padding: '16px 32px', borderRadius: 20, fontWeight: 900, fontSize: 12, textTransform: 'uppercase', letterSpacing: 2, textDecoration: 'none' }}>Visit Tactical Sector</a>
+                )}
+             </div>
+          </div>
+          <p style={{ marginTop: 40, fontSize: 10, fontWeight: 900, color: '#475569', textTransform: 'uppercase', letterSpacing: 8 }}>Decryption in Progress • Please Stand By</p>
         </div>
       )}
     </div>
