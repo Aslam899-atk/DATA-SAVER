@@ -639,6 +639,8 @@ export default function App() {
   const [isExploding, setIsExploding] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
   const [mapMode, setMapMode] = useState<'3d' | '2d'>('3d');
+  const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0]);
+  const [mapZoom, setMapZoom] = useState<number>(3);
   const [isDeploying, setIsDeploying] = useState(false);
   const [deviceType, setDeviceType] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
   const [transferProgress, setTransferProgress] = useState<number | null>(null);
@@ -891,8 +893,10 @@ export default function App() {
           htmlLat="lat" htmlLng="lng"
           htmlAltitude={0.02}
           {...({ onCameraMove: ((v: any) => {
-             // Precise zoom automation: switch to 2D Street View below altitude threshold
-             if (v.altitude < 0.4 && mapMode === '3d') {
+             // Precise zoom automation: switch to high-res 2D Map earlier to avoid blurry globe pixels
+             if (v.altitude < 0.8 && mapMode === '3d') {
+                setMapCenter([v.lat, v.lng]);
+                setMapZoom(5);
                 setMapMode('2d');
              }
           }) } as any)}
@@ -907,9 +911,10 @@ export default function App() {
       <div style={{ position: 'absolute', inset: 0, zIndex: mapMode === '2d' ? 20 : 0, opacity: mapMode === '2d' ? 1 : 0, pointerEvents: mapMode === '2d' ? 'auto' : 'none', transition: 'opacity 0.8s ease-in-out' }}>
         {mapMode === '2d' && (
           <MapContainer 
-            center={[20, 0]} 
-            zoom={3} 
-            minZoom={2} 
+            key={mapMode} // forces remount to properly apply the exact Globe coordinates
+            center={mapCenter} 
+            zoom={mapZoom} 
+            minZoom={3} 
             style={{ height: '100%', width: '100%', background: '#001020' }} 
             zoomControl={false} 
             maxBounds={[[-90,-180],[90,180]]}
@@ -931,7 +936,7 @@ export default function App() {
               onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} 
               onZoomEnd={(zoom: number) => {
                 // Robust 2D to 3D zoom-out transition
-                if (zoom <= 2 && mapMode === '2d') {
+                if (zoom <= 3 && mapMode === '2d') {
                   setMapMode('3d');
                 }
               }}
