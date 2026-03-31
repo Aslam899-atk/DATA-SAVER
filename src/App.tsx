@@ -698,19 +698,28 @@ export default function App() {
     }
   };
 
+  // Track state without triggering re-renders to prevent interval reset
+  const adStateRef = useRef({ ads, selectedChest, isDropping, mapMode });
   useEffect(() => {
+    adStateRef.current = { ads, selectedChest, isDropping, mapMode };
+  }, [ads, selectedChest, isDropping, mapMode]);
+
+  useEffect(() => {
+    // Exact 60s timer that never gets cleared by state changes
     const interval = setInterval(() => {
       setActiveAd((prev: any) => {
-        if (prev) return prev;
-        if (ads.length > 0 && !selectedChest && !isDropping && window.location.pathname !== '/admin') {
+        if (prev) return prev; // If ad is active, skip
+        
+        const current = adStateRef.current;
+        if (current.ads.length > 0 && !current.selectedChest && !current.isDropping && window.location.pathname !== '/admin') {
           setTimeout(() => setAdElapsed(0), 0);
-          return ads[Math.floor(Math.random() * ads.length)];
+          return current.ads[Math.floor(Math.random() * current.ads.length)];
         }
         return prev;
       });
-    }, 60000);
+    }, 60000); // 1 minute
     return () => clearInterval(interval);
-  }, [ads, selectedChest, isDropping]);
+  }, []);
 
   const handleGlobeClick = ({ lat, lng }: { lat: number, lng: number }) => {
     if (!currentUser) { setShowLoginModal(true); return; }
@@ -893,10 +902,10 @@ export default function App() {
           htmlLat="lat" htmlLng="lng"
           htmlAltitude={0.02}
           {...({ onCameraMove: ((v: any) => {
-             // Precise zoom automation: switch to high-res 2D Map earlier to avoid blurry globe pixels
-             if (v.altitude < 0.8 && mapMode === '3d') {
+             // Switch to high-res 2D Map earlier to avoid blurry globe pixels
+             if (v.altitude < 1.2 && mapMode === '3d') {
                 setMapCenter([v.lat, v.lng]);
-                setMapZoom(5);
+                setMapZoom(4);
                 setMapMode('2d');
              }
           }) } as any)}
@@ -914,7 +923,7 @@ export default function App() {
             key={mapMode} // forces remount to properly apply the exact Globe coordinates
             center={mapCenter} 
             zoom={mapZoom} 
-            minZoom={3} 
+            minZoom={4} 
             style={{ height: '100%', width: '100%', background: '#001020' }} 
             zoomControl={false} 
             maxBounds={[[-90,-180],[90,180]]}
@@ -936,7 +945,7 @@ export default function App() {
               onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} 
               onZoomEnd={(zoom: number) => {
                 // Robust 2D to 3D zoom-out transition
-                if (zoom <= 3 && mapMode === '2d') {
+                if (zoom <= 4 && mapMode === '2d') {
                   setMapMode('3d');
                 }
               }}
