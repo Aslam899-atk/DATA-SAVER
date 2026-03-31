@@ -645,6 +645,7 @@ export default function App() {
   const [deviceType, setDeviceType] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
   const [transferProgress, setTransferProgress] = useState<number | null>(null);
   const [isAdMuted, setIsAdMuted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const handleResize = () => {
@@ -730,6 +731,19 @@ export default function App() {
 
   const handlePointClick = (pt: any) => {
     setSelectedChest(pt);
+    if (globeEl.current && mapMode === '3d') {
+       globeEl.current.pointOfView({ lat: pt.lat, lng: pt.lng, altitude: 0.8 }, 1500);
+    } else {
+       setMapCenter([pt.lat, pt.lng]);
+       setMapZoom(12);
+    }
+  };
+
+  const handleDeleteDrop = async (id: string) => {
+    if (window.confirm('WARNING: PERMANENTLY DELETE THIS INTEL DROP?')) {
+      await axios.delete(`${API_URL}/chests/${id}`);
+      setChests(chests.filter(c => c._id !== id && c.id !== id));
+    }
   };
 
   const handleChestAction = async () => {
@@ -792,6 +806,11 @@ export default function App() {
       setTimeout(() => setTransferProgress(null), 1000);
     }
   };
+
+  const filteredChests = chests.filter(c => 
+    c.fileName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    c.droppedBy.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const processOpen = async () => {
     if (!selectedChest) return;
@@ -884,7 +903,7 @@ export default function App() {
           ref={globeEl}
           globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
           onGlobeClick={handleGlobeClick}
-          htmlElementsData={chests}
+          htmlElementsData={filteredChests}
           htmlElement={(d: any) => {
             const el = document.createElement('div');
             const displayTier = d.tier === 'platinum' ? 'bronze' : d.tier;
@@ -909,7 +928,7 @@ export default function App() {
                 setMapMode('2d');
              }
           }) } as any)}
-          ringsData={chests}
+          ringsData={filteredChests}
           ringLat="lat" ringLng="lng"
           ringColor={(d: any) => (d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#d97706')}
           ringMaxRadius={2} ringPropagationSpeed={2}
@@ -950,7 +969,7 @@ export default function App() {
                 }
               }}
             />
-            {chests.map((chest) => {
+            {filteredChests.map((chest) => {
               const displayTier = chest.tier === 'platinum' ? 'bronze' : chest.tier;
               const chestIcon = L.divIcon({
                 html: `
@@ -983,6 +1002,19 @@ export default function App() {
           <span style={{ fontSize: deviceType === 'MOBILE' ? 20 : 24 }}>📦</span>
           {deviceType !== 'MOBILE' && <span style={{ fontSize: 14, fontWeight: 900, color: '#5ba4e5', letterSpacing: 1, textTransform: 'uppercase' }}>DATA DROPPER</span>}
         </div>
+
+        {/* SEARCH BAR (TACTICAL) */}
+        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: '6px 12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+           <span style={{ opacity: 0.5, fontSize: 14 }}>🔍</span>
+           <input 
+             type="text" 
+             value={searchQuery} 
+             onChange={(e) => setSearchQuery(e.target.value)} 
+             placeholder="Search Intel..." 
+             style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: 11, fontWeight: 700, padding: 8, outline: 'none', width: deviceType === 'MOBILE' ? 80 : 150 }} 
+           />
+        </div>
+
         {currentUser ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1048,8 +1080,8 @@ export default function App() {
                           </div>
                        </div>
                        <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-                          <button onClick={() => setSelectedChest(drop)} style={{ flex: 1, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 10, fontWeight: 900, padding: '10px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>VIEW</button>
-                          <button onClick={() => handleDeleteDrop((drop._id || drop.id)!)} style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#ef4444', fontSize: 10, fontWeight: 900, padding: '10px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>DELETE</button>
+                                                     <button onClick={(e) => { e.stopPropagation(); handlePointClick(drop); }} style={{ flex: 1, background: 'rgba(59, 130, 246, 0.4)', border: 'none', color: '#fff', fontSize: 10, fontWeight: 900, padding: '10px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>LOCATE & VIEW</button>
+                                                     <button onClick={(e) => { e.stopPropagation(); handleDeleteDrop((drop._id || drop.id)!); }} style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#ef4444', fontSize: 10, fontWeight: 900, padding: '10px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>DELETE</button>
                        </div>
                     </div>
                  ))}
