@@ -981,7 +981,7 @@ export default function App() {
         {/* APP LOGO */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: deviceType === 'MOBILE' ? 8 : 20, paddingRight: deviceType === 'MOBILE' ? 8 : 20, borderRight: '1px solid rgba(255,255,255,0.1)' }}>
           <span style={{ fontSize: deviceType === 'MOBILE' ? 20 : 24 }}>📦</span>
-          {deviceType !== 'MOBILE' && <span style={{ fontSize: 14, fontWeight: 900, color: '#5ba4e5', letterSpacing: 1, textTransform: 'uppercase' }}>DATA SAVER</span>}
+          {deviceType !== 'MOBILE' && <span style={{ fontSize: 14, fontWeight: 900, color: '#5ba4e5', letterSpacing: 1, textTransform: 'uppercase' }}>DATA DROPPER</span>}
         </div>
         {currentUser ? (
           <>

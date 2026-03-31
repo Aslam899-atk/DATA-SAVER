@@ -11,7 +11,7 @@ if (token) {
 
     bot.onText(/\/start/, (msg) => {
       const id = msg.chat.id;
-      bot.sendMessage(id, `Welcome to Data Saver Bot! 🚀\n\nYour Chat ID is: <code>${id}</code>\nAdd this to your server's .env file as \`TELEGRAM_CHAT_ID\` to receive notifications.`, { parse_mode: 'HTML' });
+      bot.sendMessage(id, `Welcome to Data Dropper Bot! 🚀\n\nYour Chat ID is: <code>${id}</code>\nAdd this to your server's .env file as \`TELEGRAM_CHAT_ID\` to receive notifications.`, { parse_mode: 'HTML' });
     });
 
     console.log('Telegram bot is active and polling.');
