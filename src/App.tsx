@@ -333,7 +333,7 @@ const AdminPanel = () => {
                   return (
                     <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
                       <div style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, border: '2px solid', borderColor: displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706', boxShadow: `0 0 15px ${displayTier === 'gold' ? '#fbbf2433' : '#ffffff11'}` }}>
-                        🎁
+                        <img src={`/${displayTier}_drop.png`} style={{ width: 40, height: 40 }} />
                       </div>
                       <div style={{ flex: 1, marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}>
                         <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Node: {chest.droppedBy}</div>
@@ -628,12 +628,13 @@ export default function App() {
   const [tempTier, setTempTier] = useState<'gold' | 'silver' | 'bronze'>('bronze');
   const [silverMode, setSilverMode] = useState<'timer' | 'count' | 'ads'>('count');
   const [silverValue, setSilverValue] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [unlockedChest, setUnlockedChest] = useState<any>(null);
   const [pinInput, setPinInput] = useState('');
   const [showRequests, setShowRequests] = useState(false);
   const [ads, setAds] = useState<any[]>([]);
   const [activeAd, setActiveAd] = useState<any>(null);
-  const [adTimer, setAdTimer] = useState<number | null>(null);
+  const [adElapsed, setAdElapsed] = useState<number | null>(null);
   const [adQueue, setAdQueue] = useState<any[]>([]);
   const [isExploding, setIsExploding] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
@@ -677,27 +678,43 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (adTimer !== null && adTimer > 0) {
-      const t = setTimeout(() => setAdTimer(adTimer - 1), 1000);
+    if (activeAd !== null && adElapsed !== null) {
+      const t = setTimeout(() => setAdElapsed(adElapsed + 1), 1000);
       return () => clearTimeout(t);
-    } else if (adTimer === 0) {
-      if (adQueue.length > 0) {
-        setActiveAd(adQueue[0]);
-        setAdQueue(prev => prev.slice(1));
-        setAdTimer(15);
-      } else {
-        setAdTimer(null);
-        setActiveAd(null);
-        if (selectedChest) processOpen();
-      }
     }
-  }, [adTimer, adQueue.length, selectedChest]);
+  }, [adElapsed, activeAd]);
+
+  const handleSkipAd = () => {
+    if (adQueue.length > 0) {
+      setActiveAd(adQueue[0]);
+      setAdQueue(prev => prev.slice(1));
+      setAdElapsed(0);
+    } else {
+      setActiveAd(null);
+      setAdElapsed(null);
+      if (selectedChest) processOpen();
+    }
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveAd((prev: any) => {
+        if (prev) return prev;
+        if (ads.length > 0 && !selectedChest && !isDropping && window.location.pathname !== '/admin') {
+          setTimeout(() => setAdElapsed(0), 0);
+          return ads[Math.floor(Math.random() * ads.length)];
+        }
+        return prev;
+      });
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [ads, selectedChest, isDropping]);
 
   const handleGlobeClick = ({ lat, lng }: { lat: number, lng: number }) => {
     if (!currentUser) { setShowLoginModal(true); return; }
-    if (selectedChest || adTimer !== null || isDropping) return;
+    if (selectedChest || activeAd !== null || isDropping) return;
     setIsDropping({ lat, lng });
-    setTempTier('bronze'); setSilverMode('count'); setSilverValue(''); setPinInput(''); setSelectedFile(null);
+    setTempTier('bronze'); setSilverMode('count'); setSilverValue(''); setPinInput(''); setSelectedFiles([]);
   };
 
   const handlePointClick = (pt: any) => {
@@ -708,7 +725,8 @@ export default function App() {
     if (!selectedChest) return;
     if (selectedChest.tier === 'bronze') { processOpen(); return; }
 
-    if (selectedChest.tier === 'silver' && adTimer === null) { 
+    if (selectedChest.tier === 'silver') {
+      if (activeAd !== null) return; // Ad already in progress
       const required = selectedChest.adsRequired || 1;
       let availableAds = ads.length > 0 ? [...ads].sort(() => 0.5 - Math.random()) : [];
       let queue = [];
@@ -717,22 +735,13 @@ export default function App() {
       }
       setActiveAd(queue[0]);
       setAdQueue(queue.slice(1));
-      setAdTimer(15); 
+      setAdElapsed(0); 
       return; 
     }
 
     if (selectedChest.tier === 'gold') {
       if (!currentUser) { setShowLoginModal(true); return; }
       if (pinInput !== (selectedChest.pin || '0000')) { alert('INVALID PIN'); return; }
-      const myReq = selectedChest.requests?.find(r => r.from === currentUser.username);
-      if (!myReq || myReq.status === 'pending') {
-        if (!myReq) {
-          await axios.post(`${API_URL}/chests/${selectedChest._id || selectedChest.id}/request`, { from: currentUser.username });
-          alert('REQUEST SENT');
-        } else alert('WAITING APPROVAL');
-        return;
-      }
-      if (myReq.status === 'rejected') { alert('DENIED'); return; }
       processOpen();
     }
   };
@@ -787,9 +796,7 @@ export default function App() {
 
       setTimeout(() => {
         setIsExploding(false);
-        if (res.data.fileUrl) {
-          forceDownload(res.data.fileUrl, res.data.fileName);
-        }
+        setUnlockedChest(res.data);
         setSelectedChest(null);
         setPinInput('');
       }, 1000);
@@ -818,14 +825,15 @@ export default function App() {
 
     if (tempTier === 'gold') {
       formData.append('pin', pinInput || '0000');
-      formData.append('requiresRequest', 'true');
     }
     if (tempTier === 'silver' && silverValue && !isNaN(parseInt(silverValue))) {
       if (silverMode === 'count') formData.append('maxOpens', silverValue);
       if (silverMode === 'timer') formData.append('expiresAt', (Date.now() + parseInt(silverValue) * 3600000).toString());
       if (silverMode === 'ads') formData.append('adsRequired', silverValue);
     }
-    if (selectedFile) formData.append('file', selectedFile);
+    selectedFiles.forEach(file => {
+      formData.append('files', file);
+    });
 
     try {
       setTransferProgress(0);
@@ -836,7 +844,7 @@ export default function App() {
         }
       });
       setChests(prev => [...prev, res.data]);
-      setIsDropping(null); setTempTier('bronze'); setSilverValue(''); setSelectedFile(null); setPinInput('');
+      setIsDropping(null); setTempTier('bronze'); setSilverValue(''); setSelectedFiles([]); setPinInput('');
       alert('SUCCESS: INTEL DEPLOYED TO SECTOR');
     } catch (e: any) { 
       alert(`FAILED: ${e.response?.data?.error || e.message}`); 
@@ -871,7 +879,7 @@ export default function App() {
             const displayTier = d.tier === 'platinum' ? 'bronze' : d.tier;
             el.innerHTML = `
                <div style="display: flex; flex-direction: column; align-items: center;">
-                 <div style="filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : displayTier === 'bronze' ? '#d97706' : '#fff'});">🎁</div>
+                 <img src="/${displayTier}_drop.png" style="width: 32px; height: 32px; filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'});" />
                  <div style="font-size: 8px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; margin-top: 2px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${d.droppedBy}</div>
                </div>
             `;
@@ -933,7 +941,7 @@ export default function App() {
               const chestIcon = L.divIcon({
                 html: `
                   <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; width: 80px; transform: translateX(-20px);">
-                    <div style="font-size: 32px; filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'})">🎁</div>
+                    <img src="/${displayTier}_drop.png" style="width: 40px; height: 40px; filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'});" />
                     <div style="font-size: 7px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 3px; margin-top: 1px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${chest.droppedBy}</div>
                   </div>
                 `,
@@ -984,15 +992,15 @@ export default function App() {
       {/* PUBLIC STATISTICS HUD (LEFT) */}
       <div style={{ position: 'fixed', top: 130, left: 20, zIndex: 100, display: 'flex', flexDirection: 'column', gap: 10, pointerEvents: 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #eab308', borderRadius: 10 }}>
-          <span style={{ fontSize: 20 }}>🎁</span>
+          <img src="/gold_drop.png" style={{ width: 24, height: 24 }} />
           <span style={{ fontSize: 12, fontWeight: 900, color: '#eab308', letterSpacing: 3, textTransform: 'uppercase' }}>GOLD: {chests.filter(c => c.tier === 'gold').length}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.[...])', borderLeft: '4px solid #94a3b8', borderRadius: 10 }}>
-          <span style={{ fontSize: 20 }}>🎁</span>
+          <img src="/silver_drop.png" style={{ width: 24, height: 24 }} />
           <span style={{ fontSize: 12, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>SILVER: {chests.filter(c => c.tier === 'silver').length}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #d97706', borderRadius: 10 }}>
-          <span style={{ fontSize: 20 }}>🎁</span>
+          <img src="/bronze_drop.png" style={{ width: 24, height: 24 }} />
           <span style={{ fontSize: 12, fontWeight: 900, color: '#f59e0b', letterSpacing: 3, textTransform: 'uppercase' }}>BRONZE: {chests.filter(c => c.tier === 'bronze' || c.tier === 'platinum').length}</span>
         </div>
       </div>
@@ -1015,19 +1023,19 @@ export default function App() {
                  <p style={{ fontSize: 10, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>📡 YOUR ACTIVE DROPS</p>
                  <span style={{ fontSize: 10, background: '#f97316', color: '#000', padding: '2px 8px', borderRadius: 4, fontWeight: 900 }}>{chests.filter(c => c.droppedBy === currentUser.username).length} UNIT(S)</span>
               </div>
-              <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none' }} className="no-scrollbar">
+              <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }} className="no-scrollbar">
                  {chests.filter(c => c.droppedBy === currentUser.username).map(drop => (
-                    <div key={drop._id || drop.id} style={{ minWidth: 200, background: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 12, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 20 }}>🎁</span>
+                    <div key={drop._id || drop.id} style={{ minWidth: 240, flexShrink: 0, background: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 16, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <img src={`/${drop.tier === 'platinum' ? 'bronze' : drop.tier}_drop.png`} style={{ width: 32, height: 32 }} />
                           <div style={{ overflow: 'hidden' }}>
                              <p style={{ fontSize: 11, fontWeight: 800, color: '#fff', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drop.fileName}</p>
                              <p style={{ fontSize: 9, color: '#64748b', margin: 0 }}>📍 {drop.lat.toFixed(2)}, {drop.lng.toFixed(2)}</p>
                           </div>
                        </div>
-                       <div style={{ display: 'flex', gap: 6, marginTop: 'auto' }}>
-                          <button onClick={() => setSelectedChest(drop)} style={{ flex: 1, background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', fontSize: 9, fontWeight: 700, padding: '6px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase' }}>VIEW</button>
-                          <button onClick={() => handleDeleteDrop((drop._id || drop.id)!)} style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#ef4444', fontSize: 9, fontWeight: 700, padding: '6px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase' }}>DELETE</button>
+                       <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+                          <button onClick={() => setSelectedChest(drop)} style={{ flex: 1, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 10, fontWeight: 900, padding: '10px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>VIEW</button>
+                          <button onClick={() => handleDeleteDrop((drop._id || drop.id)!)} style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#ef4444', fontSize: 10, fontWeight: 900, padding: '10px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>DELETE</button>
                        </div>
                     </div>
                  ))}
@@ -1057,9 +1065,9 @@ export default function App() {
 
               {/* TIER SELECTION */}
               <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginBottom: 24 }}>
-                <button onClick={() => setTempTier('bronze')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#78350f', border: tempTier === 'bronze' ? '4px solid #d97706' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🎁</button>
-                <button onClick={() => setTempTier('gold')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#eab308', border: tempTier === 'gold' ? '4px solid #fbbf24' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🎁</button>
-                <button onClick={() => setTempTier('silver')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#94a3b8', border: tempTier === 'silver' ? '4px solid #94a3b8' : '2px solid #000', fontSize: 32, transition: 'all 0.2s' }}>🎁</button>
+                <button onClick={() => setTempTier('bronze')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#78350f', border: tempTier === 'bronze' ? '4px solid #d97706' : '2px solid #000', transition: 'all 0.2s' }}><img src="/bronze_drop.png" style={{ width: 40 }} /></button>
+                <button onClick={() => setTempTier('gold')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#eab308', border: tempTier === 'gold' ? '4px solid #fbbf24' : '2px solid #000', transition: 'all 0.2s' }}><img src="/gold_drop.png" style={{ width: 40 }} /></button>
+                <button onClick={() => setTempTier('silver')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#94a3b8', border: tempTier === 'silver' ? '4px solid #94a3b8' : '2px solid #000', transition: 'all 0.2s' }}><img src="/silver_drop.png" style={{ width: 40 }} /></button>
               </div>
 
               {/* TIER INFO */}
@@ -1094,8 +1102,8 @@ export default function App() {
               {/* FILE INPUT */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', marginBottom: 24 }}>
                 <label style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                  <input type="file" onChange={e => setSelectedFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                  📁 {selectedFile ? selectedFile.name : 'Choose file to drop'}
+                  <input type="file" multiple onChange={e => setSelectedFiles(Array.from(e.target.files || []))} style={{ display: 'none' }} />
+                  📁 {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Choose files to drop'}
                 </label>
 
                 {tempTier === 'gold' && (
@@ -1115,14 +1123,14 @@ export default function App() {
         )}
 
         {/* CHEST MODAL */}
-        {selectedChest && adTimer === null && !isExploding && (
+        {selectedChest && activeAd === null && !isExploding && (
           <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 500, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedChest(null)}>
             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 380, background: '#5ba4e5', borderRadius: 40, border: '2px solid #000', padding: 32, color: '#000', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
               <button onClick={() => setSelectedChest(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#000' }}>✕</button>
 
               <div style={{ width: '100%', height: 140, border: '2px solid #000', borderRadius: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.15)', marginTop: 12, textAlign: 'center', padding: 12 }}>
-                <span style={{ fontSize: 36 }}>📦</span>
+                <img src={`/${selectedChest.tier === 'platinum' ? 'bronze' : selectedChest.tier}_drop.png`} style={{ width: 48, height: 48 }} />
                 <span style={{ fontSize: 18, fontWeight: 600, marginTop: 4 }}>Preview of file</span>
                 <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.7, marginTop: 4 }}>[{selectedChest.fileName}]</span>
                 <span style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>By: {selectedChest.droppedBy} • {selectedChest.tier.toUpperCase()}</span>
@@ -1132,9 +1140,45 @@ export default function App() {
                 <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="Enter password" style={{ width: '100%', padding: '14px 16px', textAlign: 'center', borderRadius: 20, border: '2px solid #000', background: 'transparent', fontWeight: 700, fontSize: 16, outline: 'none' }} />
               )}
 
-              <button onClick={handleChestAction} style={{ width: '100%', border: '2px solid #000', borderRadius: 24, padding: '16px 0', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 20, cursor: 'pointer', letterSpacing: 2, textTransform: 'uppercase', boxShadow: '0 4px 0 rgba(0,0,0,0.3)' }}>
-                {selectedChest.tier === 'silver' ? '📺 WATCH AD' : '⬇️ DOWNLOAD'}
+              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleChestAction(); }} style={{ width: '100%', border: '2px solid #000', borderRadius: 24, padding: '16px 0', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 20, cursor: 'pointer', letterSpacing: 2, textTransform: 'uppercase', boxShadow: '0 4px 0 rgba(0,0,0,0.3)' }}>
+                {selectedChest.tier === 'silver' ? '📺 WATCH AD' : '🔓 UNLOCK INTEL'}
               </button>
+            </motion.div>
+          </div>
+        )}
+
+        {/* UNLOCKED CHEST VIEWER */}
+        {unlockedChest && (
+          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 600, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(16px)' }}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} style={{ width: '100%', maxWidth: 800, background: '#0f172a', borderRadius: 40, border: '1px solid rgba(255,255,255,0.1)', padding: 32, display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: 0, textTransform: 'uppercase', fontStyle: 'italic' }}>Decrypted Intel ({unlockedChest.files?.length > 0 ? unlockedChest.files.length : 1} File{unlockedChest.files?.length > 1 ? 's' : ''})</h3>
+                <button onClick={() => setUnlockedChest(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 20, padding: '8px 16px', fontWeight: 900, cursor: 'pointer' }}>Close ✕</button>
+              </div>
+              <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 16, scrollSnapType: 'x mandatory' }} className="hide-scrollbar">
+                {(unlockedChest.files && unlockedChest.files.length > 0 ? unlockedChest.files : [{ fileUrl: unlockedChest.fileUrl, fileName: unlockedChest.fileName, fileSize: unlockedChest.fileSize }]).map((file: any, index: number) => {
+                  const isImage = file.fileName.match(/\.(jpeg|jpg|gif|png|webp)$/i);
+                  const isPdf = file.fileName.match(/\.pdf$/i);
+                  const isApk = file.fileName.match(/\.apk$/i);
+
+                  return (
+                    <div key={index} style={{ minWidth: 280, width: 280, height: 400, background: 'rgba(0,0,0,0.5)', borderRadius: 24, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', scrollSnapAlign: 'start', flexShrink: 0 }}>
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', overflow: (isPdf ? 'auto' : 'hidden'), position: 'relative' }}>
+                        {isImage && <img src={file.fileUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
+                        {isPdf && <div style={{ width: '100%', height: '100%', overflowY: 'auto' }}><iframe src={file.fileUrl} style={{ width: '100%', height: '800px', border: 'none' }} /></div>}
+                        {isApk && <div style={{ fontSize: 80, filter: 'drop-shadow(0 0 20px #22c55e)' }}>📱</div>}
+                        {(!isImage && !isPdf && !isApk) && <div style={{ fontSize: 80 }}>📄</div>}
+                        {isApk && <div style={{ position: 'absolute', bottom: 10, fontSize: 10, fontWeight: 900, background: '#22c55e', color: '#000', padding: '4px 8px', borderRadius: 8 }}>APP ALREADY BUILT</div>}
+                      </div>
+                      <div style={{ padding: 16, background: 'rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={file.fileName}>{file.fileName}</div>
+                        <div style={{ fontSize: 10, color: '#94a3b8' }}>{file.fileSize || 'N/A'}</div>
+                        <button onClick={() => forceDownload(file.fileUrl, file.fileName)} style={{ background: '#3b82f6', color: '#fff', padding: '10px', borderRadius: 12, border: 'none', fontWeight: 900, cursor: 'pointer', marginTop: 8 }}>⬇️ DOWNLOAD</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </motion.div>
           </div>
         )}
@@ -1210,7 +1254,7 @@ export default function App() {
       </AnimatePresence>
 
       {isExploding && <div className="pottitheri-explosion z-[500]"></div>}
-      {adTimer !== null && activeAd && (
+      {activeAd && (
         <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/98 p-10">
           <div style={{ position: 'relative', width: '100%', maxWidth: 800, aspectRatio: '16/9', background: '#0f172a', borderRadius: 40, overflow: 'hidden', border: '2px solid rgba(234, 88, 12, 0.3)', boxShadow: '0 0 100px rgba(234, 88, 12, 0.2)' }}>
              {activeAd.videoUrl ? (
@@ -1240,9 +1284,17 @@ export default function App() {
              ) : (
                 <img src={activeAd.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
              )}
-             <div style={{ position: 'absolute', top: 24, right: 24, backgroundColor: 'rgba(0,0,0,0.8)', padding: '12px 24px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ fontSize: 32, fontWeight: 900, color: '#ea580c', fontStyle: 'italic' }}>{adTimer}</div>
-                <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: 2 }}>Seconds<br />Remaining</div>
+             <div style={{ position: 'absolute', top: 24, right: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+                {adElapsed !== null && adElapsed >= 5 ? (
+                  <button onClick={handleSkipAd} style={{ backgroundColor: '#ea580c', color: '#fff', padding: '12px 24px', borderRadius: 20, border: 'none', fontWeight: 900, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 2, display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+                    Skip Ad ⏭️
+                  </button>
+                ) : (
+                  <div style={{ backgroundColor: 'rgba(0,0,0,0.8)', padding: '12px 24px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: 12, backdropFilter: 'blur(10px)' }}>
+                     <div style={{ fontSize: 32, fontWeight: 900, color: '#ea580c', fontStyle: 'italic' }}>{5 - (adElapsed || 0)}</div>
+                     <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: 2 }}>Seconds to<br />Skip</div>
+                  </div>
+                )}
              </div>
              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 40, background: 'linear-gradient(to top, rgba(0,0,0,0.95), transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <div style={{ flex: 1 }}>

@@ -6,6 +6,7 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+const { notifyDrop } = require('./telegram');
 
 const app = express();
 app.use(cors());
@@ -47,19 +48,20 @@ const ChestSchema = new mongoose.Schema({
   tier: { type: String, enum: ['gold', 'silver', 'bronze'] },
   fileName: String,
   fileSize: String,
-  fileUrl: String,   
+  fileUrl: String,
+  files: [{
+    fileName: String,
+    fileSize: String,
+    fileUrl: String,
+    mimeType: String
+  }],
   droppedBy: String,
   hasPin: Boolean,
   pin: String,
   maxOpens: Number,
   currentOpens: { type: Number, default: 0 },
   expiresAt: Number, 
-  requiresRequest: { type: Boolean, default: false },
   adsRequired: { type: Number, default: 0 },
-  requests: [{
-    from: String,
-    status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' }
-  }],
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -107,31 +109,54 @@ app.get('/api/chests', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.post('/api/chests', upload.single('file'), async (req, res) => {
+app.post('/api/chests', upload.array('files', 15), async (req, res) => {
   try {
-    const { lat, lng, tier, droppedBy, pin, maxOpens, expiresAt, requiresRequest, adsRequired } = req.body;
-    let fileUrl = '';
-    let fileName = 'DATA.DAT';
-    let fileSize = 'UNKNOWN';
-
-    if (req.file) {
-      fileUrl = req.file.path;
-      fileName = req.file.originalname;
-      fileSize = (req.file.size / (1024*1024)).toFixed(2) + 'MB'; 
+    const { lat, lng, tier, droppedBy, pin, maxOpens, expiresAt, adsRequired } = req.body;
+    
+    let uploadedFiles = [];
+    if (req.files && req.files.length > 0) {
+      uploadedFiles = req.files.map(f => ({
+        fileUrl: f.path,
+        fileName: f.originalname,
+        fileSize: (f.size / (1024*1024)).toFixed(2) + 'MB',
+        mimeType: f.mimetype
+      }));
+    } else if (req.file) { // Fallback for old single upload
+      uploadedFiles = [{
+        fileUrl: req.file.path,
+        fileName: req.file.originalname,
+        fileSize: (req.file.size / (1024*1024)).toFixed(2) + 'MB',
+        mimeType: req.file.mimetype
+      }];
     }
 
+    const firstFile = uploadedFiles.length > 0 ? uploadedFiles[0] : { fileName: 'DATA.DAT', fileSize: 'UNKNOWN', fileUrl: '' };
+
     const newChest = new Chest({
-      lat: Number(lat), lng: Number(lng), tier, fileName, fileSize, fileUrl, droppedBy,
+      lat: Number(lat), lng: Number(lng), tier, droppedBy,
+      fileName: firstFile.fileName, 
+      fileSize: firstFile.fileSize, 
+      fileUrl: firstFile.fileUrl,
+      files: uploadedFiles,
       hasPin: pin ? true : false,
       pin: pin || '',
       maxOpens: maxOpens ? Number(maxOpens) : undefined,
       expiresAt: expiresAt ? Number(expiresAt) : undefined,
-      requiresRequest: requiresRequest === 'true',
       adsRequired: adsRequired ? Number(adsRequired) : 0,
       currentOpens: 0
     });
 
     const savedChest = await newChest.save();
+    
+    // Telegram alert
+    notifyDrop({
+      tier,
+      fileName: uploadedFiles.length > 1 ? `${uploadedFiles.length} FILES IN TRACT` : firstFile.fileName,
+      fileSize: firstFile.fileSize,
+      droppedBy,
+      hasPin: pin ? true : false
+    });
+
     res.status(201).json(savedChest);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -146,14 +171,6 @@ app.post('/api/chests/:id/open', async (req, res) => {
     // VALIDATE PIN
     if (chest.hasPin && chest.pin !== pin) {
       return res.status(401).json({ message: "ACCESS DENIED: INVALID DECRYPTION PIN" });
-    }
-
-    // VALIDATE REQUEST
-    if (chest.requiresRequest) {
-      const userReq = chest.requests.find(r => r.from === username);
-      if (!userReq || userReq.status !== 'accepted') {
-        return res.status(403).json({ message: "ACCESS DENIED: CLEARANCE NOT GRANTED" });
-      }
     }
 
     // CHECK LIMITS
