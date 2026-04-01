@@ -739,12 +739,6 @@ export default function App() {
     }
   };
 
-  const handleDeleteDrop = async (id: string) => {
-    if (window.confirm('WARNING: PERMANENTLY DELETE THIS INTEL DROP?')) {
-      await axios.delete(`${API_URL}/chests/${id}`);
-      setChests(chests.filter(c => c._id !== id && c.id !== id));
-    }
-  };
 
   const handleChestAction = async () => {
     if (!selectedChest) return;
@@ -753,8 +747,8 @@ export default function App() {
     if (selectedChest.tier === 'silver') {
       if (activeAd !== null) return; // Ad already in progress
       const required = selectedChest.adsRequired || 1;
-      let availableAds = ads.length > 0 ? [...ads].sort(() => 0.5 - Math.random()) : [];
-      let queue = [];
+      const availableAds = ads.length > 0 ? [...ads].sort(() => 0.5 - Math.random()) : [];
+      const queue = [];
       for (let i = 0; i < required; i++) {
         queue.push(availableAds.length > 0 ? availableAds[i % availableAds.length] : { title: 'Broadcast Payload', imageUrl: 'https://res.cloudinary.com/dw7wcsate/image/upload/v1711132000/dummy_ad.png' });
       }

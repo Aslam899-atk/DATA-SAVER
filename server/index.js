@@ -45,7 +45,7 @@ const User = mongoose.model('User', UserSchema);
 const ChestSchema = new mongoose.Schema({
   lat: Number,
   lng: Number,
-  tier: { type: String, enum: ['gold', 'silver', 'bronze'] },
+  tier: { type: String, enum: ['gold', 'silver', 'bronze', 'platinum'] },
   fileName: String,
   fileSize: String,
   fileUrl: String,
@@ -62,6 +62,11 @@ const ChestSchema = new mongoose.Schema({
   currentOpens: { type: Number, default: 0 },
   expiresAt: Number, 
   adsRequired: { type: Number, default: 0 },
+  requiresRequest: { type: Boolean, default: false },
+  requests: [{
+    from: String,
+    status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' }
+  }],
   createdAt: { type: Date, default: Date.now },
 });
 
