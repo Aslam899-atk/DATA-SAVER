@@ -1,11 +1,11 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+const db = require('./db');
 const { notifyDrop } = require('./telegram');
 
 const app = express();
@@ -28,88 +28,25 @@ const storage = new CloudinaryStorage({
 });
 const upload = multer({ storage: storage });
 
-// --- MongoDB Setup ---
-mongoose.connect(process.env.MONGODB_URI).then(() => console.log("MongoDB Connected"))
-  .catch((err) => console.log("MongoDB Error: ", err));
-
-// --- Schemas & Models ---
-const UserSchema = new mongoose.Schema({
-  googleId: String,
-  email: String,
-  username: String,
-  lastLogin: { type: Date, default: Date.now }
-});
-
-const User = mongoose.model('User', UserSchema);
-
-const ChestSchema = new mongoose.Schema({
-  lat: Number,
-  lng: Number,
-  title: String,
-  tier: { type: String, enum: ['gold', 'silver', 'bronze', 'platinum'] },
-  fileName: String,
-  fileSize: String,
-  fileUrl: String,
-  files: [{
-    fileName: String,
-    fileSize: String,
-    fileUrl: String,
-    mimeType: String
-  }],
-  droppedBy: String,
-  hasPin: Boolean,
-  pin: String,
-  maxOpens: Number,
-  currentOpens: { type: Number, default: 0 },
-  expiresAt: Number, 
-  adsRequired: { type: Number, default: 0 },
-  requiresRequest: { type: Boolean, default: false },
-  requests: [{
-    from: String,
-    status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' }
-  }],
-  createdAt: { type: Date, default: Date.now },
-});
-
-const Chest = mongoose.model('Chest', ChestSchema);
-
-const AdSchema = new mongoose.Schema({
-  title: String,
-  imageUrl: String,
-  videoUrl: String,
-  link: String,
-  createdAt: { type: Date, default: Date.now },
-});
-
-const Ad = mongoose.model('Ad', AdSchema);
-
 // --- Routes ---
 
 app.post('/api/users/login', async (req, res) => {
   try {
-    const { googleId, email, username } = req.body;
-    let user = await User.findOne({ googleId });
-    if (user) {
-      user.lastLogin = Date.now();
-      await user.save();
-    } else {
-      user = new User({ googleId, email, username });
-      await user.save();
-    }
+    const user = await db.saveUser(req.body);
     res.json(user);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/users', async (req, res) => {
   try {
-    const users = await User.find().sort({ lastLogin: -1 });
+    const users = await db.getUsers();
     res.json(users);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
+
 app.get('/api/chests', async (req, res) => {
   try {
-    const chests = await Chest.find();
-    // Auto-cleanup expired
+    const chests = await db.getChests();
     const validChests = chests.filter(c => !c.expiresAt || c.expiresAt > Date.now());
     res.json(validChests);
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -127,18 +64,11 @@ app.post('/api/chests', upload.array('files', 15), async (req, res) => {
         fileSize: (f.size / (1024*1024)).toFixed(2) + 'MB',
         mimeType: f.mimetype
       }));
-    } else if (req.file) { // Fallback for old single upload
-      uploadedFiles = [{
-        fileUrl: req.file.path,
-        fileName: req.file.originalname,
-        fileSize: (req.file.size / (1024*1024)).toFixed(2) + 'MB',
-        mimeType: req.file.mimetype
-      }];
     }
 
     const firstFile = uploadedFiles.length > 0 ? uploadedFiles[0] : { fileName: 'DATA.DAT', fileSize: 'UNKNOWN', fileUrl: '' };
 
-    const newChest = new Chest({
+    const newChest = {
       lat: Number(lat), lng: Number(lng), 
       title: title || droppedBy || 'SECURE DROP',
       tier, droppedBy,
@@ -151,15 +81,15 @@ app.post('/api/chests', upload.array('files', 15), async (req, res) => {
       maxOpens: maxOpens ? Number(maxOpens) : undefined,
       expiresAt: expiresAt ? Number(expiresAt) : undefined,
       adsRequired: adsRequired ? Number(adsRequired) : 0,
-      currentOpens: 0
-    });
+      currentOpens: 0,
+      createdAt: new Date().toISOString()
+    };
 
-    const savedChest = await newChest.save();
+    const savedChest = await db.saveChest(newChest);
     
-    // Telegram alert
     notifyDrop({
       tier,
-      fileName: uploadedFiles.length > 1 ? `${uploadedFiles.length} FILES IN TRACT` : firstFile.fileName,
+      fileName: uploadedFiles.length > 1 ? `${uploadedFiles.length} FILES` : firstFile.fileName,
       fileSize: firstFile.fileSize,
       droppedBy,
       hasPin: pin ? true : false
@@ -169,63 +99,34 @@ app.post('/api/chests', upload.array('files', 15), async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Update Opens
 app.post('/api/chests/:id/open', async (req, res) => {
   try {
-    const { pin, username } = req.body;
-    const chest = await Chest.findById(req.params.id);
-    if (!chest) return res.status(404).json({ message: "SECURE INTEL NOT FOUND" });
+    const { pin } = req.body;
+    const allData = await db.read();
+    const chest = allData.chests.find(c => c._id === req.params.id);
+    if (!chest) return res.status(404).json({ message: "NOT FOUND" });
     
-    // VALIDATE PIN
-    if (chest.hasPin && chest.pin !== pin) {
-      return res.status(401).json({ message: "ACCESS DENIED: INVALID DECRYPTION PIN" });
-    }
-
-    // CHECK LIMITS
-    if (chest.maxOpens && chest.currentOpens >= chest.maxOpens) return res.status(403).json({ message: "INTEL SHREDDED: DOWNLOAD LIMIT REACHED" });
-    if (chest.expiresAt && Date.now() > chest.expiresAt) return res.status(403).json({ message: "INTEL STALE: LINK EXPIRED" });
+    if (chest.hasPin && chest.pin !== pin) return res.status(401).json({ message: "INVALID PIN" });
+    if (chest.maxOpens && chest.currentOpens >= chest.maxOpens) return res.status(403).json({ message: "LIMIT REACHED" });
 
     chest.currentOpens += 1;
-    await chest.save();
-    res.json(chest);
-  } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// Send Request
-app.post('/api/chests/:id/request', async (req, res) => {
-  try {
-    const { from } = req.body;
-    const chest = await Chest.findById(req.params.id);
-    if (!chest.requests.find(r => r.from === from)) {
-       chest.requests.push({ from, status: 'pending' });
-       await chest.save();
-    }
-    res.json(chest);
-  } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// Response to Request
-app.patch('/api/chests/:id/requests', async (req, res) => {
-  try {
-    const { from, status } = req.body;
-    const chest = await Chest.findById(req.params.id);
-    const reqIndex = chest.requests.findIndex(r => r.from === from);
-    if (reqIndex > -1) {
-       chest.requests[reqIndex].status = status;
-       await chest.save();
-    }
+    await db.write(allData);
     res.json(chest);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.delete('/api/chests/:id', async (req, res) => {
-  try { await Chest.findByIdAndDelete(req.params.id); res.json({ message: "Deleted" }); 
+  try { 
+    const allData = await db.read();
+    allData.chests = allData.chests.filter(c => c._id !== req.params.id);
+    await db.write(allData);
+    res.json({ message: "Deleted" }); 
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/ads', async (req, res) => {
   try {
-    const ads = await Ad.find().sort({ createdAt: -1 });
+    const ads = await db.getAds();
     res.json(ads);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -233,33 +134,12 @@ app.get('/api/ads', async (req, res) => {
 app.post('/api/ads', upload.single('file'), async (req, res) => {
   try {
     let { title, imageUrl, videoUrl, link } = req.body;
-    
-    // If a file was uploaded from the admin panel
     if (req.file) {
-      if (req.file.mimetype.startsWith('video/')) {
-        videoUrl = req.file.path;
-      } else {
-        imageUrl = req.file.path;
-      }
+      if (req.file.mimetype.startsWith('video/')) videoUrl = req.file.path;
+      else imageUrl = req.file.path;
     }
-
-    const newAd = new Ad({ title, imageUrl, videoUrl, link });
-    await newAd.save();
+    const newAd = await db.saveAd({ title, imageUrl, videoUrl, link, createdAt: new Date().toISOString() });
     res.status(201).json(newAd);
-  } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-app.delete('/api/ads/:id', async (req, res) => {
-  try {
-    await Ad.findByIdAndDelete(req.params.id);
-    res.json({ message: "Deleted" });
-  } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-app.post('/api/admin/migrate-tiers', async (req, res) => {
-  try {
-     const result = await Chest.updateMany({ tier: 'bronze' }, { $set: { tier: 'platinum' } });
-     res.json({ message: 'Migration successful', modifiedCount: result.modifiedCount });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -267,5 +147,4 @@ if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
-
 module.exports = app;
