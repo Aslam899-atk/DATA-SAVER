@@ -45,6 +45,7 @@ const User = mongoose.model('User', UserSchema);
 const ChestSchema = new mongoose.Schema({
   lat: Number,
   lng: Number,
+  title: String,
   tier: { type: String, enum: ['gold', 'silver', 'bronze', 'platinum'] },
   fileName: String,
   fileSize: String,
@@ -116,7 +117,7 @@ app.get('/api/chests', async (req, res) => {
 
 app.post('/api/chests', upload.array('files', 15), async (req, res) => {
   try {
-    const { lat, lng, tier, droppedBy, pin, maxOpens, expiresAt, adsRequired } = req.body;
+    const { lat, lng, title, tier, droppedBy, pin, maxOpens, expiresAt, adsRequired } = req.body;
     
     let uploadedFiles = [];
     if (req.files && req.files.length > 0) {
@@ -138,7 +139,9 @@ app.post('/api/chests', upload.array('files', 15), async (req, res) => {
     const firstFile = uploadedFiles.length > 0 ? uploadedFiles[0] : { fileName: 'DATA.DAT', fileSize: 'UNKNOWN', fileUrl: '' };
 
     const newChest = new Chest({
-      lat: Number(lat), lng: Number(lng), tier, droppedBy,
+      lat: Number(lat), lng: Number(lng), 
+      title: title || droppedBy || 'SECURE DROP',
+      tier, droppedBy,
       fileName: firstFile.fileName, 
       fileSize: firstFile.fileSize, 
       fileUrl: firstFile.fileUrl,

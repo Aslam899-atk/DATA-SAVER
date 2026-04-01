@@ -33,6 +33,7 @@ interface Chest {
   _id?: string;
   lat: number;
   lng: number;
+  title: string;
   tier: 'gold' | 'silver' | 'bronze' | 'platinum';
   fileName: string;
   fileSize: string;
@@ -646,6 +647,7 @@ export default function App() {
   const [transferProgress, setTransferProgress] = useState<number | null>(null);
   const [isAdMuted, setIsAdMuted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dropTitle, setDropTitle] = useState('');
 
   useEffect(() => {
     const handleResize = () => {
@@ -726,7 +728,7 @@ export default function App() {
     if (!currentUser) { setShowLoginModal(true); return; }
     if (selectedChest || activeAd !== null || isDropping) return;
     setIsDropping({ lat, lng });
-    setTempTier('bronze'); setSilverMode('count'); setSilverValue(''); setPinInput(''); setSelectedFiles([]);
+    setTempTier('bronze'); setSilverMode('count'); setSilverValue(''); setPinInput(''); setSelectedFiles([]); setDropTitle('');
   };
 
   const handlePointClick = (pt: any) => {
@@ -802,6 +804,7 @@ export default function App() {
   };
 
   const filteredChests = chests.filter(c => 
+    (c.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
     c.fileName.toLowerCase().includes(searchQuery.toLowerCase()) || 
     c.droppedBy.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -844,6 +847,7 @@ export default function App() {
     const formData = new FormData();
     formData.append('lat', isDropping.lat.toString());
     formData.append('lng', isDropping.lng.toString());
+    formData.append('title', dropTitle || currentUser.username);
     formData.append('tier', tempTier);
     formData.append('droppedBy', currentUser.username);
 
@@ -904,7 +908,7 @@ export default function App() {
             el.innerHTML = `
                <div style="display: flex; flex-direction: column; align-items: center;">
                  <img src="/${displayTier}_drop.png" style="width: 32px; height: 32px; filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'});" />
-                 <div style="font-size: 8px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; margin-top: 2px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${d.droppedBy}</div>
+                 <div style="font-size: 8px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; margin-top: 2px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${d.title || d.droppedBy}</div>
                </div>
             `;
             el.style.pointerEvents = 'auto';
@@ -969,7 +973,7 @@ export default function App() {
                 html: `
                   <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; width: 80px; transform: translateX(-20px);">
                     <img src="/${displayTier}_drop.png" style="width: 40px; height: 40px; filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'});" />
-                    <div style="font-size: 7px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 3px; margin-top: 1px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${chest.droppedBy}</div>
+                    <div style="font-size: 7px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 3px; margin-top: 1px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${chest.title || chest.droppedBy}</div>
                   </div>
                 `,
                 className: 'custom-chest-icon',
@@ -1139,12 +1143,21 @@ export default function App() {
                 )}
               </div>
 
-              {/* FILE INPUT */}
+              {/* TITLE AND FILE INPUT */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', marginBottom: 24 }}>
+                <input 
+                  type="text" 
+                  value={dropTitle} 
+                  onChange={e => setDropTitle(e.target.value)} 
+                  placeholder={`Title (Default: ${currentUser.username})`}
+                  style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }}
+                />
+                
                 <label style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                  <input type="file" multiple onChange={e => setSelectedFiles(Array.from(e.target.files || []))} style={{ display: 'none' }} />
-                  📁 {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Choose files to drop'}
+                  <input type="file" multiple onChange={e => setSelectedFiles(prev => [...prev, ...Array.from(e.target.files || [])])} style={{ display: 'none' }} />
+                  📁 {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Add files to drop'}
                 </label>
+                {selectedFiles.length > 0 && <button onClick={() => setSelectedFiles([])} style={{ fontSize: 9, fontWeight: 900, textTransform: 'uppercase', color: '#ff0', background: '#000', padding: '4px 8px', borderRadius: 4 }}>Clear Files</button>}
 
                 {tempTier === 'gold' && (
                   <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="🔑 Set password for access" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }} />
