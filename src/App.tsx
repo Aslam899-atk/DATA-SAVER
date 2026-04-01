@@ -1285,18 +1285,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* DOWNLOAD SECTION */}
-              <div style={{ background: '#000', padding: 20, borderRadius: 28, marginBottom: 24, display: 'flex', justifyContent: 'space-around', gap: 12 }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                   <Smartphone size={28} style={{ color: '#5ba4e5' }} />
-                   <a href="#" onClick={(e) => { e.preventDefault(); alert("Mobile App Download Starting..."); }} style={{ color: '#fff', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', textDecoration: 'underline' }}>Download APK</a>
-                </div>
-                <div style={{ width: 2, height: 40, background: 'rgba(255,255,255,0.1)' }}></div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                   <Monitor size={28} style={{ color: '#5ba4e5' }} />
-                   <a href="#" onClick={(e) => { e.preventDefault(); alert("PC Client Download Starting..."); }} style={{ color: '#fff', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', textDecoration: 'underline' }}>PC Software</a>
-                </div>
-              </div>
+
 
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <button onClick={handleCloseIntro} style={{ background: '#000', color: '#5ba4e5', padding: '14px 48px', borderRadius: 24, fontWeight: 900, fontSize: 18, border: '2px solid #000', cursor: 'pointer', textTransform: 'uppercase', boxShadow: '0 4px 0 #000' }}>CONFIRM</button>
