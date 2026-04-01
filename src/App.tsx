@@ -649,6 +649,26 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dropTitle, setDropTitle] = useState('');
 
+  // Auto-trigger ads after 1 minute on the platform
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      triggerRandomAd();
+    }, 60000); 
+    return () => clearTimeout(timer);
+  }, []);
+
+  const triggerRandomAd = async () => {
+     try {
+       const res = await axios.get(`${API_URL}/ads`);
+       if (res.data && res.data.length > 0) {
+         const randomAd = res.data[Math.floor(Math.random() * res.data.length)];
+         setActiveAd(randomAd);
+       }
+     } catch (e) {
+       console.log("No broadcasts available for auto-trigger");
+     }
+  };
+
   useEffect(() => {
     const handleResize = () => {
       const w = window.innerWidth;
