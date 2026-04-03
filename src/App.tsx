@@ -87,9 +87,9 @@ const AdminPanel = () => {
 
   useEffect(() => {
     if (isAdminLoggedIn) {
-      axios.get(`${API_URL}/chests`).then(res => setChests(res.data));
-      axios.get(`${API_URL}/users`).then(res => setUsers(res.data));
-      axios.get(`${API_URL}/ads`).then(res => setAds(res.data));
+      axios.get(`${API_URL}/chests`).then(res => setChests(Array.isArray(res.data) ? res.data : []));
+      axios.get(`${API_URL}/users`).then(res => setUsers(Array.isArray(res.data) ? res.data : []));
+      axios.get(`${API_URL}/ads`).then(res => setAds(Array.isArray(res.data) ? res.data : []));
     }
   }, [isAdminLoggedIn]);
 
@@ -689,9 +689,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const fn = () => axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data)).catch(console.error);
+    const fn = () => axios.get(`${API_URL}/chests`).then((res: any) => setChests(Array.isArray(res.data) ? res.data : [])).catch(console.error);
     fn();
-    axios.get(`${API_URL}/ads`).then(res => setAds(res.data)).catch(console.error);
+    axios.get(`${API_URL}/ads`).then(res => setAds(Array.isArray(res.data) ? res.data : [])).catch(console.error);
     const interval = setInterval(fn, 15000); // Faster updates for live maps
     return () => clearInterval(interval);
   }, []);
