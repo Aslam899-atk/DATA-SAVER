@@ -1,46 +1,102 @@
-const fs = require('fs-extra');
+const mongoose = require('mongoose');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
-const DB_PATH = process.env.NODE_ENV === 'production' 
-  ? path.join('/tmp', 'db.json')
-  : path.join(__dirname, 'data', 'db.json');
+const MONGODB_URI = process.env.MONGODB_URI;
 
-// Ensure db exists
-if (!fs.existsSync(DB_PATH)) {
-  fs.outputJsonSync(DB_PATH, { chests: [], users: [], ads: [] });
-}
+// Connect to MongoDB
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('✅ MongoDB DATA ENGINE ACTIVE'))
+  .catch(err => console.error('❌ MONGODB CONNECTION ERROR:', err));
+
+// --- SCHEMAS ---
+
+const chestSchema = new mongoose.Schema({
+  lat: Number,
+  lng: Number,
+  title: String,
+  tier: String,
+  droppedBy: String,
+  fileName: String,
+  fileSize: String,
+  fileUrl: String,
+  files: [mongoose.Schema.Types.Mixed],
+  hasPin: Boolean,
+  pin: String,
+  maxOpens: Number,
+  currentOpens: { type: Number, default: 0 },
+  expiresAt: Number,
+  createdAt: { type: Date, default: Date.now }
+});
+
+const userSchema = new mongoose.Schema({
+  googleId: String,
+  email: String,
+  name: String,
+  picture: String,
+  tier: { type: String, default: 'bronze' },
+  lastLogin: { type: Date, default: Date.now }
+});
+
+const adSchema = new mongoose.Schema({
+  title: String,
+  imageUrl: String,
+  videoUrl: String,
+  link: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+// --- MODELS ---
+const Chest = mongoose.model('Chest', chestSchema);
+const User = mongoose.model('User', userSchema);
+const Ad = mongoose.model('Ad', adSchema);
+
+// --- DB INTERFACE ---
 
 module.exports = {
-  read: async () => fs.readJson(DB_PATH),
-  write: async (data) => fs.writeJson(DB_PATH, data, { spaces: 2 }),
-  
-  // Helpers
-  getChests: async () => (await fs.readJson(DB_PATH)).chests,
-  saveChest: async (chest) => {
-    const data = await fs.readJson(DB_PATH);
-    data.chests.push({ ...chest, _id: Date.now().toString() });
-    await fs.writeJson(DB_PATH, data, { spaces: 2 });
-    return chest;
+  // Common read/write if needed for entire DB object (Legacy support)
+  read: async () => {
+    const chests = await Chest.find();
+    const users = await User.find();
+    const ads = await Ad.find();
+    return { chests, users, ads };
   },
   
-  getUsers: async () => (await fs.readJson(DB_PATH)).users,
-  saveUser: async (user) => {
-    const data = await fs.readJson(DB_PATH);
-    const existingIdx = data.users.findIndex(u => u.googleId === user.googleId);
-    if (existingIdx > -1) {
-      data.users[existingIdx] = { ...data.users[existingIdx], ...user, lastLogin: Date.now() };
-    } else {
-      data.users.push({ ...user, lastLogin: Date.now() });
+  write: async (data) => {
+    // Legacy support for directly writing state back
+    if (data.chests) {
+      for (const c of data.chests) {
+        if (c._id && mongoose.Types.ObjectId.isValid(c._id)) {
+           await Chest.findByIdAndUpdate(c._id, c, { upsert: true });
+        }
+      }
     }
-    await fs.writeJson(DB_PATH, data, { spaces: 2 });
-    return user;
   },
 
-  getAds: async () => (await fs.readJson(DB_PATH)).ads,
-  saveAd: async (ad) => {
-    const data = await fs.readJson(DB_PATH);
-    data.ads.push({ ...ad, _id: Date.now().toString() });
-    await fs.writeJson(DB_PATH, data, { spaces: 2 });
-    return ad;
+  // Helpers
+  getChests: async () => await Chest.find(),
+  saveChest: async (chest) => {
+    const newChest = new Chest(chest);
+    return await newChest.save();
+  },
+  
+  getUsers: async () => await User.find(),
+  saveUser: async (userData) => {
+    let user = await User.findOne({ googleId: userData.googleId });
+    if (user) {
+      user.lastLogin = Date.now();
+      user.name = userData.name;
+      user.picture = userData.picture;
+      return await user.save();
+    } else {
+      user = new User({ ...userData, lastLogin: Date.now() });
+      return await user.save();
+    }
+  },
+
+  getAds: async () => await Ad.find(),
+  saveAd: async (adData) => {
+    const newAd = new Ad(adData);
+    return await newAd.save();
   }
 };

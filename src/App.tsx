@@ -645,6 +645,8 @@ export default function App() {
   const [isAdMuted, setIsAdMuted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [dropTitle, setDropTitle] = useState('');
+  const [silverCountdown, setSilverCountdown] = useState<number | null>(null);
+  const [isWaitingSilver, setIsWaitingSilver] = useState(false);
 
   // Auto-trigger ads after 1 minute on the platform (Silver/Gold users are ad-free)
   useEffect(() => {
@@ -775,7 +777,9 @@ export default function App() {
     if (selectedChest.tier === 'bronze') { processOpen(); return; }
 
     if (selectedChest.tier === 'silver') {
-      processOpen();
+      if (isWaitingSilver) return;
+      setIsWaitingSilver(true);
+      setSilverCountdown(15); 
       return; 
     }
 
@@ -785,6 +789,17 @@ export default function App() {
       processOpen();
     }
   };
+
+  useEffect(() => {
+    if (isWaitingSilver && silverCountdown !== null && silverCountdown > 0) {
+      const timer = setTimeout(() => setSilverCountdown(prev => prev !== null ? prev - 1 : null), 1000);
+      return () => clearTimeout(timer);
+    } else if (isWaitingSilver && silverCountdown === 0) {
+       setIsWaitingSilver(false);
+       setSilverCountdown(null);
+       processOpen();
+    }
+  }, [isWaitingSilver, silverCountdown]);
 
   const forceDownload = async (url: string, filename: string) => {
     // If it's a Cloudinary URL, we can force the attachment flag
@@ -1191,9 +1206,26 @@ export default function App() {
                 <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="Enter password" style={{ width: '100%', padding: '14px 16px', textAlign: 'center', borderRadius: 20, border: '2px solid #000', background: 'transparent', fontWeight: 700, fontSize: 16, outline: 'none' }} />
               )}
 
-              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleChestAction(); }} style={{ width: '100%', border: '2px solid #000', borderRadius: 24, padding: '16px 0', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 20, cursor: 'pointer', letterSpacing: 2, textTransform: 'uppercase', boxShadow: '0 4px 0 rgba(0,0,0,0.3)' }}>
-                🔓 UNLOCK INTEL
-              </button>
+              <div style={{ width: '100%', padding: '12px 16px', borderRadius: 20, border: '1px solid rgba(0,0,0,0.1)', background: 'rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, fontWeight: 900 }}>SLOTS</span>
+                <span style={{ fontSize: 14, fontWeight: 900, color: '#000' }}>
+                  {selectedChest.maxOpens ? `${selectedChest.currentOpens || 0} / ${selectedChest.maxOpens}` : '∞'}
+                </span>
+              </div>
+
+              {isWaitingSilver ? (
+                <div style={{ width: '100%', background: '#000', borderRadius: 24, padding: '20px', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+                   <div style={{ fontSize: 10, fontWeight: 900, color: '#5ba4e5', letterSpacing: 4 }}>DECRYPTING INTEL</div>
+                   <div style={{ width: '100%', height: 4, background: 'rgba(91, 164, 229, 0.2)', borderRadius: 2, overflow: 'hidden' }}>
+                      <motion.div initial={{ width: '100%' }} animate={{ width: `${(silverCountdown || 0) * 100 / 15}%` }} transition={{ duration: 1, ease: 'linear' }} style={{ height: '100%', background: '#5ba4e5' }} />
+                   </div>
+                   <div style={{ fontSize: 24, fontWeight: 900, color: '#fff', fontStyle: 'italic' }}>{silverCountdown}s</div>
+                </div>
+              ) : (
+                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleChestAction(); }} style={{ width: '100%', border: '2px solid #000', borderRadius: 24, padding: '16px 0', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 20, cursor: 'pointer', letterSpacing: 2, textTransform: 'uppercase', boxShadow: '0 4px 0 rgba(0,0,0,0.3)' }}>
+                  🔓 {selectedChest.tier === 'silver' ? 'INITIATE DECRYPTION' : 'UNLOCK INTEL'}
+                </button>
+              )}
             </motion.div>
           </div>
         )}
