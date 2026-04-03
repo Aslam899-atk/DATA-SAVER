@@ -41,6 +41,7 @@ interface Chest {
   hasPin: boolean;
   pin?: string;
   maxOpens?: number;
+  silverTimer?: number;
   currentOpens: number;
   expiresAt?: number;
   requiresRequest: boolean;
@@ -647,6 +648,7 @@ export default function App() {
   const [dropTitle, setDropTitle] = useState('');
   const [silverCountdown, setSilverCountdown] = useState<number | null>(null);
   const [isWaitingSilver, setIsWaitingSilver] = useState(false);
+  const [silverTimerInput, setSilverTimerInput] = useState('15');
 
   // Auto-trigger ads after 1 minute on the platform (Silver/Gold users are ad-free)
   useEffect(() => {
@@ -779,7 +781,7 @@ export default function App() {
     if (selectedChest.tier === 'silver') {
       if (isWaitingSilver) return;
       setIsWaitingSilver(true);
-      setSilverCountdown(15); 
+      setSilverCountdown(selectedChest.silverTimer || 15); 
       return; 
     }
 
@@ -890,6 +892,7 @@ export default function App() {
     }
     if (tempTier === 'silver') {
       formData.append('maxOpens', silverValue || '10');
+      formData.append('silverTimer', silverTimerInput || '15');
     }
     selectedFiles.forEach(file => {
       formData.append('files', file);
@@ -904,7 +907,7 @@ export default function App() {
         }
       });
       setChests(prev => [...prev, res.data]);
-      setIsDropping(null); setTempTier('bronze'); setSilverValue(''); setSelectedFiles([]); setPinInput('');
+      setIsDropping(null); setTempTier('bronze'); setSilverValue(''); setSilverTimerInput('15'); setSelectedFiles([]); setPinInput('');
       alert('SUCCESS: INTEL DEPLOYED TO SECTOR');
     } catch (e: any) { 
       alert(`FAILED: ${e.response?.data?.error || e.message}`); 
@@ -1173,7 +1176,10 @@ export default function App() {
                   <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="🔑 Set password for access" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }} />
                 )}
                 {tempTier === 'silver' && (
-                  <input type="number" value={silverValue} onChange={e => setSilverValue(e.target.value)} placeholder="Total opens before shredding" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }} />
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <input type="number" value={silverValue} onChange={e => setSilverValue(e.target.value)} placeholder="Slots (Count)" style={{ flex: 1, border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 13, outline: 'none' }} />
+                    <input type="number" value={silverTimerInput} onChange={e => setSilverTimerInput(e.target.value)} placeholder="Timer (Sec)" style={{ flex: 1, border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 13, outline: 'none' }} />
+                  </div>
                 )}
               </div>
 
@@ -1217,7 +1223,7 @@ export default function App() {
                 <div style={{ width: '100%', background: '#000', borderRadius: 24, padding: '20px', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
                    <div style={{ fontSize: 10, fontWeight: 900, color: '#5ba4e5', letterSpacing: 4 }}>DECRYPTING INTEL</div>
                    <div style={{ width: '100%', height: 4, background: 'rgba(91, 164, 229, 0.2)', borderRadius: 2, overflow: 'hidden' }}>
-                      <motion.div initial={{ width: '100%' }} animate={{ width: `${(silverCountdown || 0) * 100 / 15}%` }} transition={{ duration: 1, ease: 'linear' }} style={{ height: '100%', background: '#5ba4e5' }} />
+                      <motion.div initial={{ width: '100%' }} animate={{ width: `${(silverCountdown || 0) * 100 / (selectedChest.silverTimer || 15)}%` }} transition={{ duration: 1, ease: 'linear' }} style={{ height: '100%', background: '#5ba4e5' }} />
                    </div>
                    <div style={{ fontSize: 24, fontWeight: 900, color: '#fff', fontStyle: 'italic' }}>{silverCountdown}s</div>
                 </div>

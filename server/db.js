@@ -24,6 +24,7 @@ const chestSchema = new mongoose.Schema({
   hasPin: Boolean,
   pin: String,
   maxOpens: Number,
+  silverTimer: { type: Number, default: 15 },
   currentOpens: { type: Number, default: 0 },
   expiresAt: Number,
   createdAt: { type: Date, default: Date.now }
