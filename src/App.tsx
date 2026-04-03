@@ -626,11 +626,11 @@ export default function App() {
   const [selectedChest, setSelectedChest] = useState<Chest | null>(null);
   const [isDropping, setIsDropping] = useState<{ lat: number, lng: number } | null>(null);
   const [tempTier, setTempTier] = useState<'gold' | 'silver' | 'bronze'>('bronze');
-  const [silverValue, setSilverValue] = useState('10');
-  const [silverExpiry, setSilverExpiry] = useState('24');
   const [silverCountdown, setSilverCountdown] = useState<number | null>(null);
   const [isWaitingSilver, setIsWaitingSilver] = useState(false);
   const [isAdMuted, setIsAdMuted] = useState(false);
+  const [silverMode, setSilverMode] = useState<'TIME' | 'COUNT'>('COUNT');
+  const [silverValueInput, setSilverValueInput] = useState('4');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [unlockedChest, setUnlockedChest] = useState<any>(null);
   const [pinInput, setPinInput] = useState('');
@@ -760,7 +760,7 @@ export default function App() {
     if (!currentUser) { setShowLoginModal(true); return; }
     if (selectedChest || activeAd !== null || isDropping) return;
     setIsDropping({ lat, lng });
-    setTempTier('bronze'); setSilverValue(''); setPinInput(''); setSelectedFiles([]); setDropTitle('');
+    setTempTier('bronze'); setSilverValueInput('4'); setPinInput(''); setSelectedFiles([]); setDropTitle('');
   };
 
   const handlePointClick = (pt: any) => {
@@ -896,14 +896,16 @@ export default function App() {
       formData.append('pin', pinInput || '0000');
     }
     if (tempTier === 'silver') {
-      // Both can be set now
-      if (silverValue) formData.append('maxOpens', silverValue);
-      if (silverExpiry) {
-        const hours = parseInt(silverExpiry);
+      if (silverMode === 'COUNT') {
+        formData.append('maxOpens', silverValueInput || '10');
+        formData.append('silverTimer', '0');
+      } else {
+        const hours = parseInt(silverValueInput || '24');
         const expiryMs = Date.now() + (hours * 60 * 60 * 1000);
         formData.append('expiresAt', expiryMs.toString());
+        formData.append('maxOpens', '999999'); 
+        formData.append('silverTimer', '0');
       }
-      formData.append('silverTimer', '0'); // NO WAITING TIME
     }
     selectedFiles.forEach(file => {
       formData.append('files', file);
@@ -918,7 +920,7 @@ export default function App() {
         }
       });
       setChests(prev => [...prev, res.data]);
-      setIsDropping(null); setTempTier('bronze'); setSilverValue('10'); setSilverExpiry('24'); setSelectedFiles([]); setPinInput('');
+      setIsDropping(null); setTempTier('bronze'); setSilverValueInput('4'); setSelectedFiles([]); setPinInput('');
       alert('SUCCESS: INTEL DEPLOYED TO SECTOR');
     } catch (e: any) { 
       alert(`FAILED: ${e.response?.data?.error || e.message}`); 
@@ -1187,21 +1189,53 @@ export default function App() {
                   <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="🔑 Set password for access" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }} />
                 )}
                 {tempTier === 'silver' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <p style={{ fontSize: 10, fontWeight: 900, color: '#000', margin: 0, opacity: 0.5 }}>RESTRICTION SETTINGS (OPTIONAL)</p>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                       <input type="number" value={silverValue} onChange={e => setSilverValue(e.target.value)} placeholder="Max Slots" style={{ flex: 1, border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 14, outline: 'none' }} />
-                       <input type="number" value={silverExpiry} onChange={e => setSilverExpiry(e.target.value)} placeholder="Life (Hours)" style={{ flex: 1, border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 14, outline: 'none' }} />
+                  <div style={{ padding: '0 8px' }}>
+                    <p style={{ fontSize: 9, fontWeight: 900, color: '#000', opacity: 0.5, marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5 }}>RESTRICTION SETTINGS (OPTIONAL)</p>
+                    
+                    <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 20 }}>
+                       <div onClick={() => setSilverMode('TIME')} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                          <div style={{ width: 10, height: 10, borderRadius: '50%', border: '2px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                             {silverMode === 'TIME' && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f00' }} />}
+                          </div>
+                          <span style={{ fontSize: 9, fontWeight: 900, color: '#000' }}>TIME</span>
+                       </div>
+                       <div onClick={() => setSilverMode('COUNT')} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                          <div style={{ width: 10, height: 10, borderRadius: '50%', border: '2px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                             {silverMode === 'COUNT' && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f00' }} />}
+                          </div>
+                          <span style={{ fontSize: 9, fontWeight: 900, color: '#000' }}>COUNT</span>
+                       </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                       <input 
+                        type="number" 
+                        value={silverValueInput} 
+                        onChange={e => setSilverValueInput(e.target.value)} 
+                        style={{ width: 140, border: '2px solid #000', borderRadius: 4, padding: '10px 12px', background: 'rgba(255,255,255,0.25)', fontWeight: 800, fontSize: 13, outline: 'none' }} 
+                       />
+                       <span style={{ fontSize: 8, fontWeight: 900, color: '#000', textTransform: 'uppercase' }}>
+                          {silverMode === 'TIME' ? 'HOUR' : 'USER CAN DOWNLOAD'}
+                       </span>
                     </div>
                   </div>
                 )}
               </div>
 
               {/* ACTION BUTTONS */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
-                <button style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', border: '2px solid #000', padding: '12px 28px', borderRadius: 24, fontWeight: 700, fontSize: 14, cursor: isDeploying ? 'not-allowed' : 'pointer', opacity: isDeploying ? 0.6 : 1, letterSpacing: 1, textTransform: 'uppercase' }} onClick={() => setIsDropping(null)} disabled={isDeploying}>✕ Abort</button>
-                <button style={{ background: '#000', color: '#5ba4e5', padding: '12px 32px', borderRadius: 24, fontWeight: 900, fontSize: 15, cursor: isDeploying ? 'not-allowed' : 'pointer', opacity: isDeploying ? 0.6 : 1, letterSpacing: 1, textTransform: 'uppercase', border: '2px solid #000', boxShadow: '0 4px 0 #000' }} onClick={finalizeDrop} disabled={isDeploying}>
-                  {isDeploying ? '⏳ DEPLOYING...' : '🚀 Commence Drop'}
+              <div style={{ display: 'flex', gap: 16, marginTop: 12, width: '100%' }}>
+                <button 
+                  onClick={() => setIsDropping(null)} 
+                  style={{ flex: 1, border: '2px solid #000', borderRadius: 40, padding: '14px 16px', background: 'rgba(10,15,30,0.9)', color: '#fff', fontWeight: 900, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textTransform: 'uppercase' }}
+                >
+                  <X size={18} /> ABORT
+                </button>
+                <button 
+                  onClick={finalizeDrop} 
+                  disabled={isDeploying} 
+                  style={{ flex: 2, border: 'none', borderRadius: 40, padding: '14px 16px', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: 1 }}
+                >
+                  🚀 {isDeploying ? 'DEPLOYING...' : 'COMMENCE DROP'}
                 </button>
               </div>
             </motion.div>
