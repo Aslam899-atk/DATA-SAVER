@@ -96,7 +96,8 @@ app.post('/api/chests', upload.array('files', 15), async (req, res) => {
       fileName: uploadedFiles.length > 1 ? `${uploadedFiles.length} FILES` : firstFile.fileName,
       fileSize: firstFile.fileSize,
       droppedBy,
-      hasPin: pin ? true : false
+      hasPin: pin ? true : false,
+      fileUrl: firstFile.fileUrl
     });
 
     res.status(201).json(savedChest);

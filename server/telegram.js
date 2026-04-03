@@ -71,11 +71,22 @@ if (token) {
 
 const notifyDrop = async (chestData) => {
   if (!bot || !chatId) return;
-  const { tier, fileName, fileSize, droppedBy, hasPin } = chestData;
+  const { tier, fileName, fileSize, droppedBy, hasPin, fileUrl } = chestData;
   const tierEmoji = tier === 'gold' ? '🏆' : tier === 'silver' ? '🥈' : '🥉';
-  const message = `<b>New Intel Dropped!</b> ${tierEmoji}\n\n<b>File:</b> ${fileName}\n<b>Size:</b> ${fileSize}\n<b>Agent:</b> ${droppedBy}\n<b>Protected:</b> ${hasPin ? 'Yes 🔒' : 'No 🔓'}`;
+  const message = `<b>Intel Backup System</b> 🚀\n\n<b>Tier:</b> ${tier.toUpperCase()} ${tierEmoji}\n<b>File:</b> ${fileName}\n<b>Size:</b> ${fileSize}\n<b>Agent:</b> ${droppedBy}\n<b>Link:</b> <a href="${fileUrl}">Download Map View</a>`;
+  
   try {
+    // 1. Send the data info message
     await bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+    
+    // 2. Try to back up the file as a direct document to Telegram if possible
+    if (fileUrl) {
+       // Telegram bot file upload limit via URL is about 20MB. 
+       // Larger files will still have the link in the message.
+       bot.sendDocument(chatId, fileUrl, { caption: `Backup of ${fileName} by agent ${droppedBy}` }).catch(e => {
+         console.log('File too large for direct telegram document backup, link only provided.');
+       });
+    }
   } catch (error) {
     console.error('Error sending Telegram dropping notification:', error.message);
   }
