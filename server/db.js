@@ -1,7 +1,9 @@
 const fs = require('fs-extra');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'data', 'db.json');
+const DB_PATH = process.env.NODE_ENV === 'production' 
+  ? path.join('/tmp', 'db.json')
+  : path.join(__dirname, 'data', 'db.json');
 
 // Ensure db exists
 if (!fs.existsSync(DB_PATH)) {

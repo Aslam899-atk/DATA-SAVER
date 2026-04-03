@@ -4,7 +4,12 @@ const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+const fs_standard = require('fs');
+if (fs_standard.existsSync(path.join(__dirname, '.env'))) {
+  require('dotenv').config({ path: path.join(__dirname, '.env') });
+} else {
+  require('dotenv').config(); // Fallback to host variables
+}
 const db = require('./db');
 const { notifyDrop } = require('./telegram');
 
@@ -132,14 +137,26 @@ app.get('/api/ads', async (req, res) => {
 
 app.post('/api/ads', upload.single('file'), async (req, res) => {
   try {
+    console.log("Receiving ad broadcast request...");
     let { title, imageUrl, videoUrl, link } = req.body;
+    console.log("Body:", { title, imageUrl, videoUrl, link });
+    
     if (req.file) {
-      if (req.file.mimetype.startsWith('video/')) videoUrl = req.file.path;
-      else imageUrl = req.file.path;
+      console.log("File received:", req.file.originalname, req.file.mimetype);
+      if (req.file.mimetype.startsWith('video/')) {
+        videoUrl = req.file.path;
+      } else {
+        imageUrl = req.file.path;
+      }
     }
-    const newAd = await db.saveAd({ title, imageUrl, videoUrl, link, createdAt: new Date().toISOString() });
-    res.status(201).json(newAd);
-  } catch (error) { res.status(500).json({ error: error.message }); }
+    const newAd = { title, imageUrl, videoUrl, link, createdAt: new Date().toISOString() };
+    const savedAd = await db.saveAd(newAd);
+    console.log("Ad saved successfully:", savedAd._id);
+    res.status(201).json(savedAd);
+  } catch (error) {
+    console.error("AD UPLOAD ERROR:", error);
+    res.status(500).json({ error: error.message }); 
+  }
 });
 
 if (process.env.NODE_ENV !== 'production') {
