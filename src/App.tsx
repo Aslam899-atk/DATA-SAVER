@@ -130,8 +130,21 @@ const AdminPanel = () => {
     
     const formData = new FormData();
     formData.append('title', newAd.title);
-    if (newAd.imageUrl) formData.append('imageUrl', newAd.imageUrl);
-    if (newAd.videoUrl) formData.append('videoUrl', newAd.videoUrl);
+    
+    let finalVideoUrl = newAd.videoUrl;
+    if (finalVideoUrl) {
+      if (finalVideoUrl.includes('youtube.com/watch?v=')) {
+        try {
+          const id = new URL(finalVideoUrl).searchParams.get('v');
+          if (id) finalVideoUrl = `https://www.youtube.com/embed/${id}`;
+        } catch(e) {}
+      } else if (finalVideoUrl.includes('youtu.be/')) {
+        const id = finalVideoUrl.split('youtu.be/')[1]?.split('?')[0];
+        if (id) finalVideoUrl = `https://www.youtube.com/embed/${id}`;
+      }
+    }
+    
+    if (finalVideoUrl) formData.append('videoUrl', finalVideoUrl);
     if (newAd.link) formData.append('link', newAd.link);
     if (selectedFile) formData.append('file', selectedFile);
 
@@ -447,17 +460,13 @@ const AdminPanel = () => {
                         <input required value={newAd.title} onChange={e => setNewAd({...newAd, title: e.target.value})} placeholder="e.g. Special Rewards v2" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <label style={{ fontSize: 9, fontWeight: 900, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: 2 }}>Option 1: Strategic Asset File (Img/Vid)</label>
-                        <input type="file" accept="image/*,video/*" onChange={e => setSelectedFile(e.target.files?.[0] || null)} style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid #3b82f633', padding: 16, borderRadius: 12, color: '#fff', fontSize: 14 }} />
+                        <label style={{ fontSize: 9, fontWeight: 900, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: 2 }}>Video Upload (Direct MP4 File)</label>
+                        <input type="file" accept="video/*" onChange={e => setSelectedFile(e.target.files?.[0] || null)} style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid #3b82f633', padding: 16, borderRadius: 12, color: '#fff', fontSize: 14 }} />
                       </div>
-                      <div style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center', fontSize: 9, fontWeight: 900, color: '#64748b' }}>--- OR MANUALLY PROVIDE DATA ---</div>
+                      <div style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center', fontSize: 9, fontWeight: 900, color: '#64748b' }}>--- OR USE VIDEO LINK ---</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Image Banner URL</label>
-                        <input value={newAd.imageUrl} onChange={e => setNewAd({...newAd, imageUrl: e.target.value})} placeholder="https://..." style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Video URL (Optional Embed/Direct)</label>
-                        <input value={newAd.videoUrl} onChange={e => setNewAd({...newAd, videoUrl: e.target.value})} placeholder="https://youtube.com/..." style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />
+                        <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Video URL (Youtube / Website direct link)</label>
+                        <input value={newAd.videoUrl} onChange={e => setNewAd({...newAd, videoUrl: e.target.value})} placeholder="https://youtube.com/watch?v=..." style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Call-to-Action Link</label>
