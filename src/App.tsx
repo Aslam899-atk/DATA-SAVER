@@ -7,10 +7,9 @@ import {
   LogOut,
   Bell,
   X,
-  Smartphone,
-  Monitor,
   Volume2,
-  VolumeX
+  VolumeX,
+  Activity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Globe from 'react-globe.gl';
@@ -46,7 +45,6 @@ interface Chest {
   expiresAt?: number;
   requiresRequest: boolean;
   requests?: { from: string, status: 'pending' | 'accepted' | 'rejected' }[];
-  adsRequired?: number;
 }
 
 interface UserProfile {
@@ -529,7 +527,7 @@ const AdminPanel = () => {
 
             <div style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)', border: '1px solid rgba(37, 99, 235, 0.2)', padding: 24, borderRadius: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{ width: 40, height: 40, backgroundColor: '#2563eb', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Monitor size={20} style={{ color: '#fff' }} />
+                <Activity size={20} style={{ color: '#fff' }} />
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{ fontSize: 10, fontWeight: 900, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>System Status</p>
@@ -627,7 +625,6 @@ export default function App() {
   const [selectedChest, setSelectedChest] = useState<Chest | null>(null);
   const [isDropping, setIsDropping] = useState<{ lat: number, lng: number } | null>(null);
   const [tempTier, setTempTier] = useState<'gold' | 'silver' | 'bronze'>('bronze');
-  const [silverMode, setSilverMode] = useState<'timer' | 'count' | 'ads'>('count');
   const [silverValue, setSilverValue] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [unlockedChest, setUnlockedChest] = useState<any>(null);
@@ -649,8 +646,13 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dropTitle, setDropTitle] = useState('');
 
-  // Auto-trigger ads after 1 minute on the platform
+  // Auto-trigger ads after 1 minute on the platform (Silver/Gold users are ad-free)
   useEffect(() => {
+    const storedUser = localStorage.getItem('dataDropperUser');
+    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+    const isSilverOrAbove = parsedUser && (parsedUser.tier === 'silver' || parsedUser.tier === 'gold');
+    if (isSilverOrAbove) return; // Silver/Gold users skip ads entirely
+
     const timer = setTimeout(() => {
       triggerRandomAd();
     }, 60000); 
@@ -734,6 +736,12 @@ export default function App() {
         if (prev) return prev; // If ad is active, skip
         
         const current = adStateRef.current;
+        // Silver tier users see NO ads — only bronze users see ads
+        const storedUser = localStorage.getItem('dataDropperUser');
+        const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+        const isSilverOrAbove = parsedUser && (parsedUser.tier === 'silver' || parsedUser.tier === 'gold');
+        if (isSilverOrAbove) return prev; // Skip ads for silver/gold users
+
         if (current.ads.length > 0 && !current.selectedChest && !current.isDropping && window.location.pathname !== '/admin') {
           setTimeout(() => setAdElapsed(0), 0);
           return current.ads[Math.floor(Math.random() * current.ads.length)];
@@ -748,7 +756,7 @@ export default function App() {
     if (!currentUser) { setShowLoginModal(true); return; }
     if (selectedChest || activeAd !== null || isDropping) return;
     setIsDropping({ lat, lng });
-    setTempTier('bronze'); setSilverMode('count'); setSilverValue(''); setPinInput(''); setSelectedFiles([]); setDropTitle('');
+    setTempTier('bronze'); setSilverValue(''); setPinInput(''); setSelectedFiles([]); setDropTitle('');
   };
 
   const handlePointClick = (pt: any) => {
@@ -767,16 +775,7 @@ export default function App() {
     if (selectedChest.tier === 'bronze') { processOpen(); return; }
 
     if (selectedChest.tier === 'silver') {
-      if (activeAd !== null) return; // Ad already in progress
-      const required = selectedChest.adsRequired || 1;
-      const availableAds = ads.length > 0 ? [...ads].sort(() => 0.5 - Math.random()) : [];
-      const queue = [];
-      for (let i = 0; i < required; i++) {
-        queue.push(availableAds.length > 0 ? availableAds[i % availableAds.length] : { title: 'Broadcast Payload', imageUrl: 'https://res.cloudinary.com/dw7wcsate/image/upload/v1711132000/dummy_ad.png' });
-      }
-      setActiveAd(queue[0]);
-      setAdQueue(queue.slice(1));
-      setAdElapsed(0); 
+      processOpen();
       return; 
     }
 
@@ -874,10 +873,8 @@ export default function App() {
     if (tempTier === 'gold') {
       formData.append('pin', pinInput || '0000');
     }
-    if (tempTier === 'silver' && silverValue && !isNaN(parseInt(silverValue))) {
-      if (silverMode === 'count') formData.append('maxOpens', silverValue);
-      if (silverMode === 'timer') formData.append('expiresAt', (Date.now() + parseInt(silverValue) * 3600000).toString());
-      if (silverMode === 'ads') formData.append('adsRequired', silverValue);
+    if (tempTier === 'silver') {
+      formData.append('maxOpens', silverValue || '10');
     }
     selectedFiles.forEach(file => {
       formData.append('files', file);
@@ -1059,7 +1056,7 @@ export default function App() {
           <img src="/gold_drop.png" style={{ width: 24, height: 24 }} />
           <span style={{ fontSize: 12, fontWeight: 900, color: '#eab308', letterSpacing: 3, textTransform: 'uppercase' }}>GOLD: {chests.filter(c => c.tier === 'gold').length}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.[...])', borderLeft: '4px solid #94a3b8', borderRadius: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #94a3b8', borderRadius: 10 }}>
           <img src="/silver_drop.png" style={{ width: 24, height: 24 }} />
           <span style={{ fontSize: 12, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>SILVER: {chests.filter(c => c.tier === 'silver').length}</span>
         </div>
@@ -1137,30 +1134,8 @@ export default function App() {
               {/* TIER INFO */}
               <div style={{ minHeight: 100, marginBottom: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 {tempTier === 'bronze' && <p style={{ fontSize: 18, fontWeight: 600 }}>📦 Fully Free — Anyone can download</p>}
-
-                {tempTier === 'silver' && (
-                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                    <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', fontWeight: 600, fontSize: 14 }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                        <input type="radio" name="silverMode" checked={silverMode === 'timer'} onChange={() => setSilverMode('timer')} /> ⏱️ Timer
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                        <input type="radio" name="silverMode" checked={silverMode === 'count'} onChange={() => setSilverMode('count')} /> 👥 Count
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                        <input type="radio" name="silverMode" checked={silverMode === 'ads'} onChange={() => setSilverMode('ads')} /> 📺 Ads
-                      </label>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <input type="number" value={silverValue} onChange={e => setSilverValue(e.target.value)} style={{ width: 70, height: 48, border: '2px solid #000', borderRadius: 12, textAlign: 'center', fontSize: 20, fontWeight: 700, background: 'transparent', outline: 'none' }} />
-                      <span style={{ fontSize: 16, fontWeight: 600 }}>
-                        {silverMode === 'timer' && 'Hours'}
-                        {silverMode === 'count' && 'People can open'}
-                        {silverMode === 'ads' && 'Ad views required'}
-                      </span>
-                    </div>
-                  </div>
-                )}
+                {tempTier === 'silver' && <p style={{ fontSize: 18, fontWeight: 600 }}>🎁 Limited Access — Set max downloads</p>}
+                {tempTier === 'gold' && <p style={{ fontSize: 18, fontWeight: 600 }}>🧰 Secure — Requires PIN to access</p>}
               </div>
 
               {/* TITLE AND FILE INPUT */}
@@ -1181,6 +1156,9 @@ export default function App() {
 
                 {tempTier === 'gold' && (
                   <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="🔑 Set password for access" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }} />
+                )}
+                {tempTier === 'silver' && (
+                  <input type="number" value={silverValue} onChange={e => setSilverValue(e.target.value)} placeholder="Total opens before shredding" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }} />
                 )}
               </div>
 
@@ -1204,7 +1182,7 @@ export default function App() {
 
               <div style={{ width: '100%', height: 140, border: '2px solid #000', borderRadius: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.15)', marginTop: 12, textAlign: 'center', padding: 12 }}>
                 <img src={`/${selectedChest.tier === 'platinum' ? 'bronze' : selectedChest.tier}_drop.png`} style={{ width: 48, height: 48 }} />
-                <span style={{ fontSize: 18, fontWeight: 600, marginTop: 4 }}>Preview of file</span>
+                <span style={{ fontSize: 18, fontWeight: 900, marginTop: 4, textTransform: 'uppercase' }}>{selectedChest.title || 'SECURE INTEL'}</span>
                 <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.7, marginTop: 4 }}>[{selectedChest.fileName}]</span>
                 <span style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>By: {selectedChest.droppedBy} • {selectedChest.tier.toUpperCase()}</span>
               </div>
@@ -1214,7 +1192,7 @@ export default function App() {
               )}
 
               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleChestAction(); }} style={{ width: '100%', border: '2px solid #000', borderRadius: 24, padding: '16px 0', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 20, cursor: 'pointer', letterSpacing: 2, textTransform: 'uppercase', boxShadow: '0 4px 0 rgba(0,0,0,0.3)' }}>
-                {selectedChest.tier === 'silver' ? '📺 WATCH AD' : '🔓 UNLOCK INTEL'}
+                🔓 UNLOCK INTEL
               </button>
             </motion.div>
           </div>
@@ -1358,13 +1336,40 @@ export default function App() {
                   </div>
                 )}
              </div>
-             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 40, background: 'linear-gradient(to top, rgba(0,0,0,0.95), transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 32, background: 'linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.5) 70%, transparent 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 4, marginBottom: 8 }}>Operational Broadcast</div>
                   <h3 style={{ fontSize: 24, fontWeight: 900, margin: 0, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeAd.title}</h3>
                 </div>
                 {activeAd.link && (
-                  <a href={activeAd.link} target="_blank" rel="noopener noreferrer" style={{ backgroundColor: '#fff', color: '#000', padding: '16px 32px', borderRadius: 20, fontWeight: 900, fontSize: 12, textTransform: 'uppercase', letterSpacing: 2, textDecoration: 'none', marginLeft: 20 }}>Visit Tactical Sector</a>
+                  <a
+                    href={activeAd.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      padding: '14px 28px',
+                      borderRadius: 18,
+                      fontWeight: 900,
+                      fontSize: 13,
+                      textTransform: 'uppercase' as const,
+                      letterSpacing: 2,
+                      textDecoration: 'none',
+                      marginLeft: 16,
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: activeAd.link.toLowerCase().includes('.apk')
+                        ? 'linear-gradient(135deg, #16a34a, #22c55e)'
+                        : 'linear-gradient(135deg, #2563eb, #5ba4e5)',
+                      color: '#fff',
+                      boxShadow: activeAd.link.toLowerCase().includes('.apk')
+                        ? '0 6px 20px rgba(34,197,94,0.5)'
+                        : '0 6px 20px rgba(91,164,229,0.5)',
+                    }}
+                  >
+                    {activeAd.link.toLowerCase().includes('.apk') ? '📲 INSTALL' : '🌐 VISIT'}
+                  </a>
                 )}
              </div>
           </div>

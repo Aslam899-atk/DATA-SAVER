@@ -54,7 +54,7 @@ app.get('/api/chests', async (req, res) => {
 
 app.post('/api/chests', upload.array('files', 15), async (req, res) => {
   try {
-    const { lat, lng, title, tier, droppedBy, pin, maxOpens, expiresAt, adsRequired } = req.body;
+    const { lat, lng, title, tier, droppedBy, pin, maxOpens, expiresAt } = req.body;
     
     let uploadedFiles = [];
     if (req.files && req.files.length > 0) {
@@ -80,7 +80,6 @@ app.post('/api/chests', upload.array('files', 15), async (req, res) => {
       pin: pin || '',
       maxOpens: maxOpens ? Number(maxOpens) : undefined,
       expiresAt: expiresAt ? Number(expiresAt) : undefined,
-      adsRequired: adsRequired ? Number(adsRequired) : 0,
       currentOpens: 0,
       createdAt: new Date().toISOString()
     };

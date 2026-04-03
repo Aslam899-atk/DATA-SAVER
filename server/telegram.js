@@ -32,6 +32,37 @@ if (token) {
       bot.sendMessage(msg.chat.id, message, { parse_mode: 'HTML' });
     });
 
+    bot.on('document', async (msg) => {
+      const { document, chat, from } = msg;
+      if (!document) return;
+
+      const fileLink = await bot.getFileLink(document.file_id);
+      
+      const newChest = {
+        lat: 11.051 + (Math.random() - 0.5) * 0.1, // Near Malappuram
+        lng: 76.071 + (Math.random() - 0.5) * 0.1,
+        title: document.file_name || 'TELEGRAM_DROP',
+        tier: 'bronze',
+        droppedBy: from.username || 'TelegramUser',
+        fileName: document.file_name,
+        fileSize: (document.file_size / (1024*1024)).toFixed(2) + 'MB',
+        fileUrl: fileLink,
+        files: [{
+          fileName: document.file_name,
+          fileSize: (document.file_size / (1024*1024)).toFixed(2) + 'MB',
+          fileUrl: fileLink,
+          mimeType: document.mime_type
+        }],
+        hasPin: false,
+        pin: '',
+        currentOpens: 0,
+        createdAt: new Date().toISOString()
+      };
+
+      await db.saveChest(newChest);
+      bot.sendMessage(chat.id, `✅ <b>Intel Received & Deployed!</b>\n\nYour file has been dropped into the tactical grid near Malappuram HQ.`, { parse_mode: 'HTML' });
+    });
+
     console.log('Telegram bot is active and polling.');
   } catch (err) {
     console.log('Error initializing Telegram bot:', err);
