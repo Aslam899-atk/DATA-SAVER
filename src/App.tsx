@@ -626,7 +626,11 @@ export default function App() {
   const [selectedChest, setSelectedChest] = useState<Chest | null>(null);
   const [isDropping, setIsDropping] = useState<{ lat: number, lng: number } | null>(null);
   const [tempTier, setTempTier] = useState<'gold' | 'silver' | 'bronze'>('bronze');
-  const [silverValue, setSilverValue] = useState('');
+  const [silverValue, setSilverValue] = useState('10');
+  const [silverExpiry, setSilverExpiry] = useState('24');
+  const [silverCountdown, setSilverCountdown] = useState<number | null>(null);
+  const [isWaitingSilver, setIsWaitingSilver] = useState(false);
+  const [isAdMuted, setIsAdMuted] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [unlockedChest, setUnlockedChest] = useState<any>(null);
   const [pinInput, setPinInput] = useState('');
@@ -643,13 +647,8 @@ export default function App() {
   const [isDeploying, setIsDeploying] = useState(false);
   const [deviceType, setDeviceType] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
   const [transferProgress, setTransferProgress] = useState<number | null>(null);
-  const [isAdMuted, setIsAdMuted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [dropTitle, setDropTitle] = useState('');
-  const [silverCountdown, setSilverCountdown] = useState<number | null>(null);
-  const [isWaitingSilver, setIsWaitingSilver] = useState(false);
-  const [silverTimerInput, setSilverTimerInput] = useState('15');
-  const [silverMode, setSilverMode] = useState<'TIMER' | 'COUNT'>('TIMER');
 
   // Auto-trigger ads after 1 minute on the platform (Silver/Gold users are ad-free)
   useEffect(() => {
@@ -781,6 +780,7 @@ export default function App() {
 
     if (selectedChest.tier === 'silver') {
       if (isWaitingSilver) return;
+      // If there is still a delay timer set (legacy or optional), handle it.
       if (selectedChest.silverTimer && selectedChest.silverTimer > 0) {
         setIsWaitingSilver(true);
         setSilverCountdown(selectedChest.silverTimer); 
@@ -896,13 +896,14 @@ export default function App() {
       formData.append('pin', pinInput || '0000');
     }
     if (tempTier === 'silver') {
-      if (silverMode === 'COUNT') {
-        formData.append('maxOpens', silverValue || '10');
-        formData.append('silverTimer', '0');
-      } else {
-        formData.append('maxOpens', '999999'); // Virtually unlimited for timer mode
-        formData.append('silverTimer', silverTimerInput || '15');
+      // Both can be set now
+      if (silverValue) formData.append('maxOpens', silverValue);
+      if (silverExpiry) {
+        const hours = parseInt(silverExpiry);
+        const expiryMs = Date.now() + (hours * 60 * 60 * 1000);
+        formData.append('expiresAt', expiryMs.toString());
       }
+      formData.append('silverTimer', '0'); // NO WAITING TIME
     }
     selectedFiles.forEach(file => {
       formData.append('files', file);
@@ -917,7 +918,7 @@ export default function App() {
         }
       });
       setChests(prev => [...prev, res.data]);
-      setIsDropping(null); setTempTier('bronze'); setSilverValue(''); setSilverTimerInput('15'); setSelectedFiles([]); setPinInput('');
+      setIsDropping(null); setTempTier('bronze'); setSilverValue('10'); setSilverExpiry('24'); setSelectedFiles([]); setPinInput('');
       alert('SUCCESS: INTEL DEPLOYED TO SECTOR');
     } catch (e: any) { 
       alert(`FAILED: ${e.response?.data?.error || e.message}`); 
@@ -1187,15 +1188,11 @@ export default function App() {
                 )}
                 {tempTier === 'silver' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                       <button onClick={(e) => { e.preventDefault(); setSilverMode('TIMER'); }} style={{ flex: 1, padding: '10px', borderRadius: 12, border: '2px solid #000', background: silverMode === 'TIMER' ? '#000' : 'transparent', color: silverMode === 'TIMER' ? '#5ba4e5' : '#000', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>⏰ DECRYPT TIMER</button>
-                       <button onClick={(e) => { e.preventDefault(); setSilverMode('COUNT'); }} style={{ flex: 1, padding: '10px', borderRadius: 12, border: '2px solid #000', background: silverMode === 'COUNT' ? '#000' : 'transparent', color: silverMode === 'COUNT' ? '#5ba4e5' : '#000', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>🔢 MAX SLOTS</button>
+                    <p style={{ fontSize: 10, fontWeight: 900, color: '#000', margin: 0, opacity: 0.5 }}>RESTRICTION SETTINGS (OPTIONAL)</p>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                       <input type="number" value={silverValue} onChange={e => setSilverValue(e.target.value)} placeholder="Max Slots" style={{ flex: 1, border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 14, outline: 'none' }} />
+                       <input type="number" value={silverExpiry} onChange={e => setSilverExpiry(e.target.value)} placeholder="Life (Hours)" style={{ flex: 1, border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 14, outline: 'none' }} />
                     </div>
-                    {silverMode === 'TIMER' ? (
-                       <input type="number" value={silverTimerInput} onChange={e => setSilverTimerInput(e.target.value)} placeholder="Wait Time (Seconds)" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 14, outline: 'none' }} />
-                    ) : (
-                       <input type="number" value={silverValue} onChange={e => setSilverValue(e.target.value)} placeholder="Maximum Download Slots" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 14, outline: 'none' }} />
-                    )}
                   </div>
                 )}
               </div>
@@ -1232,8 +1229,8 @@ export default function App() {
               <div style={{ width: '100%', padding: '12px 16px', borderRadius: 20, border: '1px solid rgba(0,0,0,0.1)', background: 'rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 12, fontWeight: 900 }}>RESTRICTION</span>
                 <span style={{ fontSize: 14, fontWeight: 900, color: '#000' }}>
-                  {selectedChest.silverTimer && selectedChest.silverTimer > 0 
-                    ? `⏰ ${selectedChest.silverTimer} SECS` 
+                  {selectedChest.expiresAt 
+                    ? `🧨 ERASE IN ${Math.ceil((selectedChest.expiresAt - Date.now()) / (1000 * 60 * 60))}H` 
                     : `🔢 ${selectedChest.maxOpens ? selectedChest.maxOpens - (selectedChest.currentOpens || 0) : '∞'} SLOTS`}
                 </span>
               </div>
@@ -1248,7 +1245,7 @@ export default function App() {
                 </div>
               ) : (
                 <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleChestAction(); }} style={{ width: '100%', border: '2px solid #000', borderRadius: 24, padding: '16px 0', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 20, cursor: 'pointer', letterSpacing: 2, textTransform: 'uppercase', boxShadow: '0 4px 0 rgba(0,0,0,0.3)' }}>
-                  🔓 {selectedChest.tier === 'silver' ? 'INITIATE DECRYPTION' : 'UNLOCK INTEL'}
+                  🔓 {selectedChest.tier === 'silver' ? (selectedChest.expiresAt ? 'GET INTEL (TIME LIMITED)' : 'INITIATE DECRYPTION') : 'UNLOCK INTEL'}
                 </button>
               )}
             </motion.div>
