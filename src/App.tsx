@@ -650,32 +650,6 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dropTitle, setDropTitle] = useState('');
 
-  // Auto-trigger ads after 1 minute on the platform (Silver/Gold users are ad-free)
-  useEffect(() => {
-    const storedUser = localStorage.getItem('dataDropperUser');
-    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-    const isSilverOrAbove = parsedUser && (parsedUser.tier === 'silver' || parsedUser.tier === 'gold');
-    if (isSilverOrAbove) return; // Silver/Gold users skip ads entirely
-
-    const timer = setTimeout(() => {
-      triggerRandomAd();
-    }, 30000); // Trigger first ad after 30 seconds
-    return () => clearTimeout(timer);
-  }, []);
-
-  const triggerRandomAd = async () => {
-     try {
-       const res = await axios.get(`${API_URL}/ads`);
-       if (res.data && res.data.length > 0) {
-         const randomAd = res.data[Math.floor(Math.random() * res.data.length)];
-         setAdElapsed(0); // Reset timer to 0 so skip button works correctly
-         setActiveAd(randomAd);
-       }
-     } catch (e) {
-       console.log("No broadcasts available for auto-trigger");
-     }
-  };
-
   useEffect(() => {
     const handleResize = () => {
       const w = window.innerWidth;
@@ -747,21 +721,16 @@ export default function App() {
           }
           
           const current = adStateRef.current;
-          // Silver tier users see NO ads — only bronze users see ads
-          const storedUser = localStorage.getItem('dataDropperUser');
-          const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-          const isSilverOrAbove = parsedUser && (parsedUser.tier === 'silver' || parsedUser.tier === 'gold');
-          if (isSilverOrAbove) return prev; // Skip ads for silver/gold users
-
+          
           if (current.ads.length > 0 && !current.selectedChest && !current.isDropping && window.location.pathname !== '/admin') {
             setTimeout(() => setAdElapsed(0), 0);
             const ad = current.ads[Math.floor(Math.random() * current.ads.length)];
-            currentDelay *= 2; // Double the interval for next time: 1 min -> 2 min -> 4 min
+            currentDelay *= 2; // Double the interval next time: 1 min -> 2 min -> 4 min -> 8 min
             scheduleNextAd();
             return ad;
           }
 
-          scheduleNextAd(); // Retry next cycle
+          scheduleNextAd(); // Retry next cycle if couldn't show
           return prev;
         });
       }, currentDelay);
