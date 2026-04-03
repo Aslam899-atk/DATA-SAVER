@@ -962,6 +962,7 @@ export default function App() {
                  <div style="display: flex; gap: 4px; position: absolute; top: -14px; z-index: 10;">
                    ${hrsLeft !== null ? `<div style="background: ${hrsLeft < 3 ? '#ef4444' : '#22c55e'}; color: #fff; font-size: 7px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">⏰ ${hrsLeft}H</div>` : ''}
                    ${slotsLeft !== null && d.tier === 'silver' ? `<div style="background: #fff; color: #000; font-size: 7px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">🔢 ${slotsLeft}/${d.maxOpens}</div>` : ''}
+                   <div style="background: rgba(0,0,0,0.8); color: #fbbf24; font-size: 7px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.5)">👥 ${d.currentOpens || 0}</div>
                  </div>
                  <img src="/${displayTier}_drop.png" style="width: 32px; height: 32px; filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'});" />
                  <div style="font-size: 8px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; margin-top: 2px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${d.title || d.droppedBy}</div>
@@ -1034,6 +1035,7 @@ export default function App() {
                     <div style="display: flex; gap: 4px; position: absolute; top: -12px; z-index: 10;">
                        ${hrsLeft !== null ? `<div style="background: ${hrsLeft < 3 ? '#ef4444' : '#22c55e'}; color: #fff; font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">⏰ ${hrsLeft}H</div>` : ''}
                        ${slotsLeft !== null && chest.tier === 'silver' ? `<div style="background: #fff; color: #000; font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">🔢 ${slotsLeft}/${chest.maxOpens}</div>` : ''}
+                       <div style="background: rgba(0,0,0,0.8); color: #fbbf24; font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.5)">👥 ${chest.currentOpens || 0}</div>
                     </div>
                     <img src="/${displayTier}_drop.png" style="width: 40px; height: 40px; filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'});" />
                     <div style="font-size: 8px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px; margin-top: 1px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${chest.title || chest.droppedBy}</div>
