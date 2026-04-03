@@ -659,7 +659,7 @@ export default function App() {
 
     const timer = setTimeout(() => {
       triggerRandomAd();
-    }, 60000); 
+    }, 30000); // Trigger first ad after 30 seconds
     return () => clearTimeout(timer);
   }, []);
 
@@ -668,6 +668,7 @@ export default function App() {
        const res = await axios.get(`${API_URL}/ads`);
        if (res.data && res.data.length > 0) {
          const randomAd = res.data[Math.floor(Math.random() * res.data.length)];
+         setAdElapsed(0); // Reset timer to 0 so skip button works correctly
          setActiveAd(randomAd);
        }
      } catch (e) {
@@ -752,7 +753,7 @@ export default function App() {
         }
         return prev;
       });
-    }, 60000); // 1 minute
+    }, 45000); // Every 45 seconds
     return () => clearInterval(interval);
   }, []);
 
