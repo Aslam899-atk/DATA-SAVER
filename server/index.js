@@ -164,6 +164,17 @@ app.post('/api/ads', upload.single('file'), async (req, res) => {
   }
 });
 
+app.delete('/api/ads/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.deleteAd(id);
+    res.status(200).json({ message: "Ad deleted successfully" });
+  } catch (error) {
+    console.error("AD DELETE ERROR:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

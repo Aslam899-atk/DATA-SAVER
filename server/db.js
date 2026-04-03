@@ -100,6 +100,7 @@ module.exports = {
     const newAd = new Ad(adData);
     return await newAd.save();
   },
+  deleteAd: async (id) => await Ad.findByIdAndDelete(id),
 
   // Export models directly if needed
   Chest,

@@ -721,31 +721,35 @@ export default function App() {
     let timeoutId: any;
     let currentDelay = 60000; // Start with 1 minute
 
-    const scheduleNextAd = () => {
+    const loop = () => {
       timeoutId = setTimeout(() => {
-        setActiveAd((prev: any) => {
-          if (prev) {
-            scheduleNextAd(); // If ad active, retry soon
-            return prev;
-          }
-          
-          const current = adStateRef.current;
-          
+        const current = adStateRef.current;
+        
+        // Active ad is not in ref, so we use a functional update just to check it,
+        // but no side-effects inside the updater!
+        let shouldShowAd = false;
+        setActiveAd(prev => {
+          if (prev) return prev; // Ad already showing
           if (current.ads.length > 0 && !current.selectedChest && !current.isDropping && window.location.pathname !== '/admin') {
-            setTimeout(() => setAdElapsed(0), 0);
-            const ad = current.ads[Math.floor(Math.random() * current.ads.length)];
-            currentDelay *= 2; // Double the interval next time: 1 min -> 2 min -> 4 min -> 8 min
-            scheduleNextAd();
-            return ad;
+             shouldShowAd = true;
+             return current.ads[Math.floor(Math.random() * current.ads.length)];
           }
-
-          scheduleNextAd(); // Retry next cycle if couldn't show
           return prev;
         });
+
+        // Safe side-effects OUTSIDE the updater!
+        if (shouldShowAd) {
+          setAdElapsed(0);
+          currentDelay *= 2; // Next ad at double interval: 1 -> 2 -> 4 -> 8 min
+        }
+        
+        // Always loop safely to keep checking
+        loop();
+        
       }, currentDelay);
     };
 
-    scheduleNextAd();
+    loop();
     return () => clearTimeout(timeoutId);
   }, []);
 
