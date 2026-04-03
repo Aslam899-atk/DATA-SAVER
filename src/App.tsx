@@ -861,8 +861,8 @@ export default function App() {
 
   const filteredChests = chests.filter(c => 
     (c.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-    c.fileName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    c.droppedBy.toLowerCase().includes(searchQuery.toLowerCase())
+    (c.fileName || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (c.droppedBy || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const processOpen = async () => {
@@ -1062,7 +1062,7 @@ export default function App() {
               return (
                 <Marker
                   key={chest._id || chest.id}
-                  position={[chest.lat, chest.lng]}
+                  position={[chest.lat || 0, chest.lng || 0]}
                   icon={chestIcon}
                   eventHandlers={{ click: (e) => { L.DomEvent.stopPropagation(e as any); handlePointClick(chest); } }}
                 />
@@ -1326,10 +1326,17 @@ export default function App() {
                 <button onClick={() => setUnlockedChest(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 20, padding: '8px 16px', fontWeight: 900, cursor: 'pointer' }}>Close ✕</button>
               </div>
               <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 16, scrollSnapType: 'x mandatory' }} className="hide-scrollbar">
-                {(unlockedChest.files && unlockedChest.files.length > 0 ? unlockedChest.files : [{ fileUrl: unlockedChest.fileUrl, fileName: unlockedChest.fileName, fileSize: unlockedChest.fileSize }]).map((file: any, index: number) => {
-                  const isImage = file.fileName.match(/\.(jpeg|jpg|gif|png|webp)$/i);
-                  const isPdf = file.fileName.match(/\.pdf$/i);
-                  const isApk = file.fileName.match(/\.apk$/i);
+                {(unlockedChest.files && unlockedChest.files.length > 0 
+                  ? unlockedChest.files 
+                  : [{ 
+                      fileUrl: unlockedChest.fileUrl, 
+                      fileName: unlockedChest.fileName, 
+                      fileSize: unlockedChest.fileSize 
+                    }]
+                 ).map((file: any, index: number) => {
+                  const isImage = (file.fileName || '').match(/\.(jpeg|jpg|gif|png|webp)$/i);
+                  const isPdf = (file.fileName || '').match(/\.pdf$/i);
+                  const isApk = (file.fileName || '').match(/\.apk$/i);
 
                   return (
                     <div key={index} style={{ minWidth: 280, width: 280, height: 400, background: 'rgba(0,0,0,0.5)', borderRadius: 24, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', scrollSnapAlign: 'start', flexShrink: 0 }}>
