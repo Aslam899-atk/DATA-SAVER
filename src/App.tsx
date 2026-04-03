@@ -649,6 +649,7 @@ export default function App() {
   const [silverCountdown, setSilverCountdown] = useState<number | null>(null);
   const [isWaitingSilver, setIsWaitingSilver] = useState(false);
   const [silverTimerInput, setSilverTimerInput] = useState('15');
+  const [silverMode, setSilverMode] = useState<'TIMER' | 'COUNT'>('TIMER');
 
   // Auto-trigger ads after 1 minute on the platform (Silver/Gold users are ad-free)
   useEffect(() => {
@@ -780,8 +781,12 @@ export default function App() {
 
     if (selectedChest.tier === 'silver') {
       if (isWaitingSilver) return;
-      setIsWaitingSilver(true);
-      setSilverCountdown(selectedChest.silverTimer || 15); 
+      if (selectedChest.silverTimer && selectedChest.silverTimer > 0) {
+        setIsWaitingSilver(true);
+        setSilverCountdown(selectedChest.silverTimer); 
+        return; 
+      }
+      processOpen();
       return; 
     }
 
@@ -891,8 +896,13 @@ export default function App() {
       formData.append('pin', pinInput || '0000');
     }
     if (tempTier === 'silver') {
-      formData.append('maxOpens', silverValue || '10');
-      formData.append('silverTimer', silverTimerInput || '15');
+      if (silverMode === 'COUNT') {
+        formData.append('maxOpens', silverValue || '10');
+        formData.append('silverTimer', '0');
+      } else {
+        formData.append('maxOpens', '999999'); // Virtually unlimited for timer mode
+        formData.append('silverTimer', silverTimerInput || '15');
+      }
     }
     selectedFiles.forEach(file => {
       formData.append('files', file);
@@ -1176,9 +1186,16 @@ export default function App() {
                   <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="🔑 Set password for access" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }} />
                 )}
                 {tempTier === 'silver' && (
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <input type="number" value={silverValue} onChange={e => setSilverValue(e.target.value)} placeholder="Slots (Count)" style={{ flex: 1, border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 13, outline: 'none' }} />
-                    <input type="number" value={silverTimerInput} onChange={e => setSilverTimerInput(e.target.value)} placeholder="Timer (Sec)" style={{ flex: 1, border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 13, outline: 'none' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                       <button onClick={(e) => { e.preventDefault(); setSilverMode('TIMER'); }} style={{ flex: 1, padding: '10px', borderRadius: 12, border: '2px solid #000', background: silverMode === 'TIMER' ? '#000' : 'transparent', color: silverMode === 'TIMER' ? '#5ba4e5' : '#000', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>⏰ DECRYPT TIMER</button>
+                       <button onClick={(e) => { e.preventDefault(); setSilverMode('COUNT'); }} style={{ flex: 1, padding: '10px', borderRadius: 12, border: '2px solid #000', background: silverMode === 'COUNT' ? '#000' : 'transparent', color: silverMode === 'COUNT' ? '#5ba4e5' : '#000', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>🔢 MAX SLOTS</button>
+                    </div>
+                    {silverMode === 'TIMER' ? (
+                       <input type="number" value={silverTimerInput} onChange={e => setSilverTimerInput(e.target.value)} placeholder="Wait Time (Seconds)" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 14, outline: 'none' }} />
+                    ) : (
+                       <input type="number" value={silverValue} onChange={e => setSilverValue(e.target.value)} placeholder="Maximum Download Slots" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 14, outline: 'none' }} />
+                    )}
                   </div>
                 )}
               </div>
@@ -1213,9 +1230,11 @@ export default function App() {
               )}
 
               <div style={{ width: '100%', padding: '12px 16px', borderRadius: 20, border: '1px solid rgba(0,0,0,0.1)', background: 'rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, fontWeight: 900 }}>SLOTS</span>
+                <span style={{ fontSize: 12, fontWeight: 900 }}>RESTRICTION</span>
                 <span style={{ fontSize: 14, fontWeight: 900, color: '#000' }}>
-                  {selectedChest.maxOpens ? `${selectedChest.currentOpens || 0} / ${selectedChest.maxOpens}` : '∞'}
+                  {selectedChest.silverTimer && selectedChest.silverTimer > 0 
+                    ? `⏰ ${selectedChest.silverTimer} SECS` 
+                    : `🔢 ${selectedChest.maxOpens ? selectedChest.maxOpens - (selectedChest.currentOpens || 0) : '∞'} SLOTS`}
                 </span>
               </div>
 
