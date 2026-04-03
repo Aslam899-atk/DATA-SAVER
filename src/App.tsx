@@ -735,26 +735,40 @@ export default function App() {
   }, [ads, selectedChest, isDropping, mapMode]);
 
   useEffect(() => {
-    // Exact 60s timer that never gets cleared by state changes
-    const interval = setInterval(() => {
-      setActiveAd((prev: any) => {
-        if (prev) return prev; // If ad is active, skip
-        
-        const current = adStateRef.current;
-        // Silver tier users see NO ads — only bronze users see ads
-        const storedUser = localStorage.getItem('dataDropperUser');
-        const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-        const isSilverOrAbove = parsedUser && (parsedUser.tier === 'silver' || parsedUser.tier === 'gold');
-        if (isSilverOrAbove) return prev; // Skip ads for silver/gold users
+    let timeoutId: any;
+    let currentDelay = 60000; // Start with 1 minute
 
-        if (current.ads.length > 0 && !current.selectedChest && !current.isDropping && window.location.pathname !== '/admin') {
-          setTimeout(() => setAdElapsed(0), 0);
-          return current.ads[Math.floor(Math.random() * current.ads.length)];
-        }
-        return prev;
-      });
-    }, 45000); // Every 45 seconds
-    return () => clearInterval(interval);
+    const scheduleNextAd = () => {
+      timeoutId = setTimeout(() => {
+        setActiveAd((prev: any) => {
+          if (prev) {
+            scheduleNextAd(); // If ad active, retry soon
+            return prev;
+          }
+          
+          const current = adStateRef.current;
+          // Silver tier users see NO ads — only bronze users see ads
+          const storedUser = localStorage.getItem('dataDropperUser');
+          const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+          const isSilverOrAbove = parsedUser && (parsedUser.tier === 'silver' || parsedUser.tier === 'gold');
+          if (isSilverOrAbove) return prev; // Skip ads for silver/gold users
+
+          if (current.ads.length > 0 && !current.selectedChest && !current.isDropping && window.location.pathname !== '/admin') {
+            setTimeout(() => setAdElapsed(0), 0);
+            const ad = current.ads[Math.floor(Math.random() * current.ads.length)];
+            currentDelay *= 2; // Double the interval for next time: 1 min -> 2 min -> 4 min
+            scheduleNextAd();
+            return ad;
+          }
+
+          scheduleNextAd(); // Retry next cycle
+          return prev;
+        });
+      }, currentDelay);
+    };
+
+    scheduleNextAd();
+    return () => clearTimeout(timeoutId);
   }, []);
 
   const handleGlobeClick = ({ lat, lng }: { lat: number, lng: number }) => {
