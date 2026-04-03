@@ -99,5 +99,10 @@ module.exports = {
   saveAd: async (adData) => {
     const newAd = new Ad(adData);
     return await newAd.save();
-  }
+  },
+
+  // Export models directly if needed
+  Chest,
+  User,
+  Ad
 };

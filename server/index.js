@@ -107,25 +107,28 @@ app.post('/api/chests', upload.array('files', 15), async (req, res) => {
 
 app.post('/api/chests/:id/open', async (req, res) => {
   try {
+    const { id } = req.params;
     const { pin } = req.body;
-    const allData = await db.read();
-    const chest = allData.chests.find(c => c._id === req.params.id);
+    
+    // Efficient Mongoose find
+    const chest = await db.Chest.findById(id);
     if (!chest) return res.status(404).json({ message: "NOT FOUND" });
     
     if (chest.hasPin && chest.pin !== pin) return res.status(401).json({ message: "INVALID PIN" });
     if (chest.maxOpens && chest.currentOpens >= chest.maxOpens) return res.status(403).json({ message: "LIMIT REACHED" });
 
+    // Atomic increment
     chest.currentOpens += 1;
-    await db.write(allData);
+    await chest.save();
+    
     res.json(chest);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.delete('/api/chests/:id', async (req, res) => {
   try { 
-    const allData = await db.read();
-    allData.chests = allData.chests.filter(c => c._id !== req.params.id);
-    await db.write(allData);
+    const { id } = req.params;
+    await db.Chest.findByIdAndDelete(id);
     res.json({ message: "Deleted" }); 
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
