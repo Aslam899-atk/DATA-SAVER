@@ -37,6 +37,7 @@ interface Chest {
   fileName: string;
   fileSize: string;
   fileUrl?: string;
+  files?: { fileUrl: string; fileName: string; fileSize?: string }[];
   droppedBy: string;
   hasPin: boolean;
   pin?: string;
@@ -56,6 +57,15 @@ interface UserProfile {
   avatarUrl?: string;
 }
 
+interface Ad {
+  id?: string;
+  _id?: string;
+  title: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  link?: string;
+}
+
 const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
 
 const AdminPanel = () => {
@@ -67,7 +77,7 @@ const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState<'OPERATORS' | 'ADS' | 'DROPS'>('OPERATORS');
   const [chests, setChests] = useState<Chest[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [ads, setAds] = useState<any[]>([]);
+  const [ads, setAds] = useState<Ad[]>([]);
   const [deviceType, setDeviceType] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
   const [isAddingAd, setIsAddingAd] = useState(false);
   const [newAd, setNewAd] = useState({ title: '', imageUrl: '', videoUrl: '', link: '' });
@@ -645,13 +655,13 @@ export default function App() {
   const [silverMode, setSilverMode] = useState<'TIME' | 'COUNT'>('COUNT');
   const [silverValueInput, setSilverValueInput] = useState('4');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [unlockedChest, setUnlockedChest] = useState<any>(null);
+  const [unlockedChest, setUnlockedChest] = useState<Chest | null>(null);
   const [pinInput, setPinInput] = useState('');
   const [showRequests, setShowRequests] = useState(false);
-  const [ads, setAds] = useState<any[]>([]);
-  const [activeAd, setActiveAd] = useState<any>(null);
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [activeAd, setActiveAd] = useState<Ad | null>(null);
   const [adElapsed, setAdElapsed] = useState<number | null>(null);
-  const [adQueue, setAdQueue] = useState<any[]>([]);
+  const [adQueue, setAdQueue] = useState<Ad[]>([]);
   const [isExploding, setIsExploding] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
   const [mapMode, setMapMode] = useState<'3d' | '2d'>('3d');
@@ -743,7 +753,7 @@ export default function App() {
         // Active ad is not in ref, so we use a functional update just to check it,
         // but no side-effects inside the updater!
         let shouldShowAd = false;
-        setActiveAd(prev => {
+        setActiveAd((prev: Ad | null) => {
           if (prev) return prev; // Ad already showing
           if (current.ads.length > 0 && !current.selectedChest && !current.isDropping && window.location.pathname !== '/admin') {
              shouldShowAd = true;
@@ -1339,12 +1349,12 @@ export default function App() {
           <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 600, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(16px)' }}>
             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} style={{ width: '100%', maxWidth: 800, background: '#0f172a', borderRadius: 40, border: '1px solid rgba(255,255,255,0.1)', padding: 32, display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: 0, textTransform: 'uppercase', fontStyle: 'italic' }}>Decrypted Intel ({unlockedChest.files?.length > 0 ? unlockedChest.files.length : 1} File{unlockedChest.files?.length > 1 ? 's' : ''})</h3>
+                <h3 style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: 0, textTransform: 'uppercase', fontStyle: 'italic' }}>Decrypted Intel ({((unlockedChest as any).files?.length ?? 0) > 0 ? (unlockedChest as any).files.length : 1} File{((unlockedChest as any).files?.length ?? 0) > 1 ? 's' : ''})</h3>
                 <button onClick={() => setUnlockedChest(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 20, padding: '8px 16px', fontWeight: 900, cursor: 'pointer' }}>Close ✕</button>
               </div>
               <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 16, scrollSnapType: 'x mandatory' }} className="hide-scrollbar">
-                {(unlockedChest.files && unlockedChest.files.length > 0 
-                  ? unlockedChest.files 
+                {((unlockedChest as any).files && (unlockedChest as any).files.length > 0 
+                  ? (unlockedChest as any).files 
                   : [{ 
                       fileUrl: unlockedChest.fileUrl, 
                       fileName: unlockedChest.fileName, 
