@@ -580,9 +580,9 @@ const LeafletMapEvents = ({ onMapClick, onZoomEnd, onMove }: { onMapClick: (lat:
 const StarField = () => {
   const [stars, setStars] = useState<{ x: number, y: number, size: number, duration: number }[]>([]);
   useEffect(() => {
-    const newStars = Array.from({ length: 150 }).map(() => ({
+    const newStars = Array.from({ length: 50 }).map(() => ({
       x: Math.random() * 100, y: Math.random() * 100,
-      size: Math.random() * 2 + 1, duration: Math.random() * 3 + 2
+      size: Math.random() * 2 + 0.5, duration: Math.random() * 5 + 3
     }));
     setStars(newStars);
   }, []);
@@ -716,9 +716,13 @@ export default function App() {
     }
   }, [adElapsed, activeAd]);
 
-  // Auto-transition to Street View at 200% zoom
+  // Auto-transition to Street View at 80% magnification
   useEffect(() => {
-    if (mapMode === '2d' && currentZoom >= 18 && !streetViewActive) {
+    const currentMagnification = mapMode === '3d' 
+      ? (1 - (globeEl.current?.pointOfView()?.altitude || 2.5) / 2.5) * 100 
+      : (currentZoom / 9) * 100;
+
+    if (currentMagnification > 80 && !streetViewActive && mapCenter[0] !== 20) {
       setStreetViewPos({ lat: mapCenter[0], lng: mapCenter[1] });
       setStreetViewActive(true);
     }
@@ -813,7 +817,6 @@ export default function App() {
     }
 
     if (selectedChest.tier === 'gold') {
-      if (!currentUser) { setShowLoginModal(true); return; }
       if (pinInput !== (selectedChest.pin || '0000')) { alert('INVALID PIN'); return; }
       processOpen();
     }
@@ -1007,7 +1010,7 @@ export default function App() {
           ringsData={filteredChests}
           ringLat="lat" ringLng="lng"
           ringColor={(d: any) => (d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#d97706')}
-          ringMaxRadius={2} ringPropagationSpeed={2}
+          ringMaxRadius={1.5} ringPropagationSpeed={0.5}
         />
       </div>
 
@@ -1019,6 +1022,7 @@ export default function App() {
             center={mapCenter} 
             zoom={mapZoom} 
             minZoom={4} 
+            preferCanvas={true}
             style={{ height: '100%', width: '100%', background: '#001020' }} 
             zoomControl={false} 
             maxBounds={[[-90,-180],[90,180]]}
