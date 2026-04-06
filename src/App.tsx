@@ -551,13 +551,17 @@ const AdminPanel = () => {
   );
 };
 
-const LeafletMapEvents = ({ onMapClick, onZoomEnd }: { onMapClick: (lat: number, lng: number) => void, onZoomEnd?: (zoom: number) => void }) => {
+const LeafletMapEvents = ({ onMapClick, onZoomEnd, onMove }: { onMapClick: (lat: number, lng: number) => void, onZoomEnd?: (zoom: number) => void, onMove?: (zoom: number, center: [number, number]) => void }) => {
   const map = useMapEvents({
     click(e: any) {
       onMapClick(e.latlng.lat, e.latlng.lng);
     },
     zoomend() {
       if (onZoomEnd) onZoomEnd(map.getZoom());
+      if (onMove) onMove(map.getZoom(), [map.getCenter().lat, map.getCenter().lng]);
+    },
+    move() {
+      if (onMove) onMove(map.getZoom(), [map.getCenter().lat, map.getCenter().lng]);
     }
   });
   return null;
@@ -658,6 +662,9 @@ export default function App() {
   const [transferProgress, setTransferProgress] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [dropTitle, setDropTitle] = useState('');
+  const [currentZoom, setCurrentZoom] = useState(3);
+  const [streetViewActive, setStreetViewActive] = useState(false);
+  const [streetViewPos, setStreetViewPos] = useState<{lat: number, lng: number} | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -698,6 +705,14 @@ export default function App() {
       return () => clearTimeout(t);
     }
   }, [adElapsed, activeAd]);
+
+  // Auto-transition to Street View at 200% zoom
+  useEffect(() => {
+    if (mapMode === '2d' && currentZoom >= 18 && !streetViewActive) {
+      setStreetViewPos({ lat: mapCenter[0], lng: mapCenter[1] });
+      setStreetViewActive(true);
+    }
+  }, [currentZoom, mapMode, mapCenter]);
 
   const handleSkipAd = () => {
     if (adQueue.length > 0) {
@@ -1018,6 +1033,11 @@ export default function App() {
                 if (zoom <= 4 && mapMode === '2d') {
                   setMapMode('3d');
                 }
+                setCurrentZoom(zoom);
+              }}
+              onMove={(zoom, center) => {
+                setCurrentZoom(zoom);
+                setMapCenter(center);
               }}
             />
             {filteredChests.map((chest) => {
@@ -1112,11 +1132,26 @@ export default function App() {
 
       {/* PUBLIC STATISTICS HUD (RIGHT) - Hide on mobile map to avoid clutter */}
       {deviceType !== 'MOBILE' && (
-        <div style={{ position: 'fixed', top: 130, right: 20, zIndex: 100, pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', top: 130, right: 20, zIndex: 100, pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRight: '4px solid #f97316', borderRadius: 10 }}>
             <span style={{ fontSize: 26, fontWeight: 900, color: '#fff', fontStyle: 'italic' }}>{chests.length}</span>
             <span style={{ fontSize: 12, fontWeight: 900, color: '#f97316', letterSpacing: 2, textTransform: 'uppercase' }}>TOTAL<br />DROPS</span>
           </div>
+
+          {/* STREET VIEW ACTIVATION BUTTON (Visible at high zoom) */}
+          {mapMode === '2d' && currentZoom >= 12 && (
+            <button 
+              onClick={() => {
+                setStreetViewPos({ lat: mapCenter[0], lng: mapCenter[1] });
+                setStreetViewActive(true);
+              }}
+              style={{ pointerEvents: 'auto', background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', border: 'none', padding: '12px 20px', borderRadius: 12, fontWeight: 900, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 10px 30px rgba(234, 88, 12, 0.4)', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.2s' }}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              <span>🏙️</span> ENTER STREET VIEW
+            </button>
+          )}
         </div>
       )}
 
@@ -1418,7 +1453,9 @@ export default function App() {
                       src={activeAd.videoUrl} 
                       autoPlay 
                       muted={isAdMuted}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                      playsInline
+                      webkit-playsinline="true"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000' }} 
                     />
                   )}
                   {/* Mute Toggle */}
@@ -1497,6 +1534,53 @@ export default function App() {
                 <div style={{ marginTop: 24, fontSize: 48, fontWeight: 900, fontStyle: 'italic', letterSpacing: -2, color: '#fff' }}>{transferProgress}%</div>
                 <p style={{ fontSize: 9, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginTop: 12 }}>Syncing with Strategic Cloud Network</p>
              </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ZOOM HUD (BOTTOM RIGHT) */}
+      <div style={{ position: 'fixed', bottom: 30, right: 30, zIndex: 300, pointerEvents: 'none' }}>
+        <div style={{ background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: 2 }}>Visual Magnification</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', fontStyle: 'italic', letterSpacing: -1 }}>
+             {Math.round((mapMode === '3d' ? (1 - (globeEl.current?.pointOfView()?.altitude || 2.5) / 2.5) * 100 : (currentZoom / 9) * 100))}%
+          </div>
+        </div>
+      </div>
+
+      {/* STREET VIEW OVERLAY */}
+      <AnimatePresence>
+        {streetViewActive && streetViewPos && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 1.1 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.1 }}
+            style={{ position: 'fixed', inset: 0, zIndex: 2000, background: '#000' }}
+          >
+            <div style={{ position: 'absolute', top: 30, left: 30, zIndex: 2100, display: 'flex', gap: 16 }}>
+               <button 
+                 onClick={() => setStreetViewActive(false)}
+                 style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '12px 24px', borderRadius: 12, fontWeight: 900, fontSize: 12, cursor: 'pointer', backdropFilter: 'blur(10px)', textTransform: 'uppercase', letterSpacing: 1 }}
+               >
+                 ⬅️ BACK TO COMMAND MAP
+               </button>
+            </div>
+            {/* Street View Integration using an iframe as a robust cross-platform way to show Street View without complex JS SDK init if user prefers quick integration */}
+            <iframe 
+              width="100%" 
+              height="100%" 
+              style={{ border: 0 }} 
+              loading="lazy" 
+              allowFullScreen 
+              src={`https://www.google.com/maps/embed/v1/streetview?key=YOUR_API_KEY_HERE&location=${streetViewPos.lat},${streetViewPos.lng}&heading=210&pitch=10&fov=35`}
+              // Note: For a real app, we should use the Google Maps JS SDK properly, but an Embed iframe works for a demo/quick fix if they have a key. 
+              // However, since we don't have a key, I will implement a "Simulated" Street View View or alert the user to provide a key.
+              // For now, let's use a more visual "Mock" Street View if the user doesn't have a key, or use a public placeholder.
+            />
+            {/* Disclaimer for API Key */}
+            <div style={{ position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)', zIndex: 2100, background: 'rgba(239, 68, 68, 0.9)', color: '#fff', padding: '10px 20px', borderRadius: 12, fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 2 }}>
+               ⚠️ GOOGLE MAPS API KEY REQUIRED FOR LIVE UPLINK
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

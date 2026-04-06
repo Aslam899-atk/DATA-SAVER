@@ -149,7 +149,8 @@ app.post('/api/ads', upload.single('file'), async (req, res) => {
     if (req.file) {
       console.log("File received:", req.file.originalname, req.file.mimetype);
       if (req.file.mimetype.startsWith('video/')) {
-        videoUrl = req.file.path;
+        // Force resource_type to video if cloudinary returns it as image in path
+        videoUrl = req.file.path.replace('/image/upload/', '/video/upload/'); 
       } else {
         imageUrl = req.file.path;
       }
