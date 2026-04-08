@@ -50,13 +50,9 @@ body {
   position: absolute;
   background: white;
   border-radius: 50%;
-  animation: twinkle var(--duration) infinite;
+  opacity: 0.3;
 }
 
-@keyframes twinkle {
-  0%, 100% { opacity: 0.2; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.2); }
-}
 
 /* True 3D Globe Container */
 .globe-container {

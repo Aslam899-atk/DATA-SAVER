@@ -193,7 +193,7 @@ const AdminPanel = () => {
           >
             <div style={{ textAlign: 'center' }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 80, height: 80, backgroundColor: '#2563eb', borderRadius: 24, marginBottom: 20, boxShadow: '0 10px 30px rgba(37, 99, 235, 0.3)' }}>
-                <span style={{ fontSize: 36 }}>🔐</span>
+                <span style={{ fontSize: 36 }}>ðŸ”</span>
               </div>
               <h2 style={{ fontSize: 32, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '-1px', fontStyle: 'italic', margin: 0 }}>Admin Portal</h2>
               <p style={{ color: '#94a3b8', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '4px', marginTop: 8 }}>Authorized Personnel Only</p>
@@ -232,7 +232,7 @@ const AdminPanel = () => {
             </button>
 
             <p style={{ textAlign: 'center', color: '#475569', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>
-              Secured Connection • System v4.0.2
+              Secured Connection â€¢ System v4.0.2
             </p>
           </form>
         </motion.div>
@@ -246,7 +246,7 @@ const AdminPanel = () => {
       <header style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 80, backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: deviceType === 'MOBILE' ? '0 16px' : '0 48px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ width: 32, height: 32, backgroundColor: '#2563eb', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 16 }}>💼</span>
+            <span style={{ fontSize: 16 }}>ðŸ’¼</span>
           </div>
           <h1 style={{ fontSize: deviceType === 'MOBILE' ? 14 : 20, fontWeight: 900, textTransform: 'uppercase', letterSpacing: deviceType === 'MOBILE' ? '1px' : '4px', fontStyle: 'italic', margin: 0 }}>Command Center</h1>
         </div>
@@ -317,7 +317,7 @@ const AdminPanel = () => {
                   return (
                     <div key={i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
                       <div style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, overflow: 'hidden' }}>
-                        {user?.avatarUrl ? <img src={user.avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👤'}
+                        {user?.avatarUrl ? <img src={user.avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : 'ðŸ‘¤'}
                       </div>
                       <div style={{ flex: 1, marginLeft: 24 }}>
                         <div style={{ fontSize: 10, fontWeight: 900, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '2px' }}>Operational Agent</div>
@@ -430,9 +430,9 @@ const AdminPanel = () => {
                         <img src={ad.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
                       )}
                       <div style={{ position: 'absolute', inset: 0, padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)' }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Broadcasting • Asset {i+1}</div>
+                        <div style={{ fontSize: 10, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Broadcasting â€¢ Asset {i+1}</div>
                         <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 4 }}>{ad.title}</div>
-                        {ad.link && <div style={{ fontSize: 8, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🔗 {ad.link}</div>}
+                        {ad.link && <div style={{ fontSize: 8, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>ðŸ”— {ad.link}</div>}
                         <button onClick={() => handleDeleteAd(ad._id)} style={{ position: 'absolute', top: 12, right: 12, border: 'none', background: 'rgba(239,68,68,0.2)', color: '#f87171', padding: '6px 12px', borderRadius: 8, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>REMOVE</button>
                       </div>
                     </div>
@@ -508,7 +508,7 @@ const AdminPanel = () => {
                   </div>
                 </div>
                 <div style={{ width: 64, height: 64, backgroundColor: '#0f172a', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                  <span style={{ fontSize: 32 }}>📦</span>
+                  <span style={{ fontSize: 32 }}>ðŸ“¦</span>
                 </div>
               </div>
 
@@ -520,7 +520,7 @@ const AdminPanel = () => {
                   <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#eab308' }}>{chests.filter(c => c.tier === 'gold').length}</div>
                 </div>
                 <div style={{ width: 64, height: 64, backgroundColor: 'rgba(234, 179, 8, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
-                  <span style={{ fontSize: 32 }}>🧰</span>
+                  <span style={{ fontSize: 32 }}>ðŸ§°</span>
                 </div>
               </div>
 
@@ -530,7 +530,7 @@ const AdminPanel = () => {
                   <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#cbd5e1' }}>{chests.filter(c => c.tier === 'silver').length}</div>
                 </div>
                 <div style={{ width: 64, height: 64, backgroundColor: 'rgba(148, 163, 184, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(148, 163, 184, 0.2)' }}>
-                  <span style={{ fontSize: 32 }}>🎁</span>
+                  <span style={{ fontSize: 32 }}>ðŸŽ</span>
                 </div>
               </div>
 
@@ -540,7 +540,7 @@ const AdminPanel = () => {
                   <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#d97706', textTransform: 'uppercase' }}>{chests.filter(c => c.tier === 'bronze' || c.tier === 'platinum').length}</div>
                 </div>
                 <div style={{ width: 64, height: 64, backgroundColor: 'rgba(217, 119, 6, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
-                   <span style={{ fontSize: 32 }}>📦</span>
+                   <span style={{ fontSize: 32 }}>ðŸ“¦</span>
                 </div>
               </div>
             </div>
@@ -551,7 +551,7 @@ const AdminPanel = () => {
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{ fontSize: 10, fontWeight: 900, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>System Status</p>
-                <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', margin: 0 }}>All Secure • Uplink Live</p>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', margin: 0 }}>All Secure â€¢ Uplink Live</p>
               </div>
             </div>
           </div>
@@ -673,8 +673,6 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dropTitle, setDropTitle] = useState('');
   const [currentZoom, setCurrentZoom] = useState(3);
-  const [streetViewActive, setStreetViewActive] = useState(false);
-  const [streetViewPos, setStreetViewPos] = useState<{lat: number, lng: number} | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -716,17 +714,7 @@ export default function App() {
     }
   }, [adElapsed, activeAd]);
 
-  // Auto-transition to Street View at 80% magnification
-  useEffect(() => {
-    const currentMagnification = mapMode === '3d' 
-      ? (1 - (globeEl.current?.pointOfView()?.altitude || 2.5) / 2.5) * 100 
-      : (currentZoom / 9) * 100;
 
-    if (currentMagnification > 80 && !streetViewActive && mapCenter[0] !== 20) {
-      setStreetViewPos({ lat: mapCenter[0], lng: mapCenter[1] });
-      setStreetViewActive(true);
-    }
-  }, [currentZoom, mapMode, mapCenter]);
 
   const handleSkipAd = () => {
     if (adQueue.length > 0) {
@@ -740,43 +728,28 @@ export default function App() {
     }
   };
 
-  // Track state without triggering re-renders to prevent interval reset
-  const adStateRef = useRef({ ads, selectedChest, isDropping, mapMode });
+  const adStateRef = useRef({ ads, selectedChest, isDropping, mapMode, activeAd });
   useEffect(() => {
-    adStateRef.current = { ads, selectedChest, isDropping, mapMode };
-  }, [ads, selectedChest, isDropping, mapMode]);
+    adStateRef.current = { ads, selectedChest, isDropping, mapMode, activeAd };
+  }, [ads, selectedChest, isDropping, mapMode, activeAd]);
 
   useEffect(() => {
     let timeoutId: any;
-    let currentDelay = 60000; // Start with 1 minute
+    let currentDelay = 60000;
 
     const loop = () => {
       timeoutId = setTimeout(() => {
-        const current = adStateRef.current;
+        const state = adStateRef.current;
         
-        // Active ad is not in ref, so we use a functional update just to check it,
-        // but no side-effects inside the updater!
-        let shouldShowAd = false;
-        setActiveAd((prev: Ad | null) => {
-          if (prev) return prev; // Ad already showing
-          if (current.ads.length > 0 && !current.selectedChest && !current.isDropping && window.location.pathname !== '/admin') {
-             shouldShowAd = true;
-             return current.ads[Math.floor(Math.random() * current.ads.length)];
-          }
-          return prev;
-        });
-
-        // Safe side-effects OUTSIDE the updater!
-        if (shouldShowAd) {
+        if (!state.activeAd && state.ads.length > 0 && !state.selectedChest && !state.isDropping && window.location.pathname !== '/admin') {
+          setActiveAd(state.ads[Math.floor(Math.random() * state.ads.length)]);
           setAdElapsed(0);
-          currentDelay *= 2; // Next ad at double interval: 1 -> 2 -> 4 -> 8 min
         }
         
-        // Always loop safely to keep checking
         loop();
-        
-      }, currentDelay);
+      }, 90000);
     };
+
 
     loop();
     return () => clearTimeout(timeoutId);
@@ -984,11 +957,12 @@ export default function App() {
             el.innerHTML = `
                <div style="display: flex; flex-direction: column; align-items: center; position: relative;">
                  <div style="display: flex; gap: 4px; position: absolute; top: -14px; z-index: 10;">
-                   ${hrsLeft !== null ? `<div style="background: ${hrsLeft < 3 ? '#ef4444' : '#22c55e'}; color: #fff; font-size: 7px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">⏰ ${hrsLeft}H</div>` : ''}
-                   ${slotsLeft !== null && d.tier === 'silver' ? `<div style="background: #fff; color: #000; font-size: 7px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">🔢 ${slotsLeft}/${d.maxOpens}</div>` : ''}
-                   <div style="background: rgba(0,0,0,0.8); color: #fbbf24; font-size: 7px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.5)">👥 ${d.currentOpens || 0}</div>
+                   ${hrsLeft !== null ? `<div style="background: ${hrsLeft < 3 ? '#ef4444' : '#22c55e'}; color: #fff; font-size: 7px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">â° ${hrsLeft}H</div>` : ''}
+                   ${slotsLeft !== null && d.tier === 'silver' ? `<div style="background: #fff; color: #000; font-size: 7px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">ðŸ”¢ ${slotsLeft}/${d.maxOpens}</div>` : ''}
+                   <div style="background: rgba(0,0,0,0.8); color: #fbbf24; font-size: 7px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.5)">ðŸ‘¥ ${d.currentOpens || 0}</div>
                  </div>
-                 <img src="/${displayTier}_drop.png" style="width: 32px; height: 32px; filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'});" />
+                 <div style="position: absolute; bottom: 8px; width: 24px; height: 8px; background: ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'}; filter: blur(12px); border-radius: 50%; opacity: 0.8; pointer-events: none;"></div>
+                 <img src="/${displayTier}_drop.png" style="width: 32px; height: 32px; filter: drop-shadow(0 0 8px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'}); position: relative; z-index: 1;" />
                  <div style="font-size: 8px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; margin-top: 2px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${d.title || d.droppedBy}</div>
                </div>
             `;
@@ -1003,14 +977,10 @@ export default function App() {
              // Switch to high-res 2D Map earlier to avoid blurry globe pixels
              if (v.altitude < 1.2 && mapMode === '3d') {
                 setMapCenter([v.lat, v.lng]);
-                setMapZoom(4);
+                setMapZoom(18); // MATCH IMAGE: high zoom level
                 setMapMode('2d');
              }
           }) } as any)}
-          ringsData={filteredChests}
-          ringLat="lat" ringLng="lng"
-          ringColor={(d: any) => (d.tier === 'gold' ? '#fbbf24' : d.tier === 'silver' ? '#94a3b8' : '#d97706')}
-          ringMaxRadius={1.5} ringPropagationSpeed={0.5}
         />
       </div>
 
@@ -1028,17 +998,10 @@ export default function App() {
             maxBounds={[[-90,-180],[90,180]]}
           >
             <TileLayer
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              attribution="Tiles &copy; Esri"
-              maxZoom={19}
+              url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+              attribution="Google Maps"
+              maxZoom={22}
               noWrap={true}
-            />
-            {/* Overlay for transparent Country and State labels */}
-            <TileLayer
-              url="https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-              maxZoom={19}
-              noWrap={true}
-              zIndex={10}
             />
             <LeafletMapEvents 
               onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} 
@@ -1063,11 +1026,12 @@ export default function App() {
                 html: `
                   <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; width: 100px; transform: translateX(-30px); position: relative;">
                     <div style="display: flex; gap: 4px; position: absolute; top: -12px; z-index: 10;">
-                       ${hrsLeft !== null ? `<div style="background: ${hrsLeft < 3 ? '#ef4444' : '#22c55e'}; color: #fff; font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">⏰ ${hrsLeft}H</div>` : ''}
-                       ${slotsLeft !== null && chest.tier === 'silver' ? `<div style="background: #fff; color: #000; font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">🔢 ${slotsLeft}/${chest.maxOpens}</div>` : ''}
-                       <div style="background: rgba(0,0,0,0.8); color: #fbbf24; font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.5)">👥 ${chest.currentOpens || 0}</div>
+                       ${hrsLeft !== null ? `<div style="background: ${hrsLeft < 3 ? '#ef4444' : '#22c55e'}; color: #fff; font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">â° ${hrsLeft}H</div>` : ''}
+                       ${slotsLeft !== null && chest.tier === 'silver' ? `<div style="background: #fff; color: #000; font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">ðŸ”¢ ${slotsLeft}/${chest.maxOpens}</div>` : ''}
+                       <div style="background: rgba(0,0,0,0.8); color: #fbbf24; font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.5)">ðŸ‘¥ ${chest.currentOpens || 0}</div>
                     </div>
-                    <img src="/${displayTier}_drop.png" style="width: 40px; height: 40px; filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'});" />
+                    <div style="position: absolute; bottom: 14px; width: 30px; height: 10px; background: ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'}; filter: blur(14px); border-radius: 50%; opacity: 1; pointer-events: none;"></div>
+                    <img src="/${displayTier}_drop.png" style="width: 40px; height: 40px; filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'}); position: relative; z-index: 1;" />
                     <div style="font-size: 8px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px; margin-top: 1px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${chest.title || chest.droppedBy}</div>
                   </div>
                 `,
@@ -1092,13 +1056,13 @@ export default function App() {
       <div style={{ position: 'fixed', top: 20, left: deviceType === 'MOBILE' ? 10 : '50%', right: deviceType === 'MOBILE' ? 10 : 'auto', transform: deviceType === 'MOBILE' ? 'none' : 'translateX(-50%)', zIndex: 300, display: 'flex', alignItems: 'center', gap: deviceType === 'MOBILE' ? 8 : 16, padding: deviceType === 'MOBILE' ? '8px 16px' : '12px 28px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 10px 40px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
         {/* APP LOGO */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: deviceType === 'MOBILE' ? 8 : 20, paddingRight: deviceType === 'MOBILE' ? 8 : 20, borderRight: '1px solid rgba(255,255,255,0.1)' }}>
-          <span style={{ fontSize: deviceType === 'MOBILE' ? 20 : 24 }}>📦</span>
+          <span style={{ fontSize: deviceType === 'MOBILE' ? 20 : 24 }}>ðŸ“¦</span>
           {deviceType !== 'MOBILE' && <span style={{ fontSize: 14, fontWeight: 900, color: '#5ba4e5', letterSpacing: 1, textTransform: 'uppercase' }}>DATA DROPPER</span>}
         </div>
 
         {/* SEARCH BAR (TACTICAL) */}
         <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: '6px 12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-           <span style={{ opacity: 0.5, fontSize: 14 }}>🔍</span>
+           <span style={{ opacity: 0.5, fontSize: 14 }}>ðŸ”</span>
            <input 
              type="text" 
              value={searchQuery} 
@@ -1123,7 +1087,7 @@ export default function App() {
           </>
         ) : (
           <button style={{ fontSize: 10, width: '100%', textAlign: 'center', fontWeight: 900, color: '#fff', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: 4, textTransform: 'uppercase' }} onClick={() => setShowLoginModal(true)}>
-            🔐 INITIATE OPERATOR LOGIN
+            ðŸ” INITIATE OPERATOR LOGIN
           </button>
         )}
       </div>
@@ -1152,20 +1116,6 @@ export default function App() {
             <span style={{ fontSize: 12, fontWeight: 900, color: '#f97316', letterSpacing: 2, textTransform: 'uppercase' }}>TOTAL<br />DROPS</span>
           </div>
 
-          {/* STREET VIEW ACTIVATION BUTTON (Visible at high zoom) */}
-          {mapMode === '2d' && currentZoom >= 12 && (
-            <button 
-              onClick={() => {
-                setStreetViewPos({ lat: mapCenter[0], lng: mapCenter[1] });
-                setStreetViewActive(true);
-              }}
-              style={{ pointerEvents: 'auto', background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', border: 'none', padding: '12px 20px', borderRadius: 12, fontWeight: 900, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 10px 30px rgba(234, 88, 12, 0.4)', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.2s' }}
-              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              <span>🏙️</span> ENTER STREET VIEW
-            </button>
-          )}
         </div>
       )}
 
@@ -1174,7 +1124,7 @@ export default function App() {
         <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 300, width: 'calc(100% - 40px)', maxWidth: 800 }}>
            <div style={{ background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(20px)', border: '2px solid rgba(255,255,255,0.1)', borderRadius: 28, padding: '16px 24px', boxShadow: '0 -10px 40px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                 <p style={{ fontSize: 10, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>📡 YOUR ACTIVE DROPS</p>
+                 <p style={{ fontSize: 10, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>ðŸ“¡ YOUR ACTIVE DROPS</p>
                  <span style={{ fontSize: 10, background: '#f97316', color: '#000', padding: '2px 8px', borderRadius: 4, fontWeight: 900 }}>{chests.filter(c => c.droppedBy === currentUser.username).length} UNIT(S)</span>
               </div>
               <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }} className="no-scrollbar">
@@ -1184,7 +1134,7 @@ export default function App() {
                           <img src={`/${drop.tier === 'platinum' ? 'bronze' : drop.tier}_drop.png`} style={{ width: 32, height: 32 }} />
                           <div style={{ overflow: 'hidden' }}>
                              <p style={{ fontSize: 11, fontWeight: 800, color: '#fff', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drop.fileName}</p>
-                             <p style={{ fontSize: 9, color: '#64748b', margin: 0 }}>📍 {drop.lat.toFixed(2)}, {drop.lng.toFixed(2)}</p>
+                             <p style={{ fontSize: 9, color: '#64748b', margin: 0 }}>ðŸ“ {drop.lat.toFixed(2)}, {drop.lng.toFixed(2)}</p>
                           </div>
                        </div>
                        <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
@@ -1226,9 +1176,9 @@ export default function App() {
 
               {/* TIER INFO */}
               <div style={{ minHeight: 100, marginBottom: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                {tempTier === 'bronze' && <p style={{ fontSize: 18, fontWeight: 600 }}>📦 Fully Free — Anyone can download</p>}
-                {tempTier === 'silver' && <p style={{ fontSize: 18, fontWeight: 600 }}>🎁 Limited Access — Set max downloads</p>}
-                {tempTier === 'gold' && <p style={{ fontSize: 18, fontWeight: 600 }}>🧰 Secure — Requires PIN to access</p>}
+                {tempTier === 'bronze' && <p style={{ fontSize: 18, fontWeight: 600 }}>ðŸ“¦ Fully Free â€” Anyone can download</p>}
+                {tempTier === 'silver' && <p style={{ fontSize: 18, fontWeight: 600 }}>ðŸŽ Limited Access â€” Set max downloads</p>}
+                {tempTier === 'gold' && <p style={{ fontSize: 18, fontWeight: 600 }}>ðŸ§° Secure â€” Requires PIN to access</p>}
               </div>
 
               {/* TITLE AND FILE INPUT */}
@@ -1243,12 +1193,12 @@ export default function App() {
                 
                 <label style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
                   <input type="file" multiple onChange={e => setSelectedFiles(prev => [...prev, ...Array.from(e.target.files || [])])} style={{ display: 'none' }} />
-                  📁 {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Add files to drop'}
+                  ðŸ“ {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Add files to drop'}
                 </label>
                 {selectedFiles.length > 0 && <button onClick={() => setSelectedFiles([])} style={{ fontSize: 9, fontWeight: 900, textTransform: 'uppercase', color: '#ff0', background: '#000', padding: '4px 8px', borderRadius: 4 }}>Clear Files</button>}
 
                 {tempTier === 'gold' && (
-                  <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="🔑 Set password for access" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }} />
+                  <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="ðŸ”‘ Set password for access" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }} />
                 )}
                 {tempTier === 'silver' && (
                   <div style={{ padding: '0 8px' }}>
@@ -1297,7 +1247,7 @@ export default function App() {
                   disabled={isDeploying} 
                   style={{ flex: 2, border: 'none', borderRadius: 40, padding: '14px 16px', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: 1 }}
                 >
-                  🚀 {isDeploying ? 'DEPLOYING...' : 'COMMENCE DROP'}
+                  ðŸš€ {isDeploying ? 'DEPLOYING...' : 'COMMENCE DROP'}
                 </button>
               </div>
             </motion.div>
@@ -1309,13 +1259,13 @@ export default function App() {
           <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 500, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedChest(null)}>
             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 380, background: '#5ba4e5', borderRadius: 40, border: '2px solid #000', padding: 32, color: '#000', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-              <button onClick={() => setSelectedChest(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#000' }}>✕</button>
+              <button onClick={() => setSelectedChest(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#000' }}>âœ•</button>
 
               <div style={{ width: '100%', height: 140, border: '2px solid #000', borderRadius: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.15)', marginTop: 12, textAlign: 'center', padding: 12 }}>
                 <img src={`/${selectedChest.tier === 'platinum' ? 'bronze' : selectedChest.tier}_drop.png`} style={{ width: 48, height: 48 }} />
                 <span style={{ fontSize: 18, fontWeight: 900, marginTop: 4, textTransform: 'uppercase' }}>{selectedChest.title || 'SECURE INTEL'}</span>
                 <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.7, marginTop: 4 }}>[{selectedChest.fileName}]</span>
-                <span style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>By: {selectedChest.droppedBy} • {selectedChest.tier.toUpperCase()}</span>
+                <span style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>By: {selectedChest.droppedBy} â€¢ {selectedChest.tier.toUpperCase()}</span>
               </div>
 
               {selectedChest.tier === 'gold' && (
@@ -1326,8 +1276,8 @@ export default function App() {
                 <span style={{ fontSize: 12, fontWeight: 900 }}>RESTRICTION</span>
                 <span style={{ fontSize: 14, fontWeight: 900, color: '#000' }}>
                   {selectedChest.expiresAt 
-                    ? `🧨 ERASE IN ${Math.ceil((selectedChest.expiresAt - Date.now()) / (1000 * 60 * 60))}H` 
-                    : `🔢 ${selectedChest.maxOpens ? selectedChest.maxOpens - (selectedChest.currentOpens || 0) : '∞'} SLOTS`}
+                    ? `ðŸ§¨ ERASE IN ${Math.ceil((selectedChest.expiresAt - Date.now()) / (1000 * 60 * 60))}H` 
+                    : `ðŸ”¢ ${selectedChest.maxOpens ? selectedChest.maxOpens - (selectedChest.currentOpens || 0) : 'âˆž'} SLOTS`}
                 </span>
               </div>
 
@@ -1341,7 +1291,7 @@ export default function App() {
                 </div>
               ) : (
                 <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleChestAction(); }} style={{ width: '100%', border: '2px solid #000', borderRadius: 24, padding: '16px 0', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 20, cursor: 'pointer', letterSpacing: 2, textTransform: 'uppercase', boxShadow: '0 4px 0 rgba(0,0,0,0.3)' }}>
-                  🔓 {selectedChest.tier === 'silver' ? (selectedChest.expiresAt ? 'GET INTEL (TIME LIMITED)' : 'INITIATE DECRYPTION') : 'UNLOCK INTEL'}
+                  ðŸ”“ {selectedChest.tier === 'silver' ? (selectedChest.expiresAt ? 'GET INTEL (TIME LIMITED)' : 'INITIATE DECRYPTION') : 'UNLOCK INTEL'}
                 </button>
               )}
             </motion.div>
@@ -1354,7 +1304,7 @@ export default function App() {
             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} style={{ width: '100%', maxWidth: 800, background: '#0f172a', borderRadius: 40, border: '1px solid rgba(255,255,255,0.1)', padding: 32, display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: 0, textTransform: 'uppercase', fontStyle: 'italic' }}>Decrypted Intel ({(unlockedChest.files?.length ?? 0) > 0 ? unlockedChest.files?.length : 1} File{(unlockedChest.files?.length ?? 0) > 1 ? 's' : ''})</h3>
-                <button onClick={() => setUnlockedChest(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 20, padding: '8px 16px', fontWeight: 900, cursor: 'pointer' }}>Close ✕</button>
+                <button onClick={() => setUnlockedChest(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 20, padding: '8px 16px', fontWeight: 900, cursor: 'pointer' }}>Close âœ•</button>
               </div>
               <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 16, scrollSnapType: 'x mandatory' }} className="hide-scrollbar">
                 {(unlockedChest.files && unlockedChest.files.length > 0 
@@ -1374,14 +1324,14 @@ export default function App() {
                       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', overflow: (isPdf ? 'auto' : 'hidden'), position: 'relative' }}>
                         {isImage && <img src={file.fileUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
                         {isPdf && <div style={{ width: '100%', height: '100%', overflowY: 'auto' }}><iframe src={file.fileUrl} style={{ width: '100%', height: '800px', border: 'none' }} /></div>}
-                        {isApk && <div style={{ fontSize: 80, filter: 'drop-shadow(0 0 20px #22c55e)' }}>📱</div>}
-                        {(!isImage && !isPdf && !isApk) && <div style={{ fontSize: 80 }}>📄</div>}
+                        {isApk && <div style={{ fontSize: 80, filter: 'drop-shadow(0 0 20px #22c55e)' }}>ðŸ“±</div>}
+                        {(!isImage && !isPdf && !isApk) && <div style={{ fontSize: 80 }}>ðŸ“„</div>}
                         {isApk && <div style={{ position: 'absolute', bottom: 10, fontSize: 10, fontWeight: 900, background: '#22c55e', color: '#000', padding: '4px 8px', borderRadius: 8 }}>APP ALREADY BUILT</div>}
                       </div>
                       <div style={{ padding: 16, background: 'rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={file.fileName}>{file.fileName}</div>
                         <div style={{ fontSize: 10, color: '#94a3b8' }}>{file.fileSize || 'N/A'}</div>
-                        <button onClick={() => forceDownload(file.fileUrl, file.fileName)} style={{ background: '#3b82f6', color: '#fff', padding: '10px', borderRadius: 12, border: 'none', fontWeight: 900, cursor: 'pointer', marginTop: 8 }}>⬇️ DOWNLOAD</button>
+                        <button onClick={() => forceDownload(file.fileUrl, file.fileName)} style={{ background: '#3b82f6', color: '#fff', padding: '10px', borderRadius: 12, border: 'none', fontWeight: 900, cursor: 'pointer', marginTop: 8 }}>â¬‡ï¸ DOWNLOAD</button>
                       </div>
                     </div>
                   );
@@ -1424,7 +1374,7 @@ export default function App() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center', background: 'rgba(255,255,255,0.2)', padding: 16, borderRadius: 24, border: '2px solid #000' }}>
-                  <div style={{ fontSize: 32 }}>🌍</div>
+                  <div style={{ fontSize: 32 }}>ðŸŒ</div>
                   <div>
                     <h4 style={{ fontWeight: 800, margin: 0, textTransform: 'uppercase', fontSize: 13 }}>Global Dashboard</h4>
                     <p style={{ margin: 0, fontSize: 11, fontWeight: 600 }}>Drag to rotate. Scroll to zoom into any sector.</p>
@@ -1432,7 +1382,7 @@ export default function App() {
                 </div>
 
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center', background: 'rgba(255,255,255,0.2)', padding: 16, borderRadius: 24, border: '2px solid #000' }}>
-                  <div style={{ fontSize: 32 }}>📦</div>
+                  <div style={{ fontSize: 32 }}>ðŸ“¦</div>
                   <div>
                     <h4 style={{ fontWeight: 800, margin: 0, textTransform: 'uppercase', fontSize: 13 }}>Drop Data</h4>
                     <p style={{ margin: 0, fontSize: 11, fontWeight: 600 }}>Click empty areas to drop ordnance (Gold/Silver/Bronze).</p>
@@ -1486,7 +1436,7 @@ export default function App() {
              <div style={{ position: 'absolute', top: 24, right: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
                 {adElapsed !== null && adElapsed >= 5 ? (
                   <button onClick={handleSkipAd} style={{ backgroundColor: '#ea580c', color: '#fff', padding: '12px 24px', borderRadius: 20, border: 'none', fontWeight: 900, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 2, display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-                    Skip Ad ⏭️
+                    Skip Ad â­ï¸
                   </button>
                 ) : (
                   <div style={{ backgroundColor: 'rgba(0,0,0,0.8)', padding: '12px 24px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: 12, backdropFilter: 'blur(10px)' }}>
@@ -1527,12 +1477,12 @@ export default function App() {
                         : '0 6px 20px rgba(91,164,229,0.5)',
                     }}
                   >
-                    {activeAd.link.toLowerCase().includes('.apk') ? '📲 INSTALL' : '🌐 VISIT'}
+                    {activeAd.link.toLowerCase().includes('.apk') ? 'ðŸ“² INSTALL' : 'ðŸŒ VISIT'}
                   </a>
                 )}
              </div>
           </div>
-          <p style={{ marginTop: 40, fontSize: 10, fontWeight: 900, color: '#475569', textTransform: 'uppercase', letterSpacing: 8 }}>Decryption in Progress • Please Stand By</p>
+          <p style={{ marginTop: 40, fontSize: 10, fontWeight: 900, color: '#475569', textTransform: 'uppercase', letterSpacing: 8 }}>Decryption in Progress â€¢ Please Stand By</p>
         </div>
       )}
 
@@ -1557,43 +1507,9 @@ export default function App() {
         <div style={{ background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
           <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: 2 }}>Visual Magnification</div>
           <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', fontStyle: 'italic', letterSpacing: -1 }}>
-             {Math.round((mapMode === '3d' ? (1 - (globeEl.current?.pointOfView()?.altitude || 2.5) / 2.5) * 100 : (currentZoom / 9) * 100))}%
-          </div>
-        </div>
-      </div>
-
-      {/* STREET VIEW OVERLAY */}
-      <AnimatePresence>
-        {streetViewActive && streetViewPos && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 1.1 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.1 }}
-            style={{ position: 'fixed', inset: 0, zIndex: 2000, background: '#000' }}
-          >
-            <div style={{ position: 'absolute', top: 30, left: 30, zIndex: 2100, display: 'flex', gap: 16 }}>
-               <button 
-                 onClick={() => setStreetViewActive(false)}
-                 style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '12px 24px', borderRadius: 12, fontWeight: 900, fontSize: 12, cursor: 'pointer', backdropFilter: 'blur(10px)', textTransform: 'uppercase', letterSpacing: 1 }}
-               >
-                 ⬅️ BACK TO COMMAND MAP
-               </button>
-            </div>
-            {/* Street View Integration using an iframe as a robust cross-platform way to show Street View without complex JS SDK init if user prefers quick integration */}
-            <iframe 
-              width="100%" 
-              height="100%" 
-              style={{ border: 0 }} 
-              loading="lazy" 
-              allowFullScreen 
-              src={`https://www.google.com/maps/embed/v1/streetview?key=YOUR_API_KEY_HERE&location=${streetViewPos.lat},${streetViewPos.lng}&heading=210&pitch=10&fov=35`}
-              // Note: For a real app, we should use the Google Maps JS SDK properly, but an Embed iframe works for a demo/quick fix if they have a key. 
-              // However, since we don't have a key, I will implement a "Simulated" Street View View or alert the user to provide a key.
-              // For now, let's use a more visual "Mock" Street View if the user doesn't have a key, or use a public placeholder.
-            />
-            {/* Disclaimer for API Key */}
-            <div style={{ position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)', zIndex: 2100, background: 'rgba(239, 68, 68, 0.9)', color: '#fff', padding: '10px 20px', borderRadius: 12, fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 2 }}>
-               ⚠️ GOOGLE MAPS API KEY REQUIRED FOR LIVE UPLINK
+             {Math.round((mapMode === '3d' ? (1 - (glo    </div>
+  );
+}; GOOGLE MAPS API KEY REQUIRED FOR LIVE UPLINK
             </div>
           </motion.div>
         )}
