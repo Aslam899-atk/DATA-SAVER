@@ -83,6 +83,112 @@ const AdminPanel = () => {
   const [newAd, setNewAd] = useState({ title: '', imageUrl: '', videoUrl: '', link: '' });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  // Admin decryption bypass and editing drop states
+  const [unlockedChest, setUnlockedChest] = useState<Chest | null>(null);
+  const [editingChest, setEditingChest] = useState<Chest | null>(null);
+  const [transferProgress, setTransferProgress] = useState<number | null>(null);
+
+  const [editTitle, setEditTitle] = useState('');
+  const [editTier, setEditTier] = useState<'gold' | 'silver' | 'bronze' | 'platinum'>('bronze');
+  const [editPin, setEditPin] = useState('');
+  const [editMaxOpens, setEditMaxOpens] = useState('');
+  const [, setEditSilverTimer] = useState('');
+  const [editExpiresAt, setEditExpiresAt] = useState('');
+  const [editSilverMode, setEditSilverMode] = useState<'TIME' | 'COUNT'>('COUNT');
+
+  useEffect(() => {
+    if (editingChest) {
+      setEditTitle(editingChest.title || '');
+      setEditTier(editingChest.tier || 'bronze');
+      setEditPin(editingChest.pin || '');
+      setEditMaxOpens(editingChest.maxOpens ? editingChest.maxOpens.toString() : '');
+      setEditSilverTimer(editingChest.silverTimer ? editingChest.silverTimer.toString() : '15');
+      if (editingChest.expiresAt) {
+        setEditSilverMode('TIME');
+        const hoursLeft = Math.max(1, Math.round((editingChest.expiresAt - Date.now()) / (60 * 60 * 1000)));
+        setEditExpiresAt(hoursLeft.toString());
+      } else {
+        setEditSilverMode('COUNT');
+        setEditExpiresAt('24');
+      }
+    }
+  }, [editingChest]);
+
+  const handleUpdateChestSubmit = async (e: any) => {
+    e.preventDefault();
+    if (!editingChest) return;
+    
+    const updateData: any = {
+      title: editTitle,
+      tier: editTier
+    };
+
+    if (editTier === 'gold') {
+      updateData.pin = editPin || '0000';
+    }
+
+    if (editTier === 'silver') {
+      if (editSilverMode === 'COUNT') {
+        updateData.maxOpens = editMaxOpens ? parseInt(editMaxOpens) : 10;
+        updateData.expiresAt = null;
+        updateData.silverTimer = 0;
+      } else {
+        const hours = parseInt(editExpiresAt || '24');
+        const expiryMs = Date.now() + (hours * 60 * 60 * 1000);
+        updateData.expiresAt = expiryMs;
+        updateData.maxOpens = 999999;
+        updateData.silverTimer = 0;
+      }
+    } else if (editTier === 'bronze') {
+      updateData.maxOpens = null;
+      updateData.expiresAt = null;
+      updateData.silverTimer = 0;
+    }
+
+    try {
+      const res = await axios.patch(`${API_URL}/chests/${editingChest._id || editingChest.id}`, updateData);
+      setChests(chests.map(c => (c._id === res.data._id || c.id === res.data.id) ? res.data : c));
+      setEditingChest(null);
+      alert('SUCCESS: INTEL DROP MODIFIED');
+    } catch (err: any) {
+      alert(`FAILED TO EDIT DROP: ${err.response?.data?.error || err.message}`);
+    }
+  };
+
+  const forceDownload = async (url: string, filename: string) => {
+    let downloadUrl = url;
+    if (url.includes('res.cloudinary.com')) {
+      downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
+    }
+    
+    try {
+      setTransferProgress(0);
+      const response = await axios({
+        url: downloadUrl,
+        method: 'GET',
+        responseType: 'blob',
+        onDownloadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            setTransferProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
+          }
+        }
+      });
+
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', filename || 'DATA_SECURE.dat');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      window.open(downloadUrl, '_blank');
+    } finally {
+      setTimeout(() => setTransferProgress(null), 1000);
+    }
+  };
+
   useEffect(() => {
     const handleResize = () => {
       const w = window.innerWidth;
@@ -354,20 +460,39 @@ const AdminPanel = () => {
                 {chests.map((chest, i) => {
                   const displayTier = (chest.tier as any) === 'platinum' ? 'bronze' : chest.tier;
                   return (
-                    <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, border: '2px solid', borderColor: displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706', boxShadow: `0 0 15px ${displayTier === 'gold' ? '#fbbf2433' : '#ffffff11'}` }}>
-                        <img src={`/${displayTier}_drop.png`} style={{ width: 40, height: 40 }} />
+                    <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', flexDirection: 'column', gap: 16, transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, border: '2px solid', borderColor: displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706', boxShadow: `0 0 10px ${displayTier === 'gold' ? '#fbbf2433' : '#ffffff11'}` }}>
+                          <img src={`/${displayTier}_drop.png`} style={{ width: 28, height: 28 }} />
+                        </div>
+                        <div style={{ flex: 1, marginLeft: 16, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
+                          <div style={{ fontSize: 9, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Node: {chest.droppedBy}</div>
+                          <div style={{ fontSize: 15, fontWeight: 700, fontFamily: 'monospace', color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chest.fileName}</div>
+                        </div>
                       </div>
-                      <div style={{ flex: 1, marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Node: {chest.droppedBy}</div>
-                        <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chest.fileName}</div>
+                      <div style={{ display: 'flex', gap: 6, width: '100%' }}>
+                        <button 
+                          onClick={() => setUnlockedChest(chest)}
+                          title="Bypass security requirements to download all files"
+                          style={{ flex: 2, padding: '10px 0', borderRadius: 8, backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399', cursor: 'pointer', transition: 'all 0.2s', fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}
+                        >
+                          OPEN
+                        </button>
+                        <button 
+                          onClick={() => setEditingChest(chest)}
+                          title="Edit settings"
+                          style={{ flex: 2, padding: '10px 0', borderRadius: 8, backgroundColor: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#fbbf24', cursor: 'pointer', transition: 'all 0.2s', fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}
+                        >
+                          EDIT
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteChest((chest._id || chest.id)!)}
+                          title="Delete permanently"
+                          style={{ flex: 1, borderRadius: 8, backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', cursor: 'pointer', transition: 'all 0.2s' }}
+                        >
+                          <X size={16} />
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => handleDeleteChest((chest._id || chest.id)!)}
-                        style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: 'rgba(239, 68, 68, 0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', cursor: 'pointer', transition: 'all 0.2s' }}
-                      >
-                        <X size={20} />
-                      </button>
                     </div>
                   );
                 })}
@@ -557,6 +682,132 @@ const AdminPanel = () => {
           </div>
         </aside>
       </div>
+
+      {/* UNLOCKED CHEST VIEWER (BYPASS ACCESS) */}
+      {unlockedChest && (
+        <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 1000, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(16px)' }}>
+          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} style={{ width: '100%', maxWidth: 800, background: '#0f172a', borderRadius: 40, border: '1px solid rgba(255,255,255,0.1)', padding: 32, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: 0, textTransform: 'uppercase', fontStyle: 'italic' }}>
+                Admin Decrypted Intel ({(unlockedChest.files?.length ?? 0) > 0 ? unlockedChest.files?.length : 1} File{(unlockedChest.files?.length ?? 0) > 1 ? 's' : ''})
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                {unlockedChest.pin && <span style={{ fontSize: 10, background: 'rgba(234,179,8,0.2)', border: '1px solid #eab308', color: '#fbbf24', padding: '4px 8px', borderRadius: 6, fontWeight: 900 }}>PIN: {unlockedChest.pin}</span>}
+                <button onClick={() => setUnlockedChest(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 20, padding: '8px 16px', fontWeight: 900, cursor: 'pointer' }}>Close ✕</button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 16, scrollSnapType: 'x mandatory' }} className="hide-scrollbar">
+              {(unlockedChest.files && unlockedChest.files.length > 0 
+                ? unlockedChest.files 
+                : [{ 
+                    fileUrl: unlockedChest.fileUrl, 
+                    fileName: unlockedChest.fileName, 
+                    fileSize: unlockedChest.fileSize 
+                  }]
+               ).map((file: any, index: number) => {
+                const isImage = (file.fileName || '').match(/\.(jpeg|jpg|gif|png|webp)$/i);
+                const isPdf = (file.fileName || '').match(/\.pdf$/i);
+                const isApk = (file.fileName || '').match(/\.apk$/i);
+
+                return (
+                  <div key={index} style={{ minWidth: 280, width: 280, height: 400, background: 'rgba(0,0,0,0.5)', borderRadius: 24, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', scrollSnapAlign: 'start', flexShrink: 0 }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', overflow: (isPdf ? 'auto' : 'hidden'), position: 'relative' }}>
+                      {isImage && <img src={file.fileUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
+                      {isPdf && <div style={{ width: '100%', height: '100%', overflowY: 'auto' }}><iframe src={file.fileUrl} style={{ width: '100%', height: '800px', border: 'none' }} /></div>}
+                      {isApk && <div style={{ fontSize: 80, filter: 'drop-shadow(0 0 20px #22c55e)' }}>📱</div>}
+                      {(!isImage && !isPdf && !isApk) && <div style={{ fontSize: 80 }}>📄</div>}
+                    </div>
+                    <div style={{ padding: 16, background: 'rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={file.fileName}>{file.fileName}</div>
+                      <div style={{ fontSize: 10, color: '#94a3b8' }}>{file.fileSize || 'N/A'}</div>
+                      <button onClick={() => forceDownload(file.fileUrl, file.fileName)} style={{ background: '#3b82f6', color: '#fff', padding: '10px', borderRadius: 12, border: 'none', fontWeight: 900, cursor: 'pointer', marginTop: 8 }}>⬇️ DOWNLOAD</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* EDIT INTEL DROP MODAL */}
+      {editingChest && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(16px)' }}>
+          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} style={{ width: '100%', maxWidth: 500, background: '#0f172a', borderRadius: 32, border: '2px solid rgba(255,255,255,0.1)', padding: 32, display: 'flex', flexDirection: 'column', gap: 24, boxShadow: '0 20px 80px rgba(0,0,0,0.6)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: 0, textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-0.5px' }}>Admin - Edit Drop Settings</h3>
+              <button onClick={() => setEditingChest(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 20, padding: '8px 16px', fontWeight: 900, cursor: 'pointer' }}>Close ✕</button>
+            </div>
+
+            <form onSubmit={handleUpdateChestSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px' }}>Drop Name / Title</label>
+                <input required value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Enter drop title..." style={{ width: '100%', padding: 14, borderRadius: 12, border: '2px solid rgba(255, 255, 255, 0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700, fontSize: 15, outline: 'none' }} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px' }}>Security Tier</label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {['bronze', 'silver', 'gold'].map((t) => (
+                    <button key={t} type="button" onClick={() => setEditTier(t as any)} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: '2px solid', fontWeight: 900, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, cursor: 'pointer', transition: 'all 0.2s',
+                      backgroundColor: editTier === t ? (t === 'gold' ? '#eab308' : t === 'silver' ? '#cbd5e1' : '#d97706') : 'rgba(255,255,255,0.02)',
+                      borderColor: editTier === t ? '#fff' : 'rgba(255,255,255,0.05)',
+                      color: editTier === t ? '#000' : '#64748b'
+                    }}>{t}</button>
+                  ))}
+                </div>
+              </div>
+
+              {editTier === 'gold' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 9, fontWeight: 900, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '2px' }}>PIN Password Code</label>
+                  <input required type="text" maxLength={8} value={editPin} onChange={e => setEditPin(e.target.value)} placeholder="0000" style={{ width: '100%', padding: 14, borderRadius: 12, border: '2px solid rgba(251, 191, 36, 0.2)', backgroundColor: 'rgba(251, 191, 36, 0.05)', color: '#fbbf24', fontWeight: 900, fontFamily: 'monospace', fontSize: 18, textAlign: 'center', outline: 'none' }} />
+                </div>
+              )}
+
+              {editTier === 'silver' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button type="button" onClick={() => setEditSilverMode('COUNT')} style={{ flex: 1, padding: 8, fontSize: 9, fontWeight: 900, borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: editSilverMode === 'COUNT' ? '#cbd5e1' : 'rgba(255,255,255,0.05)', color: editSilverMode === 'COUNT' ? '#000' : '#64748b' }}>ACCESS COUNT LIMIT</button>
+                    <button type="button" onClick={() => setEditSilverMode('TIME')} style={{ flex: 1, padding: 8, fontSize: 9, fontWeight: 900, borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: editSilverMode === 'TIME' ? '#cbd5e1' : 'rgba(255,255,255,0.05)', color: editSilverMode === 'TIME' ? '#000' : '#64748b' }}>TIME TO EXPIRY</button>
+                  </div>
+                  {editSilverMode === 'COUNT' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Maximum Unlocks (Times)</label>
+                      <input type="number" required value={editMaxOpens} onChange={e => setEditMaxOpens(e.target.value)} placeholder="10" style={{ width: '100%', padding: 12, borderRadius: 10, border: '2px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700 }} />
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Expires In (Hours from now)</label>
+                      <input type="number" required value={editExpiresAt} onChange={e => setEditExpiresAt(e.target.value)} placeholder="24" style={{ width: '100%', padding: 12, borderRadius: 10, border: '2px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700 }} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button type="submit" style={{ backgroundColor: '#2563eb', color: '#fff', fontWeight: 900, padding: 16, borderRadius: 12, fontSize: 15, textTransform: 'uppercase', letterSpacing: '2px', cursor: 'pointer', border: 'none', marginTop: 10, boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
+                Save Intel Changes
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* GLOBAL TRANSFER PROGRESS OVERLAY */}
+      <AnimatePresence>
+        {transferProgress !== null && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.9)', backdropFilter: 'blur(32px)' }}>
+             <div style={{ width: '100%', maxWidth: 400, padding: 40, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, fontWeight: 900, color: '#f97316', textTransform: 'uppercase', letterSpacing: 8, marginBottom: 24 }}>System Data Transfer</div>
+                <div style={{ position: 'relative', width: '100%', height: 4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                   <motion.div initial={{ width: 0 }} animate={{ width: `${transferProgress}%` }} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, backgroundColor: '#f97316', boxShadow: '0 0 20px #f97316' }} />
+                </div>
+                <div style={{ marginTop: 24, fontSize: 48, fontWeight: 900, fontStyle: 'italic', letterSpacing: -2, color: '#fff' }}>{transferProgress}%</div>
+                <p style={{ fontSize: 9, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginTop: 12 }}>Syncing with Strategic Cloud Network</p>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -672,7 +923,76 @@ export default function App() {
   const [transferProgress, setTransferProgress] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [dropTitle, setDropTitle] = useState('');
-  const [currentZoom, setCurrentZoom] = useState(3);
+
+  // Editing drops states
+  const [editingChest, setEditingChest] = useState<Chest | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editTier, setEditTier] = useState<'gold' | 'silver' | 'bronze' | 'platinum'>('bronze');
+  const [editPin, setEditPin] = useState('');
+  const [editMaxOpens, setEditMaxOpens] = useState('');
+  const [, setEditSilverTimer] = useState('');
+  const [editExpiresAt, setEditExpiresAt] = useState('');
+  const [editSilverMode, setEditSilverMode] = useState<'TIME' | 'COUNT'>('COUNT');
+
+  useEffect(() => {
+    if (editingChest) {
+      setEditTitle(editingChest.title || '');
+      setEditTier(editingChest.tier || 'bronze');
+      setEditPin(editingChest.pin || '');
+      setEditMaxOpens(editingChest.maxOpens ? editingChest.maxOpens.toString() : '');
+      setEditSilverTimer(editingChest.silverTimer ? editingChest.silverTimer.toString() : '15');
+      if (editingChest.expiresAt) {
+        setEditSilverMode('TIME');
+        const hoursLeft = Math.max(1, Math.round((editingChest.expiresAt - Date.now()) / (60 * 60 * 1000)));
+        setEditExpiresAt(hoursLeft.toString());
+      } else {
+        setEditSilverMode('COUNT');
+        setEditExpiresAt('24');
+      }
+    }
+  }, [editingChest]);
+
+  const handleUpdateChestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingChest) return;
+    
+    const updateData: any = {
+      title: editTitle,
+      tier: editTier
+    };
+
+    if (editTier === 'gold') {
+      updateData.pin = editPin || '0000';
+    }
+
+    if (editTier === 'silver') {
+      if (editSilverMode === 'COUNT') {
+        updateData.maxOpens = editMaxOpens ? parseInt(editMaxOpens) : 10;
+        updateData.expiresAt = null;
+        updateData.silverTimer = 0;
+      } else {
+        const hours = parseInt(editExpiresAt || '24');
+        const expiryMs = Date.now() + (hours * 60 * 60 * 1000);
+        updateData.expiresAt = expiryMs;
+        updateData.maxOpens = 999999;
+        updateData.silverTimer = 0;
+      }
+    } else if (editTier === 'bronze') {
+      updateData.maxOpens = null;
+      updateData.expiresAt = null;
+      updateData.silverTimer = 0;
+    }
+
+    try {
+      const res = await axios.patch(`${API_URL}/chests/${editingChest._id || editingChest.id}`, updateData);
+      setChests(prev => prev.map(c => (c._id === res.data._id || c.id === res.data.id) ? res.data : c));
+      setEditingChest(null);
+      alert('SUCCESS: INTEL DROP MODIFIED');
+    } catch (err: any) {
+      alert(`FAILED TO EDIT DROP: ${err.response?.data?.error || err.message}`);
+    }
+  };
+  const [, setCurrentZoom] = useState(3);
 
   useEffect(() => {
     const handleResize = () => {
@@ -735,7 +1055,7 @@ export default function App() {
 
   useEffect(() => {
     let timeoutId: any;
-    let currentDelay = 60000;
+    // let currentDelay = 60000;
 
     const loop = () => {
       timeoutId = setTimeout(() => {
@@ -1134,12 +1454,13 @@ export default function App() {
                           <img src={`/${drop.tier === 'platinum' ? 'bronze' : drop.tier}_drop.png`} style={{ width: 32, height: 32 }} />
                           <div style={{ overflow: 'hidden' }}>
                              <p style={{ fontSize: 11, fontWeight: 800, color: '#fff', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drop.fileName}</p>
-                             <p style={{ fontSize: 9, color: '#64748b', margin: 0 }}>ðŸ“ {drop.lat.toFixed(2)}, {drop.lng.toFixed(2)}</p>
+                             <p style={{ fontSize: 9, color: '#64748b', margin: 0 }}>ðŸ“  {drop.lat.toFixed(2)}, {drop.lng.toFixed(2)}</p>
                           </div>
                        </div>
-                       <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-                                                     <button onClick={(e) => { e.stopPropagation(); handlePointClick(drop); }} style={{ flex: 1, background: 'rgba(59, 130, 246, 0.4)', border: 'none', color: '#fff', fontSize: 10, fontWeight: 900, padding: '10px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>LOCATE & VIEW</button>
-                                                     <button onClick={(e) => { e.stopPropagation(); handleDeleteDrop((drop._id || drop.id)!); }} style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#ef4444', fontSize: 10, fontWeight: 900, padding: '10px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>DELETE</button>
+                       <div style={{ display: 'flex', gap: 6, marginTop: 'auto' }}>
+                          <button onClick={(e) => { e.stopPropagation(); handlePointClick(drop); }} style={{ flex: 1.2, background: 'rgba(59, 130, 246, 0.4)', border: 'none', color: '#fff', fontSize: 9, fontWeight: 900, padding: '8px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>LOCATE</button>
+                          <button onClick={(e) => { e.stopPropagation(); setEditingChest(drop); }} style={{ flex: 1, background: 'rgba(245, 158, 11, 0.2)', border: 'none', color: '#fbbf24', fontSize: 9, fontWeight: 900, padding: '8px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>EDIT</button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDeleteDrop((drop._id || drop.id)!); }} style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#ef4444', fontSize: 9, fontWeight: 900, padding: '8px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>DELETE</button>
                        </div>
                     </div>
                  ))}
@@ -1192,8 +1513,18 @@ export default function App() {
                 />
                 
                 <label style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                  <input type="file" multiple onChange={e => setSelectedFiles(prev => [...prev, ...Array.from(e.target.files || [])])} style={{ display: 'none' }} />
-                  ðŸ“ {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Add files to drop'}
+                  <input type="file" multiple onChange={e => {
+                      const files = Array.from(e.target.files || []);
+                      const validFiles = files.filter(f => {
+                        if (f.size > 2 * 1024 * 1024 * 1024) {
+                          alert(`File ${f.name} exceeds 2GB limit.`);
+                          return false;
+                        }
+                        return true;
+                      });
+                      setSelectedFiles(prev => [...prev, ...validFiles]);
+                    }} style={{ display: 'none' }} />
+                  ðŸ“  {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Add files to drop'}
                 </label>
                 {selectedFiles.length > 0 && <button onClick={() => setSelectedFiles([])} style={{ fontSize: 9, fontWeight: 900, textTransform: 'uppercase', color: '#ff0', background: '#000', padding: '4px 8px', borderRadius: 4 }}>Clear Files</button>}
 
@@ -1365,6 +1696,68 @@ export default function App() {
             </div>
           </motion.div>
         )}
+        {/* EDIT INTEL DROP MODAL */}
+        {editingChest && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(16px)' }}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} style={{ width: '100%', maxWidth: 500, background: '#0f172a', borderRadius: 32, border: '2px solid rgba(255,255,255,0.1)', padding: 32, display: 'flex', flexDirection: 'column', gap: 24, boxShadow: '0 20px 80px rgba(0,0,0,0.6)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: 0, textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-0.5px' }}>Modify Intel Drop Settings</h3>
+                <button onClick={() => setEditingChest(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 20, padding: '8px 16px', fontWeight: 900, cursor: 'pointer' }}>Close ✕</button>
+              </div>
+
+              <form onSubmit={handleUpdateChestSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px' }}>Drop Name / Title</label>
+                  <input required value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Enter drop title..." style={{ width: '100%', padding: 14, borderRadius: 12, border: '2px solid rgba(255, 255, 255, 0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700, fontSize: 15, outline: 'none' }} />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px' }}>Security Tier</label>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {['bronze', 'silver', 'gold'].map((t) => (
+                      <button key={t} type="button" onClick={() => setEditTier(t as any)} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: '2px solid', fontWeight: 900, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, cursor: 'pointer', transition: 'all 0.2s',
+                        backgroundColor: editTier === t ? (t === 'gold' ? '#eab308' : t === 'silver' ? '#cbd5e1' : '#d97706') : 'rgba(255,255,255,0.02)',
+                        borderColor: editTier === t ? '#fff' : 'rgba(255,255,255,0.05)',
+                        color: editTier === t ? '#000' : '#64748b'
+                      }}>{t}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {editTier === 'gold' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 9, fontWeight: 900, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '2px' }}>PIN Password Code</label>
+                    <input required type="text" maxLength={8} value={editPin} onChange={e => setEditPin(e.target.value)} placeholder="0000" style={{ width: '100%', padding: 14, borderRadius: 12, border: '2px solid rgba(251, 191, 36, 0.2)', backgroundColor: 'rgba(251, 191, 36, 0.05)', color: '#fbbf24', fontWeight: 900, fontFamily: 'monospace', fontSize: 18, textAlign: 'center', outline: 'none' }} />
+                  </div>
+                )}
+
+                {editTier === 'silver' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button type="button" onClick={() => setEditSilverMode('COUNT')} style={{ flex: 1, padding: 8, fontSize: 9, fontWeight: 900, borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: editSilverMode === 'COUNT' ? '#cbd5e1' : 'rgba(255,255,255,0.05)', color: editSilverMode === 'COUNT' ? '#000' : '#64748b' }}>ACCESS COUNT LIMIT</button>
+                      <button type="button" onClick={() => setEditSilverMode('TIME')} style={{ flex: 1, padding: 8, fontSize: 9, fontWeight: 900, borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: editSilverMode === 'TIME' ? '#cbd5e1' : 'rgba(255,255,255,0.05)', color: editSilverMode === 'TIME' ? '#000' : '#64748b' }}>TIME TO EXPIRY</button>
+                    </div>
+                    {editSilverMode === 'COUNT' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Maximum Unlocks (Times)</label>
+                        <input type="number" required value={editMaxOpens} onChange={e => setEditMaxOpens(e.target.value)} placeholder="10" style={{ width: '100%', padding: 12, borderRadius: 10, border: '2px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700 }} />
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Expires In (Hours from now)</label>
+                        <input type="number" required value={editExpiresAt} onChange={e => setEditExpiresAt(e.target.value)} placeholder="24" style={{ width: '100%', padding: 12, borderRadius: 10, border: '2px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700 }} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <button type="submit" style={{ backgroundColor: '#2563eb', color: '#fff', fontWeight: 900, padding: 16, borderRadius: 12, fontSize: 15, textTransform: 'uppercase', letterSpacing: '2px', cursor: 'pointer', border: 'none', marginTop: 10, boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
+                  Save Intel Changes
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
 
         {/* INTRO MODAL (HOW TO USE & DOWNLOADS) */}
         {showIntro && currentUser && (
@@ -1507,13 +1900,10 @@ export default function App() {
         <div style={{ background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
           <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: 2 }}>Visual Magnification</div>
           <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', fontStyle: 'italic', letterSpacing: -1 }}>
-             {Math.round((mapMode === '3d' ? (1 - (glo    </div>
-  );
-}; GOOGLE MAPS API KEY REQUIRED FOR LIVE UPLINK
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            0%
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

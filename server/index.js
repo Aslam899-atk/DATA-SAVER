@@ -4,8 +4,9 @@ const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
 const path = require('path');
-const fs_standard = require('fs');
-if (fs_standard.existsSync(path.join(__dirname, '.env'))) {
+const fs = require('fs');
+
+if (fs.existsSync(path.join(__dirname, '.env'))) {
   require('dotenv').config({ path: path.join(__dirname, '.env') });
 } else {
   require('dotenv').config(); // Fallback to host variables
@@ -15,9 +16,21 @@ const { notifyDrop } = require('./telegram');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
 
-// --- Cloudinary Config ---
+// Support large payloads (up to 50MB for JSON and urlencoded)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Statically serve local uploads with CORS
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Ensure local uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// --- Cloudinary Config (Keep for legacy / Ads support) ---
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -32,6 +45,22 @@ const storage = new CloudinaryStorage({
   },
 });
 const upload = multer({ storage: storage });
+
+// --- Local Storage Config (For chests up to 2GB) ---
+const localDiskStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const uploadLocal = multer({ 
+  storage: localDiskStorage,
+  limits: { fileSize: 2 * 1024 * 1024 * 1024 } // 2GB limit
+});
 
 // --- Routes ---
 
@@ -57,14 +86,15 @@ app.get('/api/chests', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.post('/api/chests', upload.array('files', 15), async (req, res) => {
+app.post('/api/chests', uploadLocal.array('files', 15), async (req, res) => {
   try {
     const { lat, lng, title, tier, droppedBy, pin, maxOpens, expiresAt, silverTimer } = req.body;
     
     let uploadedFiles = [];
     if (req.files && req.files.length > 0) {
+      const baseUrl = req.protocol + '://' + req.get('host');
       uploadedFiles = req.files.map(f => ({
-        fileUrl: f.path,
+        fileUrl: `${baseUrl}/uploads/${f.filename}`,
         fileName: f.originalname,
         fileSize: (f.size / (1024*1024)).toFixed(2) + 'MB',
         mimeType: f.mimetype
@@ -103,6 +133,42 @@ app.post('/api/chests', upload.array('files', 15), async (req, res) => {
 
     res.status(201).json(savedChest);
   } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.patch('/api/chests/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    const chest = await db.Chest.findById(id);
+    if (!chest) return res.status(404).json({ message: "NOT FOUND" });
+    
+    if (updateData.tier !== undefined) {
+      chest.tier = updateData.tier;
+      if (updateData.tier === 'gold') {
+        chest.hasPin = true;
+        chest.pin = updateData.pin || chest.pin || '0000';
+      } else {
+        chest.hasPin = false;
+        chest.pin = '';
+      }
+    }
+    
+    if (updateData.pin !== undefined && chest.tier === 'gold') {
+      chest.pin = updateData.pin;
+      chest.hasPin = true;
+    }
+    
+    if (updateData.title !== undefined) chest.title = updateData.title;
+    if (updateData.maxOpens !== undefined) chest.maxOpens = updateData.maxOpens ? Number(updateData.maxOpens) : undefined;
+    if (updateData.expiresAt !== undefined) chest.expiresAt = updateData.expiresAt ? Number(updateData.expiresAt) : undefined;
+    if (updateData.silverTimer !== undefined) chest.silverTimer = updateData.silverTimer ? Number(updateData.silverTimer) : 0;
+    
+    await chest.save();
+    res.json(chest);
+  } catch (error) { 
+    res.status(500).json({ error: error.message }); 
+  }
 });
 
 app.post('/api/chests/:id/open', async (req, res) => {
