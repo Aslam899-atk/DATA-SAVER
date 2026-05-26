@@ -1895,15 +1895,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* ZOOM HUD (BOTTOM RIGHT) */}
-      <div style={{ position: 'fixed', bottom: 30, right: 30, zIndex: 300, pointerEvents: 'none' }}>
-        <div style={{ background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: 2 }}>Visual Magnification</div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', fontStyle: 'italic', letterSpacing: -1 }}>
-            0%
-          </div>
-        </div>
-      </div>
+
     </div>
   );
 }
