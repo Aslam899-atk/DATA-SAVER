@@ -900,10 +900,7 @@ const LoginScreen = ({ onLogin, onCancel }: { onLogin: (user: UserProfile) => vo
   );
 };
 
-export default function App() {
-  if (window.location.pathname === '/admin') {
-    return <AdminPanel />;
-  }
+function MainApp() {
 
   const globeEl = useRef<any>(null);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
@@ -1212,7 +1209,7 @@ export default function App() {
       await axios.delete(`${API_URL}/chests/${id}`);
       setChests(chests.filter(c => (c._id !== id && c.id !== id)));
       alert('CLEARED: SECURE WIPEOUT COMPLETE');
-    } catch (e) { alert('WIPEOUT FAILED'); }
+    } catch { alert('WIPEOUT FAILED'); }
   };
 
   const finalizeDrop = async () => {
@@ -1913,4 +1910,11 @@ export default function App() {
 
     </div>
   );
+}
+
+export default function App() {
+  if (window.location.pathname === '/admin') {
+    return <AdminPanel />;
+  }
+  return <MainApp />;
 }
