@@ -203,7 +203,7 @@ const AdminPanel = () => {
 
   useEffect(() => {
     if (isAdminLoggedIn) {
-      axios.get(`${API_URL}/chests`).then(res => setChests(Array.isArray(res.data) ? res.data : []));
+      axios.get(`${API_URL}/admin/chests`).then(res => setChests(Array.isArray(res.data) ? res.data : []));
       axios.get(`${API_URL}/users`).then(res => setUsers(Array.isArray(res.data) ? res.data : []));
       axios.get(`${API_URL}/ads`).then(res => setAds(Array.isArray(res.data) ? res.data : []));
     }
@@ -459,24 +459,39 @@ const AdminPanel = () => {
               >
                 {chests.map((chest, i) => {
                   const displayTier = (chest.tier as any) === 'platinum' ? 'bronze' : chest.tier;
+                  const tierColor = displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706';
+                  const fileCount = chest.files?.length || 1;
+                  const isExpired = chest.expiresAt && chest.expiresAt < Date.now();
+                  const isLimitReached = chest.maxOpens && chest.currentOpens >= chest.maxOpens;
                   return (
-                    <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', flexDirection: 'column', gap: 16, transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+                    <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: `1px solid ${isExpired ? 'rgba(239,68,68,0.3)' : isLimitReached ? 'rgba(251,191,36,0.3)' : 'rgba(255, 255, 255, 0.05)'}`, padding: 24, borderRadius: 24, display: 'flex', flexDirection: 'column', gap: 12, transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', opacity: isExpired ? 0.7 : 1 }}>
+                      {/* Header: Icon + Info */}
                       <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                        <div style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, border: '2px solid', borderColor: displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706', boxShadow: `0 0 10px ${displayTier === 'gold' ? '#fbbf2433' : '#ffffff11'}` }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, border: '2px solid', borderColor: tierColor, boxShadow: `0 0 10px ${tierColor}33` }}>
                           <img src={`/${displayTier}_drop.png`} style={{ width: 28, height: 28 }} />
                         </div>
                         <div style={{ flex: 1, marginLeft: 16, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
-                          <div style={{ fontSize: 9, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Node: {chest.droppedBy}</div>
-                          <div style={{ fontSize: 15, fontWeight: 700, fontFamily: 'monospace', color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chest.fileName}</div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chest.title || chest.fileName}</div>
+                          <div style={{ fontSize: 9, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>By: {chest.droppedBy} • {fileCount} file{fileCount > 1 ? 's' : ''}</div>
                         </div>
+                        <div style={{ backgroundColor: `${tierColor}22`, border: `1px solid ${tierColor}44`, padding: '4px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900, color: tierColor, textTransform: 'uppercase', letterSpacing: 1 }}>{displayTier}</div>
                       </div>
+                      {/* Metadata row */}
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {chest.hasPin && <span style={{ fontSize: 8, fontWeight: 900, background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)', color: '#fbbf24', padding: '3px 8px', borderRadius: 6, textTransform: 'uppercase' }}>🔒 PIN: {chest.pin}</span>}
+                        {chest.maxOpens && <span style={{ fontSize: 8, fontWeight: 900, background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', color: '#60a5fa', padding: '3px 8px', borderRadius: 6 }}>Opens: {chest.currentOpens}/{chest.maxOpens}</span>}
+                        {isExpired && <span style={{ fontSize: 8, fontWeight: 900, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '3px 8px', borderRadius: 6, textTransform: 'uppercase' }}>⏰ Expired</span>}
+                        {isLimitReached && !isExpired && <span style={{ fontSize: 8, fontWeight: 900, background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', padding: '3px 8px', borderRadius: 6, textTransform: 'uppercase' }}>Limit Reached</span>}
+                        {chest.fileSize && <span style={{ fontSize: 8, fontWeight: 700, color: '#475569' }}>{chest.fileSize}</span>}
+                      </div>
+                      {/* Action buttons */}
                       <div style={{ display: 'flex', gap: 6, width: '100%' }}>
                         <button 
                           onClick={() => setUnlockedChest(chest)}
-                          title="Bypass security requirements to download all files"
+                          title="Admin bypass — open without any PIN, limits, or ads"
                           style={{ flex: 2, padding: '10px 0', borderRadius: 8, backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399', cursor: 'pointer', transition: 'all 0.2s', fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}
                         >
-                          OPEN
+                          🔓 OPEN (BYPASS)
                         </button>
                         <button 
                           onClick={() => setEditingChest(chest)}

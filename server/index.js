@@ -86,6 +86,24 @@ app.get('/api/chests', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// ADMIN: Get ALL chests with NO filtering (no expiry, no limits)
+app.get('/api/admin/chests', async (req, res) => {
+  try {
+    const chests = await db.getChests();
+    res.json(chests); // Return ALL — no expiry filter
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// ADMIN: Open any chest bypassing PIN and open-limit checks
+app.post('/api/admin/chests/:id/open', async (req, res) => {
+  try {
+    const chest = await db.Chest.findById(req.params.id);
+    if (!chest) return res.status(404).json({ message: "NOT FOUND" });
+    // No PIN check, no limit check — admin full bypass
+    res.json(chest);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 app.post('/api/chests', uploadLocal.array('files', 15), async (req, res) => {
   try {
     const { lat, lng, title, tier, droppedBy, pin, maxOpens, expiresAt, silverTimer } = req.body;
