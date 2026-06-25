@@ -27,6 +27,11 @@ const chestSchema = new mongoose.Schema({
   silverTimer: { type: Number, default: 15 },
   currentOpens: { type: Number, default: 0 },
   expiresAt: Number,
+  requiresRequest: { type: Boolean, default: false },
+  requests: [{
+    from: String,
+    status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' }
+  }],
   createdAt: { type: Date, default: Date.now }
 });
 

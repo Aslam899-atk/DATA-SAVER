@@ -263,7 +263,7 @@ body {
 
 /* Leaflet Overrides */
 .leaflet-tile-pane {
-  filter: saturate(0.5) brightness(0.8) contrast(1.2); /* Cinematic look */
+  /* Removed desaturation filter for bright, professional satellite hybrid look */
 }
 
 .transparent-icon {

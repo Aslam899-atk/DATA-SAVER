@@ -217,6 +217,52 @@ app.delete('/api/chests/:id', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+app.patch('/api/chests/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const chest = await db.Chest.findByIdAndUpdate(id, req.body, { new: true });
+    if (!chest) return res.status(404).json({ message: "NOT FOUND" });
+    res.json(chest);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.patch('/api/chests/:id/requests', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { from, status } = req.body;
+    const chest = await db.Chest.findById(id);
+    if (!chest) return res.status(404).json({ message: "NOT FOUND" });
+    
+    if (!chest.requests) chest.requests = [];
+    const requestIndex = chest.requests.findIndex(r => r.from === from);
+    if (requestIndex > -1) {
+      chest.requests[requestIndex].status = status;
+    } else {
+      chest.requests.push({ from, status });
+    }
+    chest.markModified('requests');
+    await chest.save();
+    res.json(chest);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.get('/api/admin/chests', async (req, res) => {
+  try {
+    const chests = await db.getChests();
+    res.json(chests);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/admin/migrate-tiers', async (req, res) => {
+  try {
+    const result = await db.Chest.updateMany(
+      { tier: { $in: [null, undefined, 'platinum'] } },
+      { $set: { tier: 'bronze' } }
+    );
+    res.json({ message: "Migration success", modifiedCount: result.modifiedCount });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 app.get('/api/ads', async (req, res) => {
   try {
     const ads = await db.getAds();
