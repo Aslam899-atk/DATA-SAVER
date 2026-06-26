@@ -33,11 +33,12 @@ interface Chest {
   lat: number;
   lng: number;
   title: string;
+  message?: string;
   tier: 'gold' | 'silver' | 'bronze' | 'platinum';
   fileName: string;
   fileSize: string;
   fileUrl?: string;
-  files?: { fileUrl: string; fileName: string; fileSize?: string }[];
+  files?: { fileUrl: string; fileName: string; fileSize?: string; mimeType?: string }[];
   droppedBy: string;
   hasPin: boolean;
   pin?: string;
@@ -935,6 +936,8 @@ function MainApp() {
   const [transferProgress, setTransferProgress] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [dropTitle, setDropTitle] = useState('');
+  const [dropMessage, setDropMessage] = useState('');
+  const [fileUploadProgress, setFileUploadProgress] = useState<number[]>([]);
 
   // Editing drops states
   const [editingChest, setEditingChest] = useState<Chest | null>(null);
@@ -1219,6 +1222,7 @@ function MainApp() {
     formData.append('lat', isDropping.lat.toString());
     formData.append('lng', isDropping.lng.toString());
     formData.append('title', dropTitle || currentUser.username);
+    formData.append('message', dropMessage);
     formData.append('tier', tempTier);
     formData.append('droppedBy', currentUser.username);
 
@@ -1240,23 +1244,36 @@ function MainApp() {
     selectedFiles.forEach(file => {
       formData.append('files', file);
     });
+    // Init per-file progress
+    setFileUploadProgress(selectedFiles.map(() => 0));
 
     try {
       setTransferProgress(0);
       const res = await axios.post(`${API_URL}/chests`, formData, { 
-        timeout: 60000,
+        timeout: 300000, // 5 min for large files
         onUploadProgress: (p) => {
-          if (p.total) setTransferProgress(Math.round((p.loaded * 100) / p.total));
+          if (p.total) {
+            const pct = Math.round((p.loaded * 100) / p.total);
+            setTransferProgress(pct);
+            // Simulate per-file progress
+            setFileUploadProgress(selectedFiles.map((_, i) => {
+              const fileStart = (i / selectedFiles.length) * 100;
+              const fileEnd = ((i + 1) / selectedFiles.length) * 100;
+              if (pct >= fileEnd) return 100;
+              if (pct <= fileStart) return 0;
+              return Math.round(((pct - fileStart) / (fileEnd - fileStart)) * 100);
+            }));
+          }
         }
       });
       setChests(prev => [...prev, res.data]);
-      setIsDropping(null); setTempTier('bronze'); setSilverValueInput('4'); setSelectedFiles([]); setPinInput('');
-      alert('SUCCESS: INTEL DEPLOYED TO SECTOR');
+      setIsDropping(null); setTempTier('bronze'); setSilverValueInput('4'); setSelectedFiles([]); setPinInput(''); setDropTitle(''); setDropMessage(''); setFileUploadProgress([]);
+      alert('✅ DROP DEPLOYED SUCCESSFULLY');
     } catch (e: any) { 
-      alert(`FAILED: ${e.response?.data?.error || e.message}`); 
+      alert(`❌ FAILED: ${e.response?.data?.error || e.message}`); 
     } finally {
       setIsDeploying(false);
-      setTimeout(() => setTransferProgress(null), 1000);
+      setTimeout(() => { setTransferProgress(null); setFileUploadProgress([]); }, 1500);
     }
   };
 
@@ -1316,29 +1333,44 @@ function MainApp() {
         />
       </div>
 
-      {/* 2D TACTICAL SATELLITE MAP */}
+      {/* 2D SATELLITE HYBRID MAP — matches Google Maps satellite + roads style */}
       <div style={{ position: 'absolute', inset: 0, zIndex: mapMode === '2d' ? 20 : 0, opacity: mapMode === '2d' ? 1 : 0, pointerEvents: mapMode === '2d' ? 'auto' : 'none', transition: 'opacity 0.8s ease-in-out' }}>
         {mapMode === '2d' && (
           <MapContainer 
-            key={mapMode} // forces remount to properly apply the exact Globe coordinates
+            key={mapMode}
             center={mapCenter} 
             zoom={mapZoom} 
             minZoom={4} 
             preferCanvas={true}
-            style={{ height: '100%', width: '100%', background: '#001020' }} 
+            style={{ height: '100%', width: '100%', background: '#0a1628' }} 
             zoomControl={false} 
             maxBounds={[[-90,-180],[90,180]]}
           >
+            {/* Esri World Imagery — high-quality satellite like screenshot */}
             <TileLayer
-              url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
-              attribution="Google Maps"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              attribution="Esri, DigitalGlobe, GeoEye"
               maxZoom={22}
               noWrap={true}
+            />
+            {/* Road + Labels overlay on top of satellite — matches the screenshot style */}
+            <TileLayer
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
+              attribution=""
+              maxZoom={22}
+              noWrap={true}
+              opacity={0.85}
+            />
+            <TileLayer
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+              attribution=""
+              maxZoom={22}
+              noWrap={true}
+              opacity={0.9}
             />
             <LeafletMapEvents 
               onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} 
               onZoomEnd={(zoom: number) => {
-                // Robust 2D to 3D zoom-out transition
                 if (zoom <= 4 && mapMode === '2d') {
                   setMapMode('3d');
                 }
@@ -1351,25 +1383,29 @@ function MainApp() {
             />
             {filteredChests.map((chest) => {
               const displayTier = chest.tier === 'platinum' ? 'bronze' : chest.tier;
+              const pinColor = displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#f59e0b';
+              const shadowColor = displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706';
               const hrsLeft = chest.expiresAt ? Math.ceil((chest.expiresAt - Date.now()) / (1000 * 60 * 60)) : null;
               const slotsLeft = chest.maxOpens ? (chest.maxOpens - (chest.currentOpens || 0)) : null;
+              const isUrgent = (hrsLeft !== null && hrsLeft < 3) || (slotsLeft !== null && slotsLeft <= 1);
 
               const chestIcon = L.divIcon({
                 html: `
-                  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; width: 100px; transform: translateX(-30px); position: relative;">
-                    <div style="display: flex; gap: 4px; position: absolute; top: -12px; z-index: 10;">
-                       ${hrsLeft !== null ? `<div style="background: ${hrsLeft < 3 ? '#ef4444' : '#22c55e'}; color: #fff; font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">â° ${hrsLeft}H</div>` : ''}
-                       ${slotsLeft !== null && chest.tier === 'silver' ? `<div style="background: #fff; color: #000; font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">ðŸ”¢ ${slotsLeft}/${chest.maxOpens}</div>` : ''}
-                       <div style="background: rgba(0,0,0,0.8); color: #fbbf24; font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.5)">ðŸ‘¥ ${chest.currentOpens || 0}</div>
+                  <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;position:relative;width:80px;transform:translateX(-20px);">
+                    ${isUrgent ? `<div style="position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:50px;height:50px;border-radius:50%;background:${pinColor}22;animation:ping 1s cubic-bezier(0,0,0.2,1) infinite;pointer-events:none;"></div>` : ''}
+                    <div style="display:flex;gap:3px;position:absolute;top:-18px;left:50%;transform:translateX(-50%);white-space:nowrap;">
+                       ${hrsLeft !== null ? `<div style="background:${hrsLeft < 3 ? '#ef4444' : '#16a34a'};color:#fff;font-size:8px;font-weight:900;padding:2px 5px;border-radius:5px;box-shadow:0 2px 6px rgba(0,0,0,0.6);">⏰${hrsLeft}h</div>` : ''}
+                       ${slotsLeft !== null && chest.tier === 'silver' ? `<div style="background:rgba(255,255,255,0.95);color:#000;font-size:8px;font-weight:900;padding:2px 5px;border-radius:5px;box-shadow:0 2px 6px rgba(0,0,0,0.6);">${slotsLeft}left</div>` : ''}
+                       <div style="background:rgba(0,0,0,0.75);color:#fbbf24;font-size:8px;font-weight:900;padding:2px 5px;border-radius:5px;box-shadow:0 2px 6px rgba(0,0,0,0.6);">💥${chest.currentOpens||0}</div>
                     </div>
-                    <div style="position: absolute; bottom: 14px; width: 30px; height: 10px; background: ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'}; filter: blur(14px); border-radius: 50%; opacity: 1; pointer-events: none;"></div>
-                    <img src="/${displayTier}_drop.png" style="width: 40px; height: 40px; filter: drop-shadow(0 0 10px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'}); position: relative; z-index: 1;" />
-                    <div style="font-size: 8px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px; margin-top: 1px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${chest.title || chest.droppedBy}</div>
+                    <div style="position:absolute;bottom:8px;width:32px;height:10px;background:${shadowColor};filter:blur(12px);border-radius:50%;opacity:0.85;pointer-events:none;"></div>
+                    <img src="/${displayTier}_drop.png" style="width:42px;height:42px;filter:drop-shadow(0 4px 12px ${shadowColor}99);position:relative;z-index:1;transition:transform 0.2s;" />
+                    <div style="font-size:9px;font-weight:800;color:#fff;background:rgba(2,6,23,0.85);padding:3px 7px;border-radius:6px;margin-top:2px;text-transform:uppercase;white-space:nowrap;border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(4px);max-width:80px;overflow:hidden;text-overflow:ellipsis;">${(chest.title || chest.droppedBy || '').substring(0,14)}</div>
                   </div>
                 `,
                 className: 'custom-chest-icon',
-                iconSize: [40, 40],
-                iconAnchor: [20, 20]
+                iconSize: [42, 55],
+                iconAnchor: [21, 50]
               });
               return (
                 <Marker
@@ -1497,100 +1533,157 @@ function MainApp() {
 
         {/* DEPLOY MODAL */}
         {isDropping && currentUser && (
-          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 500, background: 'rgba(10,15,30,0.7)', backdropFilter: 'blur(8px)' }}>
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} style={{ width: '100%', maxWidth: 480, background: '#5ba4e5', borderRadius: 40, border: '2px solid #000', padding: 32, color: '#000', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', overflowY: 'auto', maxHeight: '90vh' }}>
+          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 500, background: 'rgba(2,6,23,0.88)', backdropFilter: 'blur(20px)' }}>
+            <motion.div
+              initial={{ scale: 0.93, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              style={{ width: '100%', maxWidth: 520, background: 'linear-gradient(160deg, #0f172a 0%, #0a1628 100%)', borderRadius: 32, border: '1.5px solid rgba(91,164,229,0.25)', padding: 28, color: '#fff', boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)', overflowY: 'auto', maxHeight: '95vh' }}
+            >
+              {/* HEADER */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 900, color: '#5ba4e5', letterSpacing: 4, textTransform: 'uppercase', marginBottom: 4 }}>Deploy Intel</div>
+                  <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0, color: '#fff', letterSpacing: -0.5 }}>Create Drop</h2>
+                </div>
+                <button onClick={() => { setIsDropping(null); setDropMessage(''); setDropTitle(''); setSelectedFiles([]); }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: 12, padding: '8px 14px', fontWeight: 900, cursor: 'pointer', fontSize: 13 }}>✕</button>
+              </div>
 
               {/* TIER SELECTION */}
-              <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginBottom: 24 }}>
-                <button onClick={() => setTempTier('bronze')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#78350f', border: tempTier === 'bronze' ? '4px solid #d97706' : '2px solid #000', transition: 'all 0.2s' }}><img src="/bronze_drop.png" style={{ width: 40 }} /></button>
-                <button onClick={() => setTempTier('gold')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#eab308', border: tempTier === 'gold' ? '4px solid #fbbf24' : '2px solid #000', transition: 'all 0.2s' }}><img src="/gold_drop.png" style={{ width: 40 }} /></button>
-                <button onClick={() => setTempTier('silver')} style={{ width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', background: '#94a3b8', border: tempTier === 'silver' ? '4px solid #94a3b8' : '2px solid #000', transition: 'all 0.2s' }}><img src="/silver_drop.png" style={{ width: 40 }} /></button>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+                {(['bronze','gold','silver'] as const).map(t => {
+                  const active = tempTier === t;
+                  const colors: Record<string, string> = { bronze: '#d97706', gold: '#fbbf24', silver: '#94a3b8' };
+                  const labels: Record<string, string> = { bronze: '🌐 Free', gold: '🔒 PIN', silver: '⏱ Limited' };
+                  return (
+                    <button key={t} onClick={() => setTempTier(t)} style={{ flex: 1, padding: '14px 0', borderRadius: 16, border: `2px solid ${active ? colors[t] : 'rgba(255,255,255,0.07)'}`, background: active ? `${colors[t]}18` : 'rgba(255,255,255,0.03)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, transition: 'all 0.2s' }}>
+                      <img src={`/${t}_drop.png`} style={{ width: 32, height: 32, filter: active ? `drop-shadow(0 0 8px ${colors[t]})` : 'grayscale(0.6)' }} />
+                      <span style={{ fontSize: 9, fontWeight: 900, color: active ? colors[t] : '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>{labels[t]}</span>
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* TIER INFO */}
-              <div style={{ minHeight: 100, marginBottom: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                {tempTier === 'bronze' && <p style={{ fontSize: 18, fontWeight: 600 }}>ðŸ“¦ Fully Free â€” Anyone can download</p>}
-                {tempTier === 'silver' && <p style={{ fontSize: 18, fontWeight: 600 }}>ðŸŽ Limited Access â€” Set max downloads</p>}
-                {tempTier === 'gold' && <p style={{ fontSize: 18, fontWeight: 600 }}>ðŸ§° Secure â€” Requires PIN to access</p>}
-              </div>
-
-              {/* TITLE AND FILE INPUT */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', marginBottom: 24 }}>
-                <input 
-                  type="text" 
-                  value={dropTitle} 
-                  onChange={e => setDropTitle(e.target.value)} 
-                  placeholder={`Title (Default: ${currentUser.username})`}
-                  style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }}
+              {/* TITLE INPUT */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                <input
+                  type="text"
+                  value={dropTitle}
+                  onChange={e => setDropTitle(e.target.value)}
+                  placeholder={`Drop Title (default: ${currentUser.username})`}
+                  style={{ width: '100%', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 16px', background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: 600, fontSize: 14, outline: 'none', transition: 'all 0.2s' }}
+                  onFocus={e => e.currentTarget.style.borderColor = '#5ba4e5'}
+                  onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
-                
-                <label style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                  <input type="file" multiple onChange={e => {
-                      const files = Array.from(e.target.files || []);
-                      const validFiles = files.filter(f => {
-                        if (f.size > 2 * 1024 * 1024 * 1024) {
-                          alert(`File ${f.name} exceeds 2GB limit.`);
-                          return false;
-                        }
-                        return true;
-                      });
-                      setSelectedFiles(prev => [...prev, ...validFiles]);
-                    }} style={{ display: 'none' }} />
-                  ðŸ“  {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Add files to drop'}
-                </label>
-                {selectedFiles.length > 0 && <button onClick={() => setSelectedFiles([])} style={{ fontSize: 9, fontWeight: 900, textTransform: 'uppercase', color: '#ff0', background: '#000', padding: '4px 8px', borderRadius: 4 }}>Clear Files</button>}
 
-                {tempTier === 'gold' && (
-                  <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="ðŸ”‘ Set password for access" style={{ width: '100%', border: '2px solid #000', borderRadius: 12, padding: '12px 16px', background: 'transparent', fontWeight: 600, fontSize: 15, outline: 'none' }} />
-                )}
-                {tempTier === 'silver' && (
-                  <div style={{ padding: '0 8px' }}>
-                    <p style={{ fontSize: 9, fontWeight: 900, color: '#000', opacity: 0.5, marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5 }}>RESTRICTION SETTINGS (OPTIONAL)</p>
-                    
-                    <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 20 }}>
-                       <div onClick={() => setSilverMode('TIME')} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                          <div style={{ width: 10, height: 10, borderRadius: '50%', border: '2px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                             {silverMode === 'TIME' && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f00' }} />}
-                          </div>
-                          <span style={{ fontSize: 9, fontWeight: 900, color: '#000' }}>TIME</span>
-                       </div>
-                       <div onClick={() => setSilverMode('COUNT')} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                          <div style={{ width: 10, height: 10, borderRadius: '50%', border: '2px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                             {silverMode === 'COUNT' && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f00' }} />}
-                          </div>
-                          <span style={{ fontSize: 9, fontWeight: 900, color: '#000' }}>COUNT</span>
-                       </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                       <input 
-                        type="number" 
-                        value={silverValueInput} 
-                        onChange={e => setSilverValueInput(e.target.value)} 
-                        style={{ width: 140, border: '2px solid #000', borderRadius: 4, padding: '10px 12px', background: 'rgba(255,255,255,0.25)', fontWeight: 800, fontSize: 13, outline: 'none' }} 
-                       />
-                       <span style={{ fontSize: 8, fontWeight: 900, color: '#000', textTransform: 'uppercase' }}>
-                          {silverMode === 'TIME' ? 'HOUR' : 'USER CAN DOWNLOAD'}
-                       </span>
-                    </div>
-                  </div>
-                )}
+                {/* MESSAGE INPUT */}
+                <textarea
+                  value={dropMessage}
+                  onChange={e => setDropMessage(e.target.value)}
+                  placeholder="💬 Add a message about this drop (optional — shown after unlock)"
+                  rows={3}
+                  style={{ width: '100%', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 16px', background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: 500, fontSize: 13, outline: 'none', resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, transition: 'all 0.2s' }}
+                  onFocus={e => e.currentTarget.style.borderColor = '#5ba4e5'}
+                  onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
+                />
               </div>
+
+              {/* FILE PICKER — ALL TYPES */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '2px dashed rgba(91,164,229,0.3)', borderRadius: 16, padding: '16px 20px', background: 'rgba(91,164,229,0.04)', cursor: 'pointer', marginBottom: 12, transition: 'all 0.2s' }}
+                onMouseOver={e => { (e.currentTarget as any).style.borderColor = '#5ba4e5'; (e.currentTarget as any).style.background = 'rgba(91,164,229,0.09)'; }}
+                onMouseOut={e => { (e.currentTarget as any).style.borderColor = 'rgba(91,164,229,0.3)'; (e.currentTarget as any).style.background = 'rgba(91,164,229,0.04)'; }}
+              >
+                <input type="file" multiple accept="*/*" onChange={e => {
+                    const files = Array.from(e.target.files || []);
+                    const valid = files.filter(f => {
+                      if (f.size > 2 * 1024 * 1024 * 1024) { alert(`${f.name} exceeds 2GB`); return false; }
+                      return true;
+                    });
+                    setSelectedFiles(prev => [...prev, ...valid]);
+                  }} style={{ display: 'none' }} />
+                <div style={{ fontSize: 28 }}>📂</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Click to add files'}</div>
+                  <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>All file types • Max 2GB per file</div>
+                </div>
+                {selectedFiles.length > 0 && <div style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#5ba4e5' }}>{(selectedFiles.reduce((a, f) => a + f.size, 0) / (1024*1024)).toFixed(1)} MB total</div>}
+              </label>
+
+              {/* PER-FILE LIST WITH PROGRESS */}
+              {selectedFiles.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16, maxHeight: 160, overflowY: 'auto' }} className="custom-scrollbar">
+                  {selectedFiles.map((f, i) => {
+                    const ext = f.name.split('.').pop()?.toUpperCase() || 'FILE';
+                    const sizeMB = (f.size / (1024 * 1024)).toFixed(1);
+                    const progress = fileUploadProgress[i];
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize: 18 }}>{f.type.startsWith('image/') ? '🖼️' : f.type.startsWith('video/') ? '🎬' : f.type.startsWith('audio/') ? '🎵' : ext === 'PDF' ? '📕' : ext === 'APK' ? '📱' : '📄'}</div>
+                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</div>
+                          <div style={{ fontSize: 9, color: '#475569' }}>{ext} • {sizeMB} MB</div>
+                          {progress !== undefined && progress > 0 && (
+                            <div style={{ height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 2, marginTop: 4, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${progress}%`, background: progress === 100 ? '#22c55e' : '#5ba4e5', borderRadius: 2, transition: 'width 0.3s' }} />
+                            </div>
+                          )}
+                        </div>
+                        <button onClick={() => setSelectedFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 16, flexShrink: 0 }}>×</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* GOLD PIN */}
+              {tempTier === 'gold' && (
+                <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="🔒 Set access password" style={{ width: '100%', border: '1.5px solid rgba(251,191,36,0.3)', borderRadius: 14, padding: '12px 16px', background: 'rgba(251,191,36,0.05)', color: '#fbbf24', fontWeight: 700, fontSize: 15, outline: 'none', marginBottom: 16, textAlign: 'center', letterSpacing: 4 }} />
+              )}
+
+              {/* SILVER SETTINGS */}
+              {tempTier === 'silver' && (
+                <div style={{ padding: 16, borderRadius: 16, border: '1px solid rgba(148,163,184,0.2)', background: 'rgba(148,163,184,0.04)', marginBottom: 16 }}>
+                  <p style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', marginBottom: 14, textTransform: 'uppercase', letterSpacing: 2 }}>Access Restriction</p>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                    {(['COUNT', 'TIME'] as const).map(m => (
+                      <button key={m} type="button" onClick={() => setSilverMode(m)} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', background: silverMode === m ? '#94a3b8' : 'rgba(255,255,255,0.06)', color: silverMode === m ? '#000' : '#475569' }}>
+                        {m === 'COUNT' ? '🔢 Max Downloads' : '⏰ Time Limit'}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <input type="number" value={silverValueInput} onChange={e => setSilverValueInput(e.target.value)} style={{ width: 120, border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', background: 'rgba(255,255,255,0.06)', color: '#fff', fontWeight: 800, fontSize: 15, outline: 'none', textAlign: 'center' }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{silverMode === 'TIME' ? 'Hours until expiry' : 'Maximum downloads'}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* UPLOAD PROGRESS BAR (global) */}
+              {isDeploying && transferProgress !== null && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#5ba4e5', textTransform: 'uppercase', letterSpacing: 2 }}>Uploading...</span>
+                    <span style={{ fontSize: 12, fontWeight: 900, color: '#fff' }}>{transferProgress}%</span>
+                  </div>
+                  <div style={{ height: 5, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
+                    <motion.div animate={{ width: `${transferProgress}%` }} transition={{ duration: 0.3 }} style={{ height: '100%', background: 'linear-gradient(90deg, #3b82f6, #5ba4e5)', borderRadius: 3, boxShadow: '0 0 10px #3b82f6' }} />
+                  </div>
+                </div>
+              )}
 
               {/* ACTION BUTTONS */}
-              <div style={{ display: 'flex', gap: 16, marginTop: 12, width: '100%' }}>
-                <button 
-                  onClick={() => setIsDropping(null)} 
-                  style={{ flex: 1, border: '2px solid #000', borderRadius: 40, padding: '14px 16px', background: 'rgba(10,15,30,0.9)', color: '#fff', fontWeight: 900, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textTransform: 'uppercase' }}
+              <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                <button
+                  onClick={() => { setIsDropping(null); setDropMessage(''); setDropTitle(''); setSelectedFiles([]); }}
+                  style={{ flex: 1, border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '14px 0', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', fontWeight: 800, fontSize: 12, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}
                 >
-                  <X size={18} /> ABORT
+                  Abort
                 </button>
-                <button 
-                  onClick={finalizeDrop} 
-                  disabled={isDeploying} 
-                  style={{ flex: 2, border: 'none', borderRadius: 40, padding: '14px 16px', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: 1 }}
+                <button
+                  onClick={finalizeDrop}
+                  disabled={isDeploying || selectedFiles.length === 0}
+                  style={{ flex: 2.5, border: 'none', borderRadius: 20, padding: '14px 0', background: isDeploying || selectedFiles.length === 0 ? 'rgba(91,164,229,0.3)' : 'linear-gradient(135deg, #2563eb 0%, #5ba4e5 100%)', color: '#fff', fontWeight: 900, fontSize: 14, cursor: isDeploying || selectedFiles.length === 0 ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: 2, boxShadow: isDeploying ? 'none' : '0 6px 20px rgba(37,99,235,0.4)' }}
                 >
-                  ðŸš€ {isDeploying ? 'DEPLOYING...' : 'COMMENCE DROP'}
+                  🚀 {isDeploying ? `Uploading ${transferProgress || 0}%...` : 'Deploy Drop'}
                 </button>
               </div>
             </motion.div>
@@ -1602,13 +1695,13 @@ function MainApp() {
           <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 500, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedChest(null)}>
             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 380, background: '#5ba4e5', borderRadius: 40, border: '2px solid #000', padding: 32, color: '#000', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-              <button onClick={() => setSelectedChest(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#000' }}>âœ•</button>
+              <button onClick={() => setSelectedChest(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#000' }}>✖</button>
 
               <div style={{ width: '100%', height: 140, border: '2px solid #000', borderRadius: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.15)', marginTop: 12, textAlign: 'center', padding: 12 }}>
                 <img src={`/${selectedChest.tier === 'platinum' ? 'bronze' : selectedChest.tier}_drop.png`} style={{ width: 48, height: 48 }} />
                 <span style={{ fontSize: 18, fontWeight: 900, marginTop: 4, textTransform: 'uppercase' }}>{selectedChest.title || 'SECURE INTEL'}</span>
                 <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.7, marginTop: 4 }}>[{selectedChest.fileName}]</span>
-                <span style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>By: {selectedChest.droppedBy} â€¢ {selectedChest.tier.toUpperCase()}</span>
+                <span style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>By: {selectedChest.droppedBy} • {selectedChest.tier.toUpperCase()}</span>
               </div>
 
               {selectedChest.tier === 'gold' && (
@@ -1619,8 +1712,8 @@ function MainApp() {
                 <span style={{ fontSize: 12, fontWeight: 900 }}>RESTRICTION</span>
                 <span style={{ fontSize: 14, fontWeight: 900, color: '#000' }}>
                   {selectedChest.expiresAt 
-                    ? `ðŸ§¨ ERASE IN ${Math.ceil((selectedChest.expiresAt - Date.now()) / (1000 * 60 * 60))}H` 
-                    : `ðŸ”¢ ${selectedChest.maxOpens ? selectedChest.maxOpens - (selectedChest.currentOpens || 0) : 'âˆž'} SLOTS`}
+                    ? `⌛ ERASE IN ${Math.ceil((selectedChest.expiresAt - Date.now()) / (1000 * 60 * 60))}H` 
+                    : `🔢 ${selectedChest.maxOpens ? selectedChest.maxOpens - (selectedChest.currentOpens || 0) : '∞'} SLOTS`}
                 </span>
               </div>
 
@@ -1634,7 +1727,7 @@ function MainApp() {
                 </div>
               ) : (
                 <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleChestAction(); }} style={{ width: '100%', border: '2px solid #000', borderRadius: 24, padding: '16px 0', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 20, cursor: 'pointer', letterSpacing: 2, textTransform: 'uppercase', boxShadow: '0 4px 0 rgba(0,0,0,0.3)' }}>
-                  ðŸ”“ {selectedChest.tier === 'silver' ? (selectedChest.expiresAt ? 'GET INTEL (TIME LIMITED)' : 'INITIATE DECRYPTION') : 'UNLOCK INTEL'}
+                  🔓 {selectedChest.tier === 'silver' ? (selectedChest.expiresAt ? 'GET INTEL (TIME LIMITED)' : 'INITIATE DECRYPTION') : 'UNLOCK INTEL'}
                 </button>
               )}
             </motion.div>
@@ -1643,38 +1736,88 @@ function MainApp() {
 
         {/* UNLOCKED CHEST VIEWER */}
         {unlockedChest && (
-          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 600, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(16px)' }}>
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} style={{ width: '100%', maxWidth: 800, background: '#0f172a', borderRadius: 40, border: '1px solid rgba(255,255,255,0.1)', padding: 32, display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: 0, textTransform: 'uppercase', fontStyle: 'italic' }}>Decrypted Intel ({(unlockedChest.files?.length ?? 0) > 0 ? unlockedChest.files?.length : 1} File{(unlockedChest.files?.length ?? 0) > 1 ? 's' : ''})</h3>
-                <button onClick={() => setUnlockedChest(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 20, padding: '8px 16px', fontWeight: 900, cursor: 'pointer' }}>Close âœ•</button>
+          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 600, background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(24px)' }}>
+            <motion.div
+              initial={{ scale: 0.93, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              style={{ width: '100%', maxWidth: 860, background: 'linear-gradient(160deg, #0f172a 0%, #0a1628 100%)', borderRadius: 32, border: '1.5px solid rgba(91,164,229,0.2)', padding: 28, display: 'flex', flexDirection: 'column', gap: 20, boxShadow: '0 32px 80px rgba(0,0,0,0.8)' }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <img src={`/${(unlockedChest.tier === 'platinum' ? 'bronze' : unlockedChest.tier)}_drop.png`} style={{ width: 44, height: 44, filter: 'drop-shadow(0 0 12px #5ba4e5)' }} />
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 900, color: '#5ba4e5', letterSpacing: 4, textTransform: 'uppercase' }}>Intel Unlocked</div>
+                    <h3 style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: 0 }}>{unlockedChest.title || 'SECURE INTEL'}</h3>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>By {unlockedChest.droppedBy} • {(unlockedChest.files?.length || 1)} file(s)</div>
+                  </div>
+                </div>
+                <button onClick={() => setUnlockedChest(null)} style={{ background: 'rgba(255,255,255,0.08)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '8px 16px', fontWeight: 900, cursor: 'pointer', fontSize: 13 }}>✕ Close</button>
               </div>
-              <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 16, scrollSnapType: 'x mandatory' }} className="hide-scrollbar">
-                {(unlockedChest.files && unlockedChest.files.length > 0 
-                  ? unlockedChest.files 
-                  : [{ 
-                      fileUrl: unlockedChest.fileUrl, 
-                      fileName: unlockedChest.fileName, 
-                      fileSize: unlockedChest.fileSize 
-                    }]
-                 ).map((file: any, index: number) => {
-                  const isImage = (file.fileName || '').match(/\.(jpeg|jpg|gif|png|webp)$/i);
-                  const isPdf = (file.fileName || '').match(/\.pdf$/i);
-                  const isApk = (file.fileName || '').match(/\.apk$/i);
+
+              {/* MESSAGE BANNER — shown if dropper left a message */}
+              {unlockedChest.message && unlockedChest.message.trim() && (
+                <div style={{ background: 'linear-gradient(135deg, rgba(91,164,229,0.12) 0%, rgba(59,130,246,0.06) 100%)', border: '1px solid rgba(91,164,229,0.25)', borderRadius: 16, padding: '14px 18px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <div style={{ fontSize: 22, flexShrink: 0 }}>💬</div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 900, color: '#5ba4e5', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 }}>Message from {unlockedChest.droppedBy}</div>
+                    <p style={{ fontSize: 14, color: '#e2e8f0', lineHeight: 1.6, margin: 0, fontWeight: 500 }}>{unlockedChest.message}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* FILES GRID */}
+              <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8, scrollSnapType: 'x mandatory' }} className="hide-scrollbar">
+                {(unlockedChest.files && unlockedChest.files.length > 0
+                  ? unlockedChest.files
+                  : [{ fileUrl: unlockedChest.fileUrl, fileName: unlockedChest.fileName, fileSize: unlockedChest.fileSize, mimeType: '' }]
+                ).map((file: any, index: number) => {
+                  const name = file.fileName || '';
+                  const ext = name.split('.').pop()?.toUpperCase() || '';
+                  const isImage = name.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i);
+                  const isVideo = name.match(/\.(mp4|mov|avi|webm|mkv)$/i) || (file.mimeType||'').startsWith('video/');
+                  const isAudio = name.match(/\.(mp3|wav|ogg|aac|flac)$/i) || (file.mimeType||'').startsWith('audio/');
+                  const isPdf = name.match(/\.pdf$/i);
+                  const isApk = name.match(/\.apk$/i);
+                  const emoji = isImage ? '🖼️' : isVideo ? '🎬' : isAudio ? '🎵' : isPdf ? '📕' : isApk ? '📱' : '📄';
 
                   return (
-                    <div key={index} style={{ minWidth: 280, width: 280, height: 400, background: 'rgba(0,0,0,0.5)', borderRadius: 24, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', scrollSnapAlign: 'start', flexShrink: 0 }}>
-                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', overflow: (isPdf ? 'auto' : 'hidden'), position: 'relative' }}>
-                        {isImage && <img src={file.fileUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
-                        {isPdf && <div style={{ width: '100%', height: '100%', overflowY: 'auto' }}><iframe src={file.fileUrl} style={{ width: '100%', height: '800px', border: 'none' }} /></div>}
-                        {isApk && <div style={{ fontSize: 80, filter: 'drop-shadow(0 0 20px #22c55e)' }}>ðŸ“±</div>}
-                        {(!isImage && !isPdf && !isApk) && <div style={{ fontSize: 80 }}>ðŸ“„</div>}
-                        {isApk && <div style={{ position: 'absolute', bottom: 10, fontSize: 10, fontWeight: 900, background: '#22c55e', color: '#000', padding: '4px 8px', borderRadius: 8 }}>APP ALREADY BUILT</div>}
+                    <div key={index} style={{ minWidth: 260, width: 260, borderRadius: 20, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', scrollSnapAlign: 'start', flexShrink: 0 }}>
+                      {/* Preview Area */}
+                      <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', position: 'relative', overflow: 'hidden' }}>
+                        {isImage && <img src={file.fileUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={name} />}
+                        {isVideo && (
+                          <video src={file.fileUrl} controls muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        )}
+                        {isAudio && (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 16 }}>
+                            <div style={{ fontSize: 56 }}>🎵</div>
+                            <audio src={file.fileUrl} controls style={{ width: '100%' }} />
+                          </div>
+                        )}
+                        {isPdf && <iframe src={file.fileUrl} style={{ width: '100%', height: '100%', border: 'none' }} />}
+                        {!isImage && !isVideo && !isAudio && !isPdf && (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                            <div style={{ fontSize: 64 }}>{emoji}</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '4px 12px', borderRadius: 8 }}>{ext}</div>
+                          </div>
+                        )}
                       </div>
-                      <div style={{ padding: 16, background: 'rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={file.fileName}>{file.fileName}</div>
-                        <div style={{ fontSize: 10, color: '#94a3b8' }}>{file.fileSize || 'N/A'}</div>
-                        <button onClick={() => forceDownload(file.fileUrl, file.fileName)} style={{ background: '#3b82f6', color: '#fff', padding: '10px', borderRadius: 12, border: 'none', fontWeight: 900, cursor: 'pointer', marginTop: 8 }}>â¬‡ï¸ DOWNLOAD</button>
+                      {/* File Info + Download */}
+                      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(15,23,42,0.8)' }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={name}>{name}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 10, color: '#475569', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 6 }}>{ext || 'FILE'}</span>
+                          <span style={{ fontSize: 10, color: '#475569' }}>{file.fileSize || ''}</span>
+                        </div>
+                        <button
+                          onClick={() => forceDownload(file.fileUrl, file.fileName)}
+                          style={{ background: 'linear-gradient(135deg, #2563eb, #5ba4e5)', color: '#fff', padding: '10px', borderRadius: 12, border: 'none', fontWeight: 900, cursor: 'pointer', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, boxShadow: '0 4px 14px rgba(37,99,235,0.35)', transition: 'all 0.2s' }}
+                          onMouseOver={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
+                          onMouseOut={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                        >
+                          ⬇ Download
+                        </button>
                       </div>
                     </div>
                   );

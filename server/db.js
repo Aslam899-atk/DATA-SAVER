@@ -15,6 +15,7 @@ const chestSchema = new mongoose.Schema({
   lat: Number,
   lng: Number,
   title: String,
+  message: { type: String, default: '' },
   tier: String,
   droppedBy: String,
   fileName: String,

@@ -59,7 +59,11 @@ const localDiskStorage = multer.diskStorage({
 
 const uploadLocal = multer({ 
   storage: localDiskStorage,
-  limits: { fileSize: 2 * 1024 * 1024 * 1024 } // 2GB limit
+  limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2GB per file
+  fileFilter: (req, file, cb) => {
+    // Accept ALL file types
+    cb(null, true);
+  }
 });
 
 // --- Routes ---
@@ -104,9 +108,9 @@ app.post('/api/admin/chests/:id/open', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.post('/api/chests', uploadLocal.array('files', 15), async (req, res) => {
+app.post('/api/chests', uploadLocal.array('files', 50), async (req, res) => {
   try {
-    const { lat, lng, title, tier, droppedBy, pin, maxOpens, expiresAt, silverTimer } = req.body;
+    const { lat, lng, title, message, tier, droppedBy, pin, maxOpens, expiresAt, silverTimer } = req.body;
     
     let uploadedFiles = [];
     if (req.files && req.files.length > 0) {
@@ -124,6 +128,7 @@ app.post('/api/chests', uploadLocal.array('files', 15), async (req, res) => {
     const newChest = {
       lat: Number(lat), lng: Number(lng), 
       title: title || droppedBy || 'SECURE DROP',
+      message: message || '',
       tier, droppedBy,
       fileName: firstFile.fileName, 
       fileSize: firstFile.fileSize, 
