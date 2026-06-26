@@ -923,9 +923,8 @@ function MainApp() {
   const [pinInput, setPinInput] = useState('');
   const [showRequests, setShowRequests] = useState(false);
   const [ads, setAds] = useState<Ad[]>([]);
-  const [activeAd, setActiveAd] = useState<Ad | null>(null);
-  const [adElapsed, setAdElapsed] = useState<number | null>(null);
-  const [adQueue, setAdQueue] = useState<Ad[]>([]);
+  const [activeAdIndex, setActiveAdIndex] = useState(0);
+  const [downloadAdCountdown, setDownloadAdCountdown] = useState<number>(0);
   const [isExploding, setIsExploding] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
   const [mapMode, setMapMode] = useState<'3d' | '2d'>('3d');
@@ -1042,57 +1041,26 @@ function MainApp() {
     if (currentUser) localStorage.setItem(`introSeen_${currentUser.username}`, 'true');
   };
 
+  // Rotate floating ad every 15 seconds
   useEffect(() => {
-    if (activeAd !== null && adElapsed !== null) {
-      const t = setTimeout(() => setAdElapsed(adElapsed + 1), 1000);
+    if (ads.length <= 1) return;
+    const t = setInterval(() => {
+      setActiveAdIndex(prev => (prev + 1) % ads.length);
+    }, 15000);
+    return () => clearInterval(t);
+  }, [ads.length]);
+
+  // Countdown timer for download ad
+  useEffect(() => {
+    if (downloadAdCountdown > 0) {
+      const t = setTimeout(() => setDownloadAdCountdown(downloadAdCountdown - 1), 1000);
       return () => clearTimeout(t);
     }
-  }, [adElapsed, activeAd]);
-
-
-
-  const handleSkipAd = () => {
-    if (adQueue.length > 0) {
-      setActiveAd(adQueue[0]);
-      setAdQueue(prev => prev.slice(1));
-      setAdElapsed(0);
-    } else {
-      setActiveAd(null);
-      setAdElapsed(null);
-      if (selectedChest) processOpen();
-    }
-  };
-
-  const adStateRef = useRef({ ads, selectedChest, isDropping, mapMode, activeAd });
-  useEffect(() => {
-    adStateRef.current = { ads, selectedChest, isDropping, mapMode, activeAd };
-  }, [ads, selectedChest, isDropping, mapMode, activeAd]);
-
-  useEffect(() => {
-    let timeoutId: any;
-    // let currentDelay = 60000;
-
-    const loop = () => {
-      timeoutId = setTimeout(() => {
-        const state = adStateRef.current;
-        
-        if (!state.activeAd && state.ads.length > 0 && !state.selectedChest && !state.isDropping && window.location.pathname !== '/admin') {
-          setActiveAd(state.ads[Math.floor(Math.random() * state.ads.length)]);
-          setAdElapsed(0);
-        }
-        
-        loop();
-      }, 90000);
-    };
-
-
-    loop();
-    return () => clearTimeout(timeoutId);
-  }, []);
+  }, [downloadAdCountdown]);
 
   const handleGlobeClick = ({ lat, lng }: { lat: number, lng: number }) => {
     if (!currentUser) { setShowLoginModal(true); return; }
-    if (selectedChest || activeAd !== null || isDropping) return;
+    if (selectedChest || isDropping) return;
     setIsDropping({ lat, lng });
     setTempTier('bronze'); setSilverValueInput('4'); setPinInput(''); setSelectedFiles([]); setDropTitle('');
   };
@@ -1194,6 +1162,12 @@ function MainApp() {
 
       setChests(prev => prev.map(c => (c._id === selectedChest._id || c.id === selectedChest.id) ? res.data : c));
       setIsExploding(true);
+
+      // Random ad inside the unlocked drop + wait 5 secs
+      if (ads.length > 0) {
+        setDownloadAdCountdown(5);
+        setActiveAdIndex(Math.floor(Math.random() * ads.length));
+      }
 
       setTimeout(() => {
         setIsExploding(false);
@@ -1766,6 +1740,31 @@ function MainApp() {
                 </div>
               )}
 
+              {/* SPONSORED IN-DROP AD */}
+              {ads.length > 0 && ads[activeAdIndex] && (
+                <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: 16, border: '1px solid rgba(234, 88, 12, 0.3)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ padding: '6px 12px', background: 'rgba(234, 88, 12, 0.1)', borderBottom: '1px solid rgba(234, 88, 12, 0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Decryption Powered By</span>
+                    {downloadAdCountdown > 0 && (
+                      <span style={{ fontSize: 10, fontWeight: 900, color: '#fff' }}>Unlocking in {downloadAdCountdown}s...</span>
+                    )}
+                  </div>
+                  <a href={ads[activeAdIndex].link || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', gap: 16, padding: 12, textDecoration: 'none', alignItems: 'center' }}>
+                    <div style={{ width: 100, height: 60, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#000' }}>
+                      {ads[activeAdIndex].videoUrl ? (
+                         <video src={ads[activeAdIndex].videoUrl} autoPlay muted loop playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                         <img src={ads[activeAdIndex].imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      )}
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, color: '#fff', fontSize: 15, fontWeight: 800 }}>{ads[activeAdIndex].title}</h4>
+                      {ads[activeAdIndex].link && <p style={{ margin: '4px 0 0', fontSize: 11, color: '#38bdf8', fontWeight: 600 }}>Visit Sponsor →</p>}
+                    </div>
+                  </a>
+                </div>
+              )}
+
               {/* FILES GRID */}
               <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8, scrollSnapType: 'x mandatory' }} className="hide-scrollbar">
                 {(unlockedChest.files && unlockedChest.files.length > 0
@@ -1812,11 +1811,25 @@ function MainApp() {
                         </div>
                         <button
                           onClick={() => forceDownload(file.fileUrl, file.fileName)}
-                          style={{ background: 'linear-gradient(135deg, #2563eb, #5ba4e5)', color: '#fff', padding: '10px', borderRadius: 12, border: 'none', fontWeight: 900, cursor: 'pointer', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, boxShadow: '0 4px 14px rgba(37,99,235,0.35)', transition: 'all 0.2s' }}
-                          onMouseOver={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
-                          onMouseOut={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                          disabled={downloadAdCountdown > 0}
+                          style={{ 
+                            background: downloadAdCountdown > 0 ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #2563eb, #5ba4e5)', 
+                            color: downloadAdCountdown > 0 ? '#64748b' : '#fff', 
+                            padding: '10px', 
+                            borderRadius: 12, 
+                            border: 'none', 
+                            fontWeight: 900, 
+                            cursor: downloadAdCountdown > 0 ? 'not-allowed' : 'pointer', 
+                            fontSize: 12, 
+                            textTransform: 'uppercase', 
+                            letterSpacing: 1, 
+                            boxShadow: downloadAdCountdown > 0 ? 'none' : '0 4px 14px rgba(37,99,235,0.35)', 
+                            transition: 'all 0.2s' 
+                          }}
+                          onMouseOver={e => { if (downloadAdCountdown === 0) e.currentTarget.style.transform = 'translateY(-1px)' }}
+                          onMouseOut={e => { if (downloadAdCountdown === 0) e.currentTarget.style.transform = 'translateY(0)' }}
                         >
-                          ⬇ Download
+                          {downloadAdCountdown > 0 ? `Wait ${downloadAdCountdown}s...` : '⬇ Download'}
                         </button>
                       </div>
                     </div>
@@ -1941,93 +1954,43 @@ function MainApp() {
 
 
               <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <button onClick={handleCloseIntro} style={{ background: '#000', color: '#5ba4e5', padding: '14px 48px', borderRadius: 24, fontWeight: 900, fontSize: 18, border: '2px solid #000', cursor: 'pointer', textTransform: 'uppercase', boxShadow: '0 4px 0 #000' }}>CONFIRM</button>
-              </div>
-            </motion.div>
+                <button onClick={handleCloseIntro} style={{ background: '#000', color: '#5ba4e5', padding: '14px 48px', borderRadius: 24, fontWeight: 900, fontSize: 18, border: '2px solid #000', cursor: 'pointer', textTransform:       {/* NEW FLOATING SPONSOR PANEL */}
+      {ads.length > 0 && (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 400, width: 320, background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(16px)', borderRadius: 24, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: 'rgba(0,0,0,0.4)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#ea580c', boxShadow: '0 0 10px #ea580c' }}></div>
+              <span style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1 }}>Sponsored Intercept</span>
+            </div>
+            <span style={{ fontSize: 9, fontWeight: 900, color: '#475569' }}>{activeAdIndex + 1}/{ads.length}</span>
           </div>
-        )}
-      </AnimatePresence>
-
-      {isExploding && <div className="pottitheri-explosion z-[500]"></div>}
-      {activeAd && (
-        <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/98 p-10">
-          <div style={{ position: 'relative', width: '100%', maxWidth: 800, aspectRatio: '16/9', background: '#0f172a', borderRadius: 40, overflow: 'hidden', border: '2px solid rgba(234, 88, 12, 0.3)', boxShadow: '0 0 100px rgba(234, 88, 12, 0.2)' }}>
-             {activeAd.videoUrl ? (
-                <>
-                  {activeAd.videoUrl.includes('youtube.com') ? (
-                    <iframe 
-                      src={`${activeAd.videoUrl.includes('embed/') ? activeAd.videoUrl : activeAd.videoUrl.replace('watch?v=', 'embed/')}?autoplay=1&mute=${isAdMuted ? 1 : 0}&controls=0`} 
-                      style={{ width: '100%', height: '100%', border: 'none' }} 
-                      allow="autoplay; fullscreen" 
-                    />
-                  ) : (
-                    <video 
-                      src={activeAd.videoUrl} 
-                      autoPlay 
-                      muted={isAdMuted}
-                      playsInline
-                      webkit-playsinline="true"
-                      style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000' }} 
-                    />
-                  )}
-                  {/* Mute Toggle */}
-                  <button 
-                    onClick={() => setIsAdMuted(!isAdMuted)}
-                    style={{ position: 'absolute', top: 24, left: 24, background: 'rgba(0,0,0,0.6)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: 12, borderRadius: 16, cursor: 'pointer', zIndex: 10, backdropFilter: 'blur(10px)' }}
-                  >
-                    {isAdMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                  </button>
-                </>
-             ) : (
-                <img src={activeAd.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-             )}
-             <div style={{ position: 'absolute', top: 24, right: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
-                {adElapsed !== null && adElapsed >= 5 ? (
-                  <button onClick={handleSkipAd} style={{ backgroundColor: '#ea580c', color: '#fff', padding: '12px 24px', borderRadius: 20, border: 'none', fontWeight: 900, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 2, display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-                    Skip Ad â­ï¸
-                  </button>
-                ) : (
-                  <div style={{ backgroundColor: 'rgba(0,0,0,0.8)', padding: '12px 24px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: 12, backdropFilter: 'blur(10px)' }}>
-                     <div style={{ fontSize: 32, fontWeight: 900, color: '#ea580c', fontStyle: 'italic' }}>{5 - (adElapsed || 0)}</div>
-                     <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: 2 }}>Seconds to<br />Skip</div>
-                  </div>
-                )}
-             </div>
-             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 32, background: 'linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.5) 70%, transparent 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 4, marginBottom: 8 }}>Operational Broadcast</div>
-                  <h3 style={{ fontSize: 24, fontWeight: 900, margin: 0, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeAd.title}</h3>
-                </div>
-                {activeAd.link && (
-                  <a
-                    href={activeAd.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      padding: '14px 28px',
-                      borderRadius: 18,
-                      fontWeight: 900,
-                      fontSize: 13,
-                      textTransform: 'uppercase' as const,
-                      letterSpacing: 2,
-                      textDecoration: 'none',
-                      marginLeft: 16,
-                      flexShrink: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      background: activeAd.link.toLowerCase().includes('.apk')
-                        ? 'linear-gradient(135deg, #16a34a, #22c55e)'
-                        : 'linear-gradient(135deg, #2563eb, #5ba4e5)',
-                      color: '#fff',
-                      boxShadow: activeAd.link.toLowerCase().includes('.apk')
-                        ? '0 6px 20px rgba(34,197,94,0.5)'
-                        : '0 6px 20px rgba(91,164,229,0.5)',
-                    }}
-                  >
-                    {activeAd.link.toLowerCase().includes('.apk') ? 'ðŸ“² INSTALL' : 'ðŸŒ VISIT'}
-                  </a>
-                )}
+          
+          <a href={ads[activeAdIndex]?.link || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'block', textDecoration: 'none', position: 'relative', aspectRatio: '16/9', overflow: 'hidden' }}>
+            {ads[activeAdIndex]?.videoUrl ? (
+              <video 
+                src={ads[activeAdIndex].videoUrl} 
+                autoPlay 
+                muted 
+                loop 
+                playsInline 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+            ) : (
+              <img 
+                src={ads[activeAdIndex]?.imageUrl} 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                alt="Sponsored" 
+              />
+            )}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px 16px 12px', background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)' }}>
+              <h4 style={{ margin: 0, color: '#fff', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ads[activeAdIndex]?.title}</h4>
+              {ads[activeAdIndex]?.link && (
+                <div style={{ fontSize: 10, color: '#38bdf8', fontWeight: 800, marginTop: 2, textTransform: 'uppercase', letterSpacing: 1 }}>Click to access</div>
+              )}
+            </div>
+          </a>
+        </div>
+      )}          )}
              </div>
           </div>
           <p style={{ marginTop: 40, fontSize: 10, fontWeight: 900, color: '#475569', textTransform: 'uppercase', letterSpacing: 8 }}>Decryption in Progress â€¢ Please Stand By</p>
