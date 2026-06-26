@@ -21,14 +21,8 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Statically serve local uploads with CORS
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Ensure local uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// Vercel serverless environment is read-only.
+// We use Cloudinary for all file storage, so local 'uploads' directory is not needed.
 
 // --- Cloudinary Config (Keep for legacy / Ads support) ---
 cloudinary.config({
@@ -46,25 +40,7 @@ const storage = new CloudinaryStorage({
 });
 const upload = multer({ storage: storage });
 
-// --- Local Storage Config (For chests up to 2GB) ---
-const localDiskStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
-  }
-});
-
-const uploadLocal = multer({ 
-  storage: localDiskStorage,
-  limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2GB per file
-  fileFilter: (req, file, cb) => {
-    // Accept ALL file types
-    cb(null, true);
-  }
-});
+// Local storage is removed due to Vercel restrictions. Cloudinary is used via 'upload' instead.
 
 // --- Routes ---
 
@@ -108,17 +84,16 @@ app.post('/api/admin/chests/:id/open', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.post('/api/chests', uploadLocal.array('files', 50), async (req, res) => {
+app.post('/api/chests', upload.array('files', 50), async (req, res) => {
   try {
     const { lat, lng, title, message, tier, droppedBy, pin, maxOpens, expiresAt, silverTimer } = req.body;
     
     let uploadedFiles = [];
     if (req.files && req.files.length > 0) {
-      const baseUrl = req.protocol + '://' + req.get('host');
       uploadedFiles = req.files.map(f => ({
-        fileUrl: `${baseUrl}/uploads/${f.filename}`,
+        fileUrl: f.path,
         fileName: f.originalname,
-        fileSize: (f.size / (1024*1024)).toFixed(2) + 'MB',
+        fileSize: ((f.bytes || f.size || 0) / (1024*1024)).toFixed(2) + 'MB',
         mimeType: f.mimetype
       }));
     }
