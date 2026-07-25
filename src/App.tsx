@@ -1,33 +1,24 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
-import { jwtDecode } from "jwt-decode";
+import { IndiaGameMap } from './components/IndiaGameMap';
+import { BoxModal } from './components/BoxModal';
+import { AdsOverlay } from './components/AdsOverlay';
+import { HiddenAdminPanel } from './components/HiddenAdminPanel';
+import { soundFx } from './utils/soundEffects';
 import {
-  User,
-  LogOut,
-  Bell,
-  X,
+  ShieldCheck,
   Volume2,
   VolumeX,
-  Activity
+  Package,
+  Zap,
+  Award,
+  Compass,
+  Download,
+  X
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import Globe from 'react-globe.gl';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Fix typical leaflet icon issue
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
-
-// --- Types ---
-
-interface Chest {
+export interface Chest {
   id?: string;
   _id?: string;
   lat: number;
@@ -40,25 +31,16 @@ interface Chest {
   fileUrl?: string;
   files?: { fileUrl: string; fileName: string; fileSize?: string; mimeType?: string }[];
   droppedBy: string;
-  hasPin: boolean;
+  hasPin?: boolean;
   pin?: string;
-  maxOpens?: number;
-  silverTimer?: number;
-  currentOpens: number;
-  expiresAt?: number;
-  requiresRequest: boolean;
-  requests?: { from: string, status: 'pending' | 'accepted' | 'rejected' }[];
+  boxType?: 'free' | 'password' | 'timer' | 'task';
+  taskType?: 'memory' | 'cipher' | 'pattern';
+  timerSeconds?: number;
+  currentOpens?: number;
+  requiresRequest?: boolean;
 }
 
-interface UserProfile {
-  id: string;
-  email: string;
-  username: string;
-  isAdmin: boolean;
-  avatarUrl?: string;
-}
-
-interface Ad {
+export interface Ad {
   id?: string;
   _id?: string;
   title: string;
@@ -69,1958 +51,434 @@ interface Ad {
 
 const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
 
-const AdminPanel = () => {
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
-    return localStorage.getItem('isAdminLoggedIn') === 'true';
-  });
-  const [adminUser, setAdminUser] = useState('');
-  const [adminPass, setAdminPass] = useState('');
-  const [activeTab, setActiveTab] = useState<'OPERATORS' | 'ADS' | 'DROPS'>('OPERATORS');
-  const [chests, setChests] = useState<Chest[]>([]);
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [ads, setAds] = useState<Ad[]>([]);
-  const [deviceType, setDeviceType] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
-  const [isAddingAd, setIsAddingAd] = useState(false);
-  const [newAd, setNewAd] = useState({ title: '', imageUrl: '', videoUrl: '', link: '' });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+// Pre-populated initial map boxes across Indian Cities
+const INITIAL_DEMO_CHESTS: Chest[] = [
+  // Malappuram / Kerala
+  {
+    id: 'chest-mlp-1',
+    lat: 11.0723,
+    lng: 76.0740,
+    title: '🌴 Malappuram Freedom Intel Box',
+    message: 'Welcome to Malappuram real street game! You found a free intel drop.',
+    tier: 'bronze',
+    boxType: 'free',
+    hasPin: false,
+    fileName: 'kerala_intel_map.pdf',
+    fileSize: '2.4 MB',
+    fileUrl: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=800&q=80',
+    droppedBy: 'Malappuram Explorer'
+  },
+  {
+    id: 'chest-mlp-2',
+    lat: 11.0735,
+    lng: 76.0755,
+    title: '🔑 Secret Password Vault Box',
+    message: 'Encrypted passcode chest! Enter code 7860 to decrypt files.',
+    tier: 'gold',
+    boxType: 'password',
+    hasPin: true,
+    pin: '7860',
+    fileName: 'secret_code_data.dat',
+    fileSize: '5.1 MB',
+    droppedBy: 'Agent Aslam'
+  },
+  {
+    id: 'chest-mlp-3',
+    lat: 11.0710,
+    lng: 76.0725,
+    title: '🧠 Memory Matrix Task Box',
+    message: 'Solve the memory tile sequence to unlock this task box!',
+    tier: 'silver',
+    boxType: 'task',
+    hasPin: false,
+    taskType: 'memory',
+    fileName: 'task_complete_reward.zip',
+    fileSize: '8.7 MB',
+    droppedBy: 'Puzzle Master'
+  },
+  {
+    id: 'chest-mlp-4',
+    lat: 11.0740,
+    lng: 76.0715,
+    title: '⏱️ 15-Sec Countdown Timer Box',
+    message: 'Time-locked chest! Auto-unlocking after 10-sec countdown.',
+    tier: 'silver',
+    boxType: 'timer',
+    hasPin: false,
+    timerSeconds: 10,
+    fileName: 'speed_data_pack.bin',
+    fileSize: '3.3 MB',
+    droppedBy: 'Time Runner'
+  },
+  // Mumbai
+  {
+    id: 'chest-bom-1',
+    lat: 18.9220,
+    lng: 72.8347,
+    title: '🌊 Marine Drive Taj Gateway Box',
+    message: 'Mumbai seafront secret box! Solve the math cipher.',
+    tier: 'silver',
+    boxType: 'task',
+    hasPin: false,
+    taskType: 'cipher',
+    fileName: 'mumbai_secret_files.pdf',
+    fileSize: '4.8 MB',
+    droppedBy: 'Mumbai Runner'
+  },
+  // New Delhi
+  {
+    id: 'chest-del-1',
+    lat: 28.6129,
+    lng: 77.2295,
+    title: '🏛️ India Gate Capital Vault',
+    message: 'Capital city password box. Code: 313.',
+    tier: 'gold',
+    boxType: 'password',
+    hasPin: true,
+    pin: '313',
+    fileName: 'capital_intel_archive.zip',
+    fileSize: '12.0 MB',
+    droppedBy: 'Delhi Squad'
+  }
+];
 
-  // Admin decryption bypass and editing drop states
-  const [unlockedChest, setUnlockedChest] = useState<Chest | null>(null);
-  const [editingChest, setEditingChest] = useState<Chest | null>(null);
-  const [transferProgress, setTransferProgress] = useState<number | null>(null);
+const INITIAL_ADS: Ad[] = [
+  {
+    id: 'ad-1',
+    title: '⚡ Dynamic Speed Gear & Energy Drinks',
+    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80',
+    link: 'https://google.com'
+  },
+  {
+    id: 'ad-2',
+    title: '🎮 Cyberpunk Game Gear & Pro Headsets',
+    imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=80',
+    link: 'https://google.com'
+  }
+];
 
-  const [editTitle, setEditTitle] = useState('');
-  const [editTier, setEditTier] = useState<'gold' | 'silver' | 'bronze' | 'platinum'>('bronze');
-  const [editPin, setEditPin] = useState('');
-  const [editMaxOpens, setEditMaxOpens] = useState('');
-  const [, setEditSilverTimer] = useState('');
-  const [editExpiresAt, setEditExpiresAt] = useState('');
-  const [editSilverMode, setEditSilverMode] = useState<'TIME' | 'COUNT'>('COUNT');
+export function App() {
+  // Player state
+  const [playerPos, setPlayerPos] = useState({ lat: 11.0723, lng: 76.0740 }); // Default: Malappuram
+  const [currentCityName, setCurrentCityName] = useState('Malappuram, Kerala');
+  const [score, setScore] = useState(150);
+  const [energy, setEnergy] = useState(100);
+  const [unlockedItems, setUnlockedItems] = useState<Chest[]>([]);
+  const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
+  // Boxes & Ads state
+  const [chests, setChests] = useState<Chest[]>(INITIAL_DEMO_CHESTS);
+  const [ads, setAds] = useState<Ad[]>(INITIAL_ADS);
+  const [activeBoxModal, setActiveBoxModal] = useState<Chest | null>(null);
+  const [activeAd, setActiveAd] = useState<Ad | null>(null);
+
+  // Hidden Admin Panel state
+  const [isHiddenAdminOpen, setIsHiddenAdminOpen] = useState(false);
+  const [logoTapCount, setLogoTapCount] = useState(0);
+
+  // Fetch drops from server API if available
   useEffect(() => {
-    if (editingChest) {
-      setEditTitle(editingChest.title || '');
-      setEditTier(editingChest.tier || 'bronze');
-      setEditPin(editingChest.pin || '');
-      setEditMaxOpens(editingChest.maxOpens ? editingChest.maxOpens.toString() : '');
-      setEditSilverTimer(editingChest.silverTimer ? editingChest.silverTimer.toString() : '15');
-      if (editingChest.expiresAt) {
-        setEditSilverMode('TIME');
-        const hoursLeft = Math.max(1, Math.round((editingChest.expiresAt - Date.now()) / (60 * 60 * 1000)));
-        setEditExpiresAt(hoursLeft.toString());
-      } else {
-        setEditSilverMode('COUNT');
-        setEditExpiresAt('24');
-      }
-    }
-  }, [editingChest]);
-
-  const handleUpdateChestSubmit = async (e: any) => {
-    e.preventDefault();
-    if (!editingChest) return;
-    
-    const updateData: any = {
-      title: editTitle,
-      tier: editTier
-    };
-
-    if (editTier === 'gold') {
-      updateData.pin = editPin || '0000';
-    }
-
-    if (editTier === 'silver') {
-      if (editSilverMode === 'COUNT') {
-        updateData.maxOpens = editMaxOpens ? parseInt(editMaxOpens) : 10;
-        updateData.expiresAt = null;
-        updateData.silverTimer = 0;
-      } else {
-        const hours = parseInt(editExpiresAt || '24');
-        const expiryMs = Date.now() + (hours * 60 * 60 * 1000);
-        updateData.expiresAt = expiryMs;
-        updateData.maxOpens = 999999;
-        updateData.silverTimer = 0;
-      }
-    } else if (editTier === 'bronze') {
-      updateData.maxOpens = null;
-      updateData.expiresAt = null;
-      updateData.silverTimer = 0;
-    }
-
-    try {
-      const res = await axios.patch(`${API_URL}/chests/${editingChest._id || editingChest.id}`, updateData);
-      setChests(chests.map(c => (c._id === res.data._id || c.id === res.data.id) ? res.data : c));
-      setEditingChest(null);
-      alert('SUCCESS: INTEL DROP MODIFIED');
-    } catch (err: any) {
-      alert(`FAILED TO EDIT DROP: ${err.response?.data?.error || err.message}`);
-    }
-  };
-
-  const forceDownload = async (url: string, filename: string) => {
-    let downloadUrl = url;
-    if (url.includes('res.cloudinary.com')) {
-      downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
-    }
-    
-    try {
-      setTransferProgress(0);
-      const response = await axios({
-        url: downloadUrl,
-        method: 'GET',
-        responseType: 'blob',
-        onDownloadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            setTransferProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
-          }
+    axios.get(`${API_URL}/chests`)
+      .then(res => {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setChests(res.data);
         }
-      });
+      })
+      .catch(() => {});
 
-      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.setAttribute('download', filename || 'DATA_SECURE.dat');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (e) {
-      window.open(downloadUrl, '_blank');
-    } finally {
-      setTimeout(() => setTransferProgress(null), 1000);
-    }
-  };
-
-  useEffect(() => {
-    const handleResize = () => {
-      const w = window.innerWidth;
-      if (w < 640) setDeviceType('MOBILE');
-      else if (w < 1024) setDeviceType('TABLET');
-      else setDeviceType('DESKTOP');
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    axios.get(`${API_URL}/ads`)
+      .then(res => {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setAds(res.data);
+        }
+      })
+      .catch(() => {});
   }, []);
 
+  // Secret Shortcut Listener (`Ctrl + Shift + A`) for Hidden Admin Panel
   useEffect(() => {
-    if (isAdminLoggedIn) {
-      axios.get(`${API_URL}/admin/chests`).then(res => setChests(Array.isArray(res.data) ? res.data : []));
-      axios.get(`${API_URL}/users`).then(res => setUsers(Array.isArray(res.data) ? res.data : []));
-      axios.get(`${API_URL}/ads`).then(res => setAds(Array.isArray(res.data) ? res.data : []));
-    }
-  }, [isAdminLoggedIn]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        soundFx.playAdminBeep();
+        setIsHiddenAdminOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
-  const handleLogin = (e: any) => {
-    e.preventDefault();
-    const cleanUser = adminUser.trim().toLowerCase();
-    const cleanPass = adminPass.trim();
-    
-    if (cleanUser === 'aslam' && cleanPass === '313 aslam 786') {
-      setIsAdminLoggedIn(true);
-      localStorage.setItem('isAdminLoggedIn', 'true');
-      setAdminPass(''); // Clear sensitive info
-    } else {
-      alert('ACCESS DENIED: Invalid Admin Credentials');
+  // Periodic Interstitial Ad Trigger ("Edakkide Ads") - Triggers every 2.5 mins
+  useEffect(() => {
+    const adInterval = setInterval(() => {
+      if (ads.length > 0 && !activeBoxModal && !isHiddenAdminOpen) {
+        const randomAd = ads[Math.floor(Math.random() * ads.length)];
+        setActiveAd(randomAd);
+      }
+    }, 150000); // 2.5 minutes
+
+    return () => clearInterval(adInterval);
+  }, [ads, activeBoxModal, isHiddenAdminOpen]);
+
+  // Handle Logo 5x Tap to open Hidden Admin Panel
+  const handleLogoClick = () => {
+    const nextCount = logoTapCount + 1;
+    setLogoTapCount(nextCount);
+    if (nextCount >= 5) {
+      soundFx.playAdminBeep();
+      setIsHiddenAdminOpen(true);
+      setLogoTapCount(0);
     }
+  };
+
+  const handleAudioToggle = () => {
+    const muted = soundFx.toggleMute();
+    setIsMuted(muted);
+  };
+
+  const handleSuccessUnlock = (chest: Chest) => {
+    setScore(prev => prev + 100);
+    setEnergy(prev => Math.min(100, prev + 25));
+    if (!unlockedItems.some(item => (item.id || item._id) === (chest.id || chest._id))) {
+      setUnlockedItems(prev => [chest, ...prev]);
+    }
+  };
+
+  const handleAdReward = () => {
+    setScore(prev => prev + 50);
+    setEnergy(prev => Math.min(100, prev + 50));
+  };
+
+  const handleTeleportPlayer = (lat: number, lng: number, cityName: string) => {
+    setPlayerPos({ lat, lng });
+    setCurrentCityName(cityName);
   };
 
   const handleDeleteChest = async (id: string) => {
-    if (window.confirm('WARNING: PERMANENTLY DELETE THIS INTEL DROP?')) {
-      await axios.delete(`${API_URL}/chests/${id}`);
-      setChests(chests.filter(c => c._id !== id && c.id !== id));
-    }
-  };
-
-  const handleMigrateTiers = async () => {
-     if (confirm('PERMANENTLY MIGRATE ALL LEGACY ASSETS TO BRONZE?')) {
-       try {
-         await axios.post(`${API_URL}/admin/migrate-tiers`);
-         alert(`MIGRATION SUCCESS: units updated`);
-         window.location.reload();
-       } catch (e) { alert('MIGRATION FAILED'); }
-     }
-  };
-
-  const handleAddAdSubmit = async (e: any) => {
-    e.preventDefault();
-    if (!newAd.title) return;
-    
-    const formData = new FormData();
-    formData.append('title', newAd.title);
-    
-    let finalVideoUrl = newAd.videoUrl;
-    if (finalVideoUrl) {
-      if (finalVideoUrl.includes('youtube.com/watch?v=')) {
-        try {
-          const id = new URL(finalVideoUrl).searchParams.get('v');
-          if (id) finalVideoUrl = `https://www.youtube.com/embed/${id}`;
-        } catch(e) {}
-      } else if (finalVideoUrl.includes('youtu.be/')) {
-        const id = finalVideoUrl.split('youtu.be/')[1]?.split('?')[0];
-        if (id) finalVideoUrl = `https://www.youtube.com/embed/${id}`;
-      }
-    }
-    
-    if (finalVideoUrl) formData.append('videoUrl', finalVideoUrl);
-    if (newAd.link) formData.append('link', newAd.link);
-    if (selectedFile) formData.append('file', selectedFile);
-
+    setChests(prev => prev.filter(c => (c.id !== id && c._id !== id)));
     try {
-      const res = await axios.post(`${API_URL}/ads`, formData);
-      setAds([res.data, ...ads]);
-      setIsAddingAd(false);
-      setNewAd({ title: '', imageUrl: '', videoUrl: '', link: '' });
-      setSelectedFile(null);
-      alert('AD BROADCASTED LIVE');
-    } catch (e) { alert('BROADCAST FAILED'); }
+      await axios.delete(`${API_URL}/chests/${id}`);
+    } catch (e) {}
   };
 
-  const handleDeleteAd = async (id: string) => {
-    if (confirm('REMOVE AD FROM BROADCAST?')) {
-      await axios.delete(`${API_URL}/ads/${id}`);
-      setAds(ads.filter(a => a._id !== id));
+  const handleAddChest = async (newChest: Partial<Chest>) => {
+    const created: Chest = {
+      id: `chest-custom-${Date.now()}`,
+      lat: newChest.lat || playerPos.lat,
+      lng: newChest.lng || playerPos.lng,
+      title: newChest.title || 'Admin Drop Box',
+      message: newChest.message || 'Secret admin drop',
+      tier: newChest.tier || 'bronze',
+      boxType: newChest.boxType || 'free',
+      pin: newChest.pin,
+      timerSeconds: newChest.timerSeconds,
+      taskType: newChest.taskType,
+      fileName: newChest.fileName || 'admin_drop.dat',
+      fileSize: '1.5 MB',
+      droppedBy: 'ADMIN',
+      hasPin: !!newChest.pin,
+      currentOpens: 0
+    };
+
+    setChests(prev => [created, ...prev]);
+    try {
+      await axios.post(`${API_URL}/chests`, created);
+    } catch (e) {}
+  };
+
+  const handleAddAd = (newAd: Partial<Ad>) => {
+    const created: Ad = {
+      id: `ad-${Date.now()}`,
+      title: newAd.title || 'New Ad Campaign',
+      imageUrl: newAd.imageUrl,
+      link: newAd.link
+    };
+    setAds(prev => [created, ...prev]);
+  };
+
+  const handleDeleteAd = (id: string) => {
+    setAds(prev => prev.filter(a => a.id !== id && a._id !== id));
+  };
+
+  const forceDownload = async (url: string, filename: string) => {
+    try {
+      const response = await axios.get(url, { responseType: 'blob' });
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', filename || 'data_file.dat');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      window.open(url, '_blank');
     }
   };
-
-  if (!isAdminLoggedIn) {
-    return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#020617', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative', overflow: 'hidden' }}>
-        {/* Animated Background Elements */}
-        <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '40%', height: '40%', backgroundColor: 'rgba(37, 99, 235, 0.2)', filter: 'blur(120px)', borderRadius: '50%' }}></div>
-        <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '40%', height: '40%', backgroundColor: 'rgba(234, 88, 12, 0.2)', filter: 'blur(120px)', borderRadius: '50%' }}></div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: 450 }}
-        >
-          <form 
-            onSubmit={handleLogin} 
-            style={{ backgroundColor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(24px)', padding: 48, borderRadius: '40px', border: '2px solid rgba(255, 255, 255, 0.1)', display: 'flex', flexDirection: 'column', gap: 32, boxShadow: '0 20px 80px rgba(0,0,0,0.6)' }}
-          >
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 80, height: 80, backgroundColor: '#2563eb', borderRadius: 24, marginBottom: 20, boxShadow: '0 10px 30px rgba(37, 99, 235, 0.3)' }}>
-                <span style={{ fontSize: 36 }}>ðŸ”</span>
-              </div>
-              <h2 style={{ fontSize: 32, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '-1px', fontStyle: 'italic', margin: 0 }}>Admin Portal</h2>
-              <p style={{ color: '#94a3b8', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '4px', marginTop: 8 }}>Authorized Personnel Only</p>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <input 
-                type="text" 
-                value={adminUser} 
-                onChange={e => setAdminUser(e.target.value)} 
-                placeholder="Username" 
-                style={{ width: '100%', padding: 20, borderRadius: 16, border: '2px solid rgba(255, 255, 255, 0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700, fontSize: 18, outline: 'none', transition: 'all 0.2s' }}
-                onFocus={(e) => e.currentTarget.style.borderColor = '#2563eb'}
-                onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)'}
-              />
-              <input 
-                type="password" 
-                value={adminPass} 
-                onChange={e => setAdminPass(e.target.value)} 
-                placeholder="Access Code" 
-                style={{ width: '100%', padding: 20, borderRadius: 16, border: '2px solid rgba(255, 255, 255, 0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700, fontSize: 18, outline: 'none', transition: 'all 0.2s' }}
-                onFocus={(e) => e.currentTarget.style.borderColor = '#2563eb'}
-                onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)'}
-              />
-            </div>
-
-            <button 
-              type="submit" 
-              style={{ backgroundColor: '#2563eb', color: '#fff', fontWeight: 900, padding: 20, borderRadius: 16, fontSize: 20, textTransform: 'uppercase', letterSpacing: '2px', cursor: 'pointer', border: 'none', transition: 'all 0.2s', boxShadow: '0 8px 0 #1e3a8a' }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-              onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(4px)'; e.currentTarget.style.boxShadow = '0 4px 0 #1e3a8a'; }}
-              onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 0 #1e3a8a'; }}
-            >
-              Initiate Login
-            </button>
-
-            <p style={{ textAlign: 'center', color: '#475569', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>
-              Secured Connection â€¢ System v4.0.2
-            </p>
-          </form>
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0a0f1d', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      {/* HEADER */}
-      <header style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 80, backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: deviceType === 'MOBILE' ? '0 16px' : '0 48px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ width: 32, height: 32, backgroundColor: '#2563eb', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 16 }}>ðŸ’¼</span>
+    <div className="relative w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 font-sans select-none flex flex-col">
+      {/* GAME TOP HUD HEADER */}
+      <header className="absolute top-0 left-0 right-0 z-40 px-4 py-3 bg-gradient-to-b from-slate-950/90 via-slate-950/60 to-transparent backdrop-blur-md flex items-center justify-between border-b border-cyan-500/10 pointer-events-auto">
+        {/* Game Title & Secret Admin Logo Trigger */}
+        <div
+          onClick={handleLogoClick}
+          className="flex items-center gap-3 cursor-pointer group"
+          title="Click 5 times for Hidden Admin Panel"
+        >
+          <div className="p-2 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 group-hover:scale-105 transition-transform shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+            <Compass className="w-6 h-6 animate-spin-slow" />
           </div>
-          <h1 style={{ fontSize: deviceType === 'MOBILE' ? 14 : 20, fontWeight: 900, textTransform: 'uppercase', letterSpacing: deviceType === 'MOBILE' ? '1px' : '4px', fontStyle: 'italic', margin: 0 }}>Command Center</h1>
+          <div>
+            <h1 className="text-base font-extrabold tracking-wider bg-gradient-to-r from-cyan-300 via-blue-200 to-indigo-300 bg-clip-text text-transparent">
+              INDIA STREET GAME EXPLORER
+            </h1>
+            <p className="text-[10px] font-mono text-cyan-400/70">
+              REAL MAP STREETS • MULTI-MODE BOXES • PAVA RUNNER
+            </p>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={handleMigrateTiers} style={{ fontSize: 9, background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid #3b82f6', padding: '10px 16px', borderRadius: 10, cursor: 'pointer', fontWeight: 900, textTransform: 'uppercase' }}>MIGRATE ASSETS</button>
-          <button 
-            onClick={() => { setIsAdminLoggedIn(false); localStorage.removeItem('isAdminLoggedIn'); }}
-            style={{ display: 'flex', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '10px 24px', borderRadius: 12, border: '1px solid rgba(255, 255, 255, 0.1)', transition: 'all 0.2s', fontWeight: 700, fontSize: 14, textTransform: 'uppercase', color: '#fff', cursor: 'pointer' }}
+
+        {/* Player Stats & Controls */}
+        <div className="flex items-center gap-3">
+          {/* Energy Bar */}
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono">
+            <Zap className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse" />
+            <div className="w-20 bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div
+                className="bg-gradient-to-r from-amber-400 to-orange-500 h-full transition-all duration-300"
+                style={{ width: `${energy}%` }}
+              />
+            </div>
+            <span className="text-amber-300 font-bold">{Math.round(energy)}%</span>
+          </div>
+
+          {/* Player Score */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono text-cyan-300">
+            <Award className="w-4 h-4 text-cyan-400" />
+            <span className="font-bold">{score} XP</span>
+          </div>
+
+          {/* Inventory Drawer Trigger */}
+          <button
+            onClick={() => setIsInventoryOpen(true)}
+            className="relative p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-cyan-500/30 text-cyan-300 transition-all shadow-md"
+            title="Open Inventory Bag"
           >
-            <LogOut size={16} />
-            Terminal Exit
+            <Package className="w-5 h-5" />
+            {unlockedItems.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-slate-950 font-bold text-[10px] flex items-center justify-center">
+                {unlockedItems.length}
+              </span>
+            )}
+          </button>
+
+          {/* Audio Sound FX Toggle */}
+          <button
+            onClick={handleAudioToggle}
+            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-colors"
+            title="Toggle Game Sound"
+          >
+            {isMuted ? <VolumeX className="w-5 h-5 text-rose-400" /> : <Volume2 className="w-5 h-5 text-emerald-400" />}
+          </button>
+
+          {/* Hidden Admin Secret Launcher Button */}
+          <button
+            onClick={() => setIsHiddenAdminOpen(true)}
+            className="p-2 rounded-xl bg-slate-900/80 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold flex items-center gap-1.5"
+            title="Secret Admin Panel (Ctrl+Shift+A)"
+          >
+            <ShieldCheck className="w-4 h-4 text-cyan-400" />
+            <span className="hidden md:inline">ADMIN</span>
           </button>
         </div>
       </header>
 
-      <div style={{ paddingTop: 100, paddingBottom: 80, paddingLeft: deviceType === 'MOBILE' ? 16 : 48, paddingRight: deviceType === 'MOBILE' ? 16 : 48, display: 'flex', flexDirection: deviceType === 'DESKTOP' ? 'row' : 'column', gap: deviceType === 'MOBILE' ? 24 : 48, maxWidth: 1800, margin: '0 auto' }}>
-        {/* Main Content Area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
-          {/* TABS */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 32, overflowX: 'auto', paddingBottom: 8 }} className="hide-scrollbar">
-            <button 
-              onClick={() => setActiveTab('OPERATORS')} 
-              style={{ flexShrink: 0, padding: deviceType === 'MOBILE' ? '12px 24px' : '20px 40px', fontSize: deviceType === 'MOBILE' ? 12 : 18, fontWeight: 900, borderRadius: 12, transition: 'all 0.3s', border: '2px solid', 
-                backgroundColor: activeTab === 'OPERATORS' ? '#2563eb' : '#0f172a',
-                borderColor: activeTab === 'OPERATORS' ? '#60a5fa' : 'rgba(255, 255, 255, 0.05)',
-                color: activeTab === 'OPERATORS' ? '#fff' : '#64748b',
-                cursor: 'pointer'
-              }}
-            >
-              OPERATORS
-            </button>
-            <button 
-              onClick={() => setActiveTab('DROPS')} 
-              style={{ flexShrink: 0, padding: deviceType === 'MOBILE' ? '12px 24px' : '20px 40px', fontSize: deviceType === 'MOBILE' ? 14 : 20, fontWeight: 900, borderRadius: 12, transition: 'all 0.3s', border: '2px solid', 
-                backgroundColor: activeTab === 'DROPS' ? '#10b981' : '#0f172a',
-                borderColor: activeTab === 'DROPS' ? '#34d399' : 'rgba(255, 255, 255, 0.05)',
-                color: activeTab === 'DROPS' ? '#fff' : '#64748b',
-                cursor: 'pointer'
-              }}
-            >
-              DROPS
-            </button>
-            <button 
-              onClick={() => setActiveTab('ADS')} 
-              style={{ flexShrink: 0, padding: deviceType === 'MOBILE' ? '12px 24px' : '20px 40px', fontSize: deviceType === 'MOBILE' ? 14 : 20, fontWeight: 900, borderRadius: 12, transition: 'all 0.3s', border: '2px solid', 
-                backgroundColor: activeTab === 'ADS' ? '#ea580c' : '#0f172a',
-                borderColor: activeTab === 'ADS' ? '#fb923c' : 'rgba(255, 255, 255, 0.05)',
-                color: activeTab === 'ADS' ? '#fff' : '#64748b',
-                cursor: 'pointer'
-              }}
-            >
-              ADS
-            </button>
-          </div>
-
-          <AnimatePresence mode="wait">
-            {/* TAB CONTENT: OPERATORS */}
-            {activeTab === 'OPERATORS' && (
-              <motion.div 
-                key="operators"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                style={{ display: 'grid', gridTemplateColumns: deviceType === 'DESKTOP' ? 'repeat(auto-fill, minmax(350px, 1fr))' : deviceType === 'TABLET' ? '1fr 1fr' : '1fr', gap: 16 }}
-              >
-                {Array.from(new Set([...users.map(u => u.username), ...chests.map(c => c.droppedBy)])).filter(Boolean).map((username, i) => {
-                  const user = users.find(u => u.username === username);
-                  return (
-                    <div key={i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: 24, borderRadius: 24, display: 'flex', alignItems: 'center', transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, overflow: 'hidden' }}>
-                        {user?.avatarUrl ? <img src={user.avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : 'ðŸ‘¤'}
-                      </div>
-                      <div style={{ flex: 1, marginLeft: 24 }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '2px' }}>Operational Agent</div>
-                        <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', marginTop: 4 }}>{username}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                          <div style={{ width: 6, height: 6, backgroundColor: '#10b981', borderRadius: '50%' }}></div>
-                          <span style={{ fontSize: 9, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Sector Active</span>
-                        </div>
-                      </div>
-                      <div style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)', padding: '12px 20px', borderRadius: 16, border: '1px solid rgba(37, 99, 235, 0.2)' }}>
-                        <div style={{ fontSize: 16, fontWeight: 900, color: '#3b82f6' }}>{chests.filter(c => c.droppedBy === username).length}</div>
-                        <div style={{ fontSize: 8, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Assets</div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {users.length === 0 && chests.length === 0 && (
-                  <div style={{ gridColumn: '1 / -1', padding: 80, backgroundColor: 'rgba(15, 23, 42, 0.2)', borderRadius: 48, border: '2px dashed rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
-                    <p style={{ fontSize: 24, fontWeight: 700, color: '#475569', fontStyle: 'italic', margin: 0 }}>No operators detected in sector.</p>
-                  </div>
-                )}
-              </motion.div>
-            )}
-
-            {/* TAB CONTENT: INTEL DROPS */}
-            {activeTab === 'DROPS' && (
-              <motion.div 
-                key="intel-drops"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                style={{ display: 'grid', gridTemplateColumns: deviceType === 'DESKTOP' ? 'repeat(auto-fill, minmax(350px, 1fr))' : deviceType === 'TABLET' ? '1fr 1fr' : '1fr', gap: 16 }}
-              >
-                {chests.map((chest, i) => {
-                  const displayTier = (chest.tier as any) === 'platinum' ? 'bronze' : chest.tier;
-                  const tierColor = displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706';
-                  const fileCount = chest.files?.length || 1;
-                  const isExpired = chest.expiresAt && chest.expiresAt < Date.now();
-                  const isLimitReached = chest.maxOpens && chest.currentOpens >= chest.maxOpens;
-                  return (
-                    <div key={chest._id || chest.id || i} style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', border: `1px solid ${isExpired ? 'rgba(239,68,68,0.3)' : isLimitReached ? 'rgba(251,191,36,0.3)' : 'rgba(255, 255, 255, 0.05)'}`, padding: 24, borderRadius: 24, display: 'flex', flexDirection: 'column', gap: 12, transition: 'all 0.2s', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', opacity: isExpired ? 0.7 : 1 }}>
-                      {/* Header: Icon + Info */}
-                      <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                        <div style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, border: '2px solid', borderColor: tierColor, boxShadow: `0 0 10px ${tierColor}33` }}>
-                          <img src={`/${displayTier}_drop.png`} style={{ width: 28, height: 28 }} />
-                        </div>
-                        <div style={{ flex: 1, marginLeft: 16, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chest.title || chest.fileName}</div>
-                          <div style={{ fontSize: 9, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>By: {chest.droppedBy} • {fileCount} file{fileCount > 1 ? 's' : ''}</div>
-                        </div>
-                        <div style={{ backgroundColor: `${tierColor}22`, border: `1px solid ${tierColor}44`, padding: '4px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900, color: tierColor, textTransform: 'uppercase', letterSpacing: 1 }}>{displayTier}</div>
-                      </div>
-                      {/* Metadata row */}
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {chest.hasPin && <span style={{ fontSize: 8, fontWeight: 900, background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)', color: '#fbbf24', padding: '3px 8px', borderRadius: 6, textTransform: 'uppercase' }}>🔒 PIN: {chest.pin}</span>}
-                        {chest.maxOpens && <span style={{ fontSize: 8, fontWeight: 900, background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', color: '#60a5fa', padding: '3px 8px', borderRadius: 6 }}>Opens: {chest.currentOpens}/{chest.maxOpens}</span>}
-                        {isExpired && <span style={{ fontSize: 8, fontWeight: 900, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '3px 8px', borderRadius: 6, textTransform: 'uppercase' }}>⏰ Expired</span>}
-                        {isLimitReached && !isExpired && <span style={{ fontSize: 8, fontWeight: 900, background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', padding: '3px 8px', borderRadius: 6, textTransform: 'uppercase' }}>Limit Reached</span>}
-                        {chest.fileSize && <span style={{ fontSize: 8, fontWeight: 700, color: '#475569' }}>{chest.fileSize}</span>}
-                      </div>
-                      {/* Action buttons */}
-                      <div style={{ display: 'flex', gap: 6, width: '100%' }}>
-                        <button 
-                          onClick={() => setUnlockedChest(chest)}
-                          title="Admin bypass — open without any PIN, limits, or ads"
-                          style={{ flex: 2, padding: '10px 0', borderRadius: 8, backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399', cursor: 'pointer', transition: 'all 0.2s', fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}
-                        >
-                          🔓 OPEN (BYPASS)
-                        </button>
-                        <button 
-                          onClick={() => setEditingChest(chest)}
-                          title="Edit settings"
-                          style={{ flex: 2, padding: '10px 0', borderRadius: 8, backgroundColor: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#fbbf24', cursor: 'pointer', transition: 'all 0.2s', fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}
-                        >
-                          EDIT
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteChest((chest._id || chest.id)!)}
-                          title="Delete permanently"
-                          style={{ flex: 1, borderRadius: 8, backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', cursor: 'pointer', transition: 'all 0.2s' }}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-                {chests.length === 0 && (
-                  <div style={{ gridColumn: '1 / -1', padding: 80, backgroundColor: 'rgba(15, 23, 42, 0.2)', borderRadius: 48, border: '2px dashed rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
-                    <p style={{ fontSize: 24, fontWeight: 700, color: '#475569', fontStyle: 'italic', margin: 0 }}>No intel drops deployed in this sector.</p>
-                  </div>
-                )}
-              </motion.div>
-            )}
-
-            {/* TAB CONTENT: ADS */}
-            {activeTab === 'ADS' && (
-              <motion.div 
-                key="ads"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                style={{ display: 'flex', flexDirection: 'column', gap: 32 }}
-              >
-                <div style={{ background: 'linear-gradient(to right, rgba(234, 88, 12, 0.2), transparent)', borderLeft: '4px solid #ea580c', padding: 32, borderRadius: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <h3 style={{ fontSize: 28, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-1px', margin: 0 }}>Broadcast Distribution</h3>
-                    <p style={{ color: '#94a3b8', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '2px', marginTop: 4 }}>Global Ad Network Management</p>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-                    <span style={{ fontWeight: 900, color: '#64748b', fontSize: 18, fontStyle: 'italic' }}>Max Payload: 15s</span>
-                    <button onClick={() => setIsAddingAd(true)} style={{ backgroundColor: '#fff', color: '#000', fontWeight: 900, padding: '16px 32px', borderRadius: 16, textTransform: 'uppercase', letterSpacing: '2px', cursor: 'pointer', border: 'none', transition: 'all 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
-                      Upload Strategic Asset
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: deviceType === 'DESKTOP' ? 'repeat(auto-fill, minmax(280px, 1fr))' : deviceType === 'TABLET' ? '1fr 1fr' : '1fr', gap: 16 }}>
-                  {ads.map((ad: any, i) => (
-                    <div key={ad._id || i} style={{ aspectRatio: '16/9', backgroundColor: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 24, overflow: 'hidden', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
-                      {ad.videoUrl ? (
-                         <div style={{ position: 'absolute', inset: 0, background: '#000', borderRadius: 24, overflow: 'hidden' }}>
-                            {ad.videoUrl.includes('youtube.com/embed') ? (
-                               <iframe 
-                                 src={`${ad.videoUrl}${ad.videoUrl.includes('?') ? '&' : '?'}autoplay=1&mute=1&loop=1&playlist=${ad.videoUrl.split('/').pop()?.split('?')[0]}`}
-                                 title={ad.title}
-                                 style={{ width: '100%', height: '100%', border: 'none' }}
-                                 allow="autoplay"
-                                 allowFullScreen
-                               />
-                            ) : (
-                               <video 
-                                 src={ad.videoUrl}
-                                 autoPlay
-                                 muted
-                                 loop
-                                 playsInline
-                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
-                            )}
-                            <div style={{ position: 'absolute', bottom: 12, left: 12, backgroundColor: '#ea580c', color: '#fff', fontSize: 8, fontWeight: 900, padding: '4px 8px', borderRadius: 4, zIndex: 5, pointerEvents: 'none' }}>VIDEO ASSET</div>
-                         </div>
-                      ) : (
-                        <img src={ad.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
-                      )}
-                      <div style={{ position: 'absolute', inset: 0, padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)' }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Broadcasting â€¢ Asset {i+1}</div>
-                        <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 4 }}>{ad.title}</div>
-                        {ad.link && <div style={{ fontSize: 8, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>ðŸ”— {ad.link}</div>}
-                        <button onClick={() => handleDeleteAd(ad._id)} style={{ position: 'absolute', top: 12, right: 12, border: 'none', background: 'rgba(239,68,68,0.2)', color: '#f87171', padding: '6px 12px', borderRadius: 8, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>REMOVE</button>
-                      </div>
-                    </div>
-                  ))}
-                  {ads.length === 0 && (
-                    <div style={{ gridColumn: '1 / -1', padding: deviceType === 'MOBILE' ? 40 : 80, backgroundColor: 'rgba(15, 23, 42, 0.2)', borderRadius: 48, border: '2px dashed rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
-                      <p style={{ fontSize: deviceType === 'MOBILE' ? 18 : 24, fontWeight: 700, color: '#475569', fontStyle: 'italic', margin: 0 }}>No active broadcasts (Add an ad to see previews).</p>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-            {/* AD CREATION MODAL */}
-            <AnimatePresence>
-              {isAddingAd && (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  style={{ position: 'fixed', inset: 0, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-                >
-                  <motion.div 
-                    initial={{ scale: 0.9, y: 20 }}
-                    animate={{ scale: 1, y: 0 }}
-                    style={{ backgroundColor: '#0f172a', width: '100%', maxWidth: 640, borderRadius: 32, border: '1px solid rgba(255, 255, 255, 0.1)', padding: deviceType === 'MOBILE' ? 24 : 48, position: 'relative' }}
-                  >
-                    <button onClick={() => setIsAddingAd(false)} style={{ position: 'absolute', top: 24, right: 24, background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={32} /></button>
-                    <h2 style={{ fontSize: 32, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', margin: '0 0 8px 0' }}>Deploy Strategic Asset</h2>
-                    <p style={{ color: '#64748b', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 4, margin: '0 0 40px 0' }}>Ads Engine Broadcast System</p>
-                    
-                    <form onSubmit={handleAddAdSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Asset Title</label>
-                        <input required value={newAd.title} onChange={e => setNewAd({...newAd, title: e.target.value})} placeholder="e.g. Special Rewards v2" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <label style={{ fontSize: 9, fontWeight: 900, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: 2 }}>Video Upload (Direct MP4 File)</label>
-                        <input type="file" accept="video/*" onChange={e => setSelectedFile(e.target.files?.[0] || null)} style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid #3b82f633', padding: 16, borderRadius: 12, color: '#fff', fontSize: 14 }} />
-                      </div>
-                      <div style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center', fontSize: 9, fontWeight: 900, color: '#64748b' }}>--- OR USE VIDEO LINK ---</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Video URL (Youtube / Website direct link)</label>
-                        <input value={newAd.videoUrl} onChange={e => setNewAd({...newAd, videoUrl: e.target.value})} placeholder="https://youtube.com/watch?v=..." style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <label style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Call-to-Action Link</label>
-                        <input value={newAd.link} onChange={e => setNewAd({...newAd, link: e.target.value})} placeholder="https://google.com" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: 16, borderRadius: 12, color: '#fff', fontSize: 16 }} />
-                      </div>
-                      <button type="submit" style={{ backgroundColor: '#ea580c', color: '#fff', fontWeight: 900, padding: 20, borderRadius: 16, border: 'none', cursor: 'pointer', transition: 'all 0.2s', marginTop: 16, fontSize: 14, textTransform: 'uppercase', letterSpacing: 4 }}>
-                        Initiate Global Broadcast
-                      </button>
-                    </form>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-        </div>
-
-        <aside style={{ width: deviceType === 'DESKTOP' ? 400 : '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div style={{ backgroundColor: '#020617', padding: deviceType === 'MOBILE' ? 24 : 40, borderRadius: deviceType === 'MOBILE' ? 32 : 48, border: '2px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', position: deviceType === 'DESKTOP' ? 'sticky' : 'relative', top: deviceType === 'DESKTOP' ? 128 : 0, display: 'flex', flexDirection: 'column', gap: deviceType === 'MOBILE' ? 24 : 40 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{ width: 8, height: 8, backgroundColor: '#3b82f6', borderRadius: '50%' }}></div>
-              <h4 style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', color: '#64748b', letterSpacing: '4px', margin: 0 }}>Operational Metrics</h4>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px' }}>Total Operators</div>
-                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic' }}>
-                    {Math.max(users.length, new Set(chests.map(c => c.droppedBy)).size)}
-                  </div>
-                </div>
-                <div style={{ width: 64, height: 64, backgroundColor: '#0f172a', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                  <span style={{ fontSize: 32 }}>ðŸ“¦</span>
-                </div>
-              </div>
-
-              <div style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.05)', width: '100%' }}></div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, color: 'rgba(234, 179, 8, 0.5)', textTransform: 'uppercase', letterSpacing: '2px' }}>Gold Assets</div>
-                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#eab308' }}>{chests.filter(c => c.tier === 'gold').length}</div>
-                </div>
-                <div style={{ width: 64, height: 64, backgroundColor: 'rgba(234, 179, 8, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
-                  <span style={{ fontSize: 32 }}>ðŸ§°</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px' }}>Silver Assets</div>
-                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#cbd5e1' }}>{chests.filter(c => c.tier === 'silver').length}</div>
-                </div>
-                <div style={{ width: 64, height: 64, backgroundColor: 'rgba(148, 163, 184, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(148, 163, 184, 0.2)' }}>
-                  <span style={{ fontSize: 32 }}>ðŸŽ</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '2px' }}>Bronze Assets</div>
-                  <div style={{ fontSize: 36, fontWeight: 900, fontStyle: 'italic', color: '#d97706', textTransform: 'uppercase' }}>{chests.filter(c => c.tier === 'bronze' || c.tier === 'platinum').length}</div>
-                </div>
-                <div style={{ width: 64, height: 64, backgroundColor: 'rgba(217, 119, 6, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
-                   <span style={{ fontSize: 32 }}>ðŸ“¦</span>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)', border: '1px solid rgba(37, 99, 235, 0.2)', padding: 24, borderRadius: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{ width: 40, height: 40, backgroundColor: '#2563eb', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Activity size={20} style={{ color: '#fff' }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 10, fontWeight: 900, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>System Status</p>
-                <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', margin: 0 }}>All Secure â€¢ Uplink Live</p>
-              </div>
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      {/* UNLOCKED CHEST VIEWER (BYPASS ACCESS) */}
-      {unlockedChest && (
-        <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 1000, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(16px)' }}>
-          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} style={{ width: '100%', maxWidth: 800, background: '#0f172a', borderRadius: 40, border: '1px solid rgba(255,255,255,0.1)', padding: 32, display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: 0, textTransform: 'uppercase', fontStyle: 'italic' }}>
-                Admin Decrypted Intel ({(unlockedChest.files?.length ?? 0) > 0 ? unlockedChest.files?.length : 1} File{(unlockedChest.files?.length ?? 0) > 1 ? 's' : ''})
-              </h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                {unlockedChest.pin && <span style={{ fontSize: 10, background: 'rgba(234,179,8,0.2)', border: '1px solid #eab308', color: '#fbbf24', padding: '4px 8px', borderRadius: 6, fontWeight: 900 }}>PIN: {unlockedChest.pin}</span>}
-                <button onClick={() => setUnlockedChest(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 20, padding: '8px 16px', fontWeight: 900, cursor: 'pointer' }}>Close ✕</button>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 16, scrollSnapType: 'x mandatory' }} className="hide-scrollbar">
-              {(unlockedChest.files && unlockedChest.files.length > 0 
-                ? unlockedChest.files 
-                : [{ 
-                    fileUrl: unlockedChest.fileUrl, 
-                    fileName: unlockedChest.fileName, 
-                    fileSize: unlockedChest.fileSize 
-                  }]
-               ).map((file: any, index: number) => {
-                const isImage = (file.fileName || '').match(/\.(jpeg|jpg|gif|png|webp)$/i);
-                const isPdf = (file.fileName || '').match(/\.pdf$/i);
-                const isApk = (file.fileName || '').match(/\.apk$/i);
-
-                return (
-                  <div key={index} style={{ minWidth: 280, width: 280, height: 400, background: 'rgba(0,0,0,0.5)', borderRadius: 24, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', scrollSnapAlign: 'start', flexShrink: 0 }}>
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', overflow: (isPdf ? 'auto' : 'hidden'), position: 'relative' }}>
-                      {isImage && <img src={file.fileUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
-                      {isPdf && <div style={{ width: '100%', height: '100%', overflowY: 'auto' }}><iframe src={file.fileUrl} style={{ width: '100%', height: '800px', border: 'none' }} /></div>}
-                      {isApk && <div style={{ fontSize: 80, filter: 'drop-shadow(0 0 20px #22c55e)' }}>📱</div>}
-                      {(!isImage && !isPdf && !isApk) && <div style={{ fontSize: 80 }}>📄</div>}
-                    </div>
-                    <div style={{ padding: 16, background: 'rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={file.fileName}>{file.fileName}</div>
-                      <div style={{ fontSize: 10, color: '#94a3b8' }}>{file.fileSize || 'N/A'}</div>
-                      <button onClick={() => forceDownload(file.fileUrl, file.fileName)} style={{ background: '#3b82f6', color: '#fff', padding: '10px', borderRadius: 12, border: 'none', fontWeight: 900, cursor: 'pointer', marginTop: 8 }}>⬇️ DOWNLOAD</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* EDIT INTEL DROP MODAL */}
-      {editingChest && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(16px)' }}>
-          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} style={{ width: '100%', maxWidth: 500, background: '#0f172a', borderRadius: 32, border: '2px solid rgba(255,255,255,0.1)', padding: 32, display: 'flex', flexDirection: 'column', gap: 24, boxShadow: '0 20px 80px rgba(0,0,0,0.6)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: 0, textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-0.5px' }}>Admin - Edit Drop Settings</h3>
-              <button onClick={() => setEditingChest(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 20, padding: '8px 16px', fontWeight: 900, cursor: 'pointer' }}>Close ✕</button>
-            </div>
-
-            <form onSubmit={handleUpdateChestSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px' }}>Drop Name / Title</label>
-                <input required value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Enter drop title..." style={{ width: '100%', padding: 14, borderRadius: 12, border: '2px solid rgba(255, 255, 255, 0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700, fontSize: 15, outline: 'none' }} />
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px' }}>Security Tier</label>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  {['bronze', 'silver', 'gold'].map((t) => (
-                    <button key={t} type="button" onClick={() => setEditTier(t as any)} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: '2px solid', fontWeight: 900, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, cursor: 'pointer', transition: 'all 0.2s',
-                      backgroundColor: editTier === t ? (t === 'gold' ? '#eab308' : t === 'silver' ? '#cbd5e1' : '#d97706') : 'rgba(255,255,255,0.02)',
-                      borderColor: editTier === t ? '#fff' : 'rgba(255,255,255,0.05)',
-                      color: editTier === t ? '#000' : '#64748b'
-                    }}>{t}</button>
-                  ))}
-                </div>
-              </div>
-
-              {editTier === 'gold' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ fontSize: 9, fontWeight: 900, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '2px' }}>PIN Password Code</label>
-                  <input required type="text" maxLength={8} value={editPin} onChange={e => setEditPin(e.target.value)} placeholder="0000" style={{ width: '100%', padding: 14, borderRadius: 12, border: '2px solid rgba(251, 191, 36, 0.2)', backgroundColor: 'rgba(251, 191, 36, 0.05)', color: '#fbbf24', fontWeight: 900, fontFamily: 'monospace', fontSize: 18, textAlign: 'center', outline: 'none' }} />
-                </div>
-              )}
-
-              {editTier === 'silver' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button type="button" onClick={() => setEditSilverMode('COUNT')} style={{ flex: 1, padding: 8, fontSize: 9, fontWeight: 900, borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: editSilverMode === 'COUNT' ? '#cbd5e1' : 'rgba(255,255,255,0.05)', color: editSilverMode === 'COUNT' ? '#000' : '#64748b' }}>ACCESS COUNT LIMIT</button>
-                    <button type="button" onClick={() => setEditSilverMode('TIME')} style={{ flex: 1, padding: 8, fontSize: 9, fontWeight: 900, borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: editSilverMode === 'TIME' ? '#cbd5e1' : 'rgba(255,255,255,0.05)', color: editSilverMode === 'TIME' ? '#000' : '#64748b' }}>TIME TO EXPIRY</button>
-                  </div>
-                  {editSilverMode === 'COUNT' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Maximum Unlocks (Times)</label>
-                      <input type="number" required value={editMaxOpens} onChange={e => setEditMaxOpens(e.target.value)} placeholder="10" style={{ width: '100%', padding: 12, borderRadius: 10, border: '2px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700 }} />
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Expires In (Hours from now)</label>
-                      <input type="number" required value={editExpiresAt} onChange={e => setEditExpiresAt(e.target.value)} placeholder="24" style={{ width: '100%', padding: 12, borderRadius: 10, border: '2px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700 }} />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <button type="submit" style={{ backgroundColor: '#2563eb', color: '#fff', fontWeight: 900, padding: 16, borderRadius: 12, fontSize: 15, textTransform: 'uppercase', letterSpacing: '2px', cursor: 'pointer', border: 'none', marginTop: 10, boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
-                Save Intel Changes
-              </button>
-            </form>
-          </motion.div>
-        </div>
-      )}
-
-      {/* GLOBAL TRANSFER PROGRESS OVERLAY */}
-      <AnimatePresence>
-        {transferProgress !== null && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.9)', backdropFilter: 'blur(32px)' }}>
-             <div style={{ width: '100%', maxWidth: 400, padding: 40, textAlign: 'center' }}>
-                <div style={{ fontSize: 10, fontWeight: 900, color: '#f97316', textTransform: 'uppercase', letterSpacing: 8, marginBottom: 24 }}>System Data Transfer</div>
-                <div style={{ position: 'relative', width: '100%', height: 4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
-                   <motion.div initial={{ width: 0 }} animate={{ width: `${transferProgress}%` }} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, backgroundColor: '#f97316', boxShadow: '0 0 20px #f97316' }} />
-                </div>
-                <div style={{ marginTop: 24, fontSize: 48, fontWeight: 900, fontStyle: 'italic', letterSpacing: -2, color: '#fff' }}>{transferProgress}%</div>
-                <p style={{ fontSize: 9, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginTop: 12 }}>Syncing with Strategic Cloud Network</p>
-             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-const LeafletMapEvents = ({ onMapClick, onZoomEnd, onMove }: { onMapClick: (lat: number, lng: number) => void, onZoomEnd?: (zoom: number) => void, onMove?: (zoom: number, center: [number, number]) => void }) => {
-  const map = useMapEvents({
-    click(e: any) {
-      onMapClick(e.latlng.lat, e.latlng.lng);
-    },
-    zoomend() {
-      if (onZoomEnd) onZoomEnd(map.getZoom());
-      if (onMove) onMove(map.getZoom(), [map.getCenter().lat, map.getCenter().lng]);
-    },
-    move() {
-      if (onMove) onMove(map.getZoom(), [map.getCenter().lat, map.getCenter().lng]);
-    }
-  });
-  return null;
-};
-
-const StarField = () => {
-  const [stars, setStars] = useState<{ x: number, y: number, size: number, duration: number }[]>([]);
-  useEffect(() => {
-    const newStars = Array.from({ length: 50 }).map(() => ({
-      x: Math.random() * 100, y: Math.random() * 100,
-      size: Math.random() * 2 + 0.5, duration: Math.random() * 5 + 3
-    }));
-    setStars(newStars);
-  }, []);
-  return (
-    <div className="star-field">
-      {stars.map((star, i) => (
-        <div key={i} className="star" style={{ left: `${star.x}%`, top: `${star.y}%`, width: `${star.size}px`, height: `${star.size}px`, '--duration': `${star.duration}s` } as any} />
-      ))}
-    </div>
-  );
-};
-
-const LoginScreen = ({ onLogin, onCancel }: { onLogin: (user: UserProfile) => void, onCancel: () => void }) => {
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    if (credentialResponse.credential) {
-      const decoded: any = jwtDecode(credentialResponse.credential);
-      const userProfile: UserProfile = {
-        id: decoded.sub,
-        email: decoded.email,
-        username: decoded.given_name || decoded.email.split('@')[0],
-        isAdmin: decoded.email === 'admin@gmail.com' || decoded.email.includes('admin')
-      };
-
-      // Save to server
-      try {
-        await axios.post(`${API_URL}/users/login`, {
-          googleId: decoded.sub,
-          email: decoded.email,
-          username: userProfile.username
-        });
-      } catch (e) { console.error('Error saving user:', e); }
-
-      onLogin(userProfile);
-    }
-  };
-  return (
-    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="tactical-panel p-10 w-full max-w-md z-10 border-t-8 border-t-orange-500 relative flex flex-col items-center">
-      <button onClick={onCancel} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20} /></button>
-      <div className="text-center mb-8 mt-4">
-        <h1 className="text-3xl font-black italic text-orange-500 mb-2 uppercase tracking-tighter">AUTHENTICATE</h1>
-        <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase">Operator Login Required</p>
-      </div>
-      <div className="flex flex-col gap-6 items-center">
-        <GoogleOAuthProvider clientId="666413173667-kkf2ggvt3avkgpdcojhkg8koeljv7t3m.apps.googleusercontent.com">
-          <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => alert('AUTH FAILED')} theme="filled_black" shape="pill" />
-        </GoogleOAuthProvider>
-      </div>
-    </motion.div>
-  );
-};
-
-function MainApp() {
-
-  const globeEl = useRef<any>(null);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('dataDropperUser');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [chests, setChests] = useState<Chest[]>([]);
-  const [selectedChest, setSelectedChest] = useState<Chest | null>(null);
-  const [isDropping, setIsDropping] = useState<{ lat: number, lng: number } | null>(null);
-  const [tempTier, setTempTier] = useState<'gold' | 'silver' | 'bronze'>('bronze');
-  const [silverCountdown, setSilverCountdown] = useState<number | null>(null);
-  const [isWaitingSilver, setIsWaitingSilver] = useState(false);
-  const [isAdMuted, setIsAdMuted] = useState(false);
-  const [silverMode, setSilverMode] = useState<'TIME' | 'COUNT'>('COUNT');
-  const [silverValueInput, setSilverValueInput] = useState('4');
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [unlockedChest, setUnlockedChest] = useState<Chest | null>(null);
-  const [pinInput, setPinInput] = useState('');
-  const [showRequests, setShowRequests] = useState(false);
-  const [ads, setAds] = useState<Ad[]>([]);
-  const [activeAdIndex, setActiveAdIndex] = useState(0);
-  const [downloadAdCountdown, setDownloadAdCountdown] = useState<number>(0);
-  const [isExploding, setIsExploding] = useState(false);
-  const [showIntro, setShowIntro] = useState(false);
-  const [mapMode, setMapMode] = useState<'3d' | '2d'>('3d');
-  const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0]);
-  const [mapZoom, setMapZoom] = useState<number>(3);
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [deviceType, setDeviceType] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
-  const [transferProgress, setTransferProgress] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [dropTitle, setDropTitle] = useState('');
-  const [dropMessage, setDropMessage] = useState('');
-  const [fileUploadProgress, setFileUploadProgress] = useState<number[]>([]);
-
-  // Editing drops states
-  const [editingChest, setEditingChest] = useState<Chest | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editTier, setEditTier] = useState<'gold' | 'silver' | 'bronze' | 'platinum'>('bronze');
-  const [editPin, setEditPin] = useState('');
-  const [editMaxOpens, setEditMaxOpens] = useState('');
-  const [, setEditSilverTimer] = useState('');
-  const [editExpiresAt, setEditExpiresAt] = useState('');
-  const [editSilverMode, setEditSilverMode] = useState<'TIME' | 'COUNT'>('COUNT');
-
-  useEffect(() => {
-    if (editingChest) {
-      setEditTitle(editingChest.title || '');
-      setEditTier(editingChest.tier || 'bronze');
-      setEditPin(editingChest.pin || '');
-      setEditMaxOpens(editingChest.maxOpens ? editingChest.maxOpens.toString() : '');
-      setEditSilverTimer(editingChest.silverTimer ? editingChest.silverTimer.toString() : '15');
-      if (editingChest.expiresAt) {
-        setEditSilverMode('TIME');
-        const hoursLeft = Math.max(1, Math.round((editingChest.expiresAt - Date.now()) / (60 * 60 * 1000)));
-        setEditExpiresAt(hoursLeft.toString());
-      } else {
-        setEditSilverMode('COUNT');
-        setEditExpiresAt('24');
-      }
-    }
-  }, [editingChest]);
-
-  const handleUpdateChestSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingChest) return;
-    
-    const updateData: any = {
-      title: editTitle,
-      tier: editTier
-    };
-
-    if (editTier === 'gold') {
-      updateData.pin = editPin || '0000';
-    }
-
-    if (editTier === 'silver') {
-      if (editSilverMode === 'COUNT') {
-        updateData.maxOpens = editMaxOpens ? parseInt(editMaxOpens) : 10;
-        updateData.expiresAt = null;
-        updateData.silverTimer = 0;
-      } else {
-        const hours = parseInt(editExpiresAt || '24');
-        const expiryMs = Date.now() + (hours * 60 * 60 * 1000);
-        updateData.expiresAt = expiryMs;
-        updateData.maxOpens = 999999;
-        updateData.silverTimer = 0;
-      }
-    } else if (editTier === 'bronze') {
-      updateData.maxOpens = null;
-      updateData.expiresAt = null;
-      updateData.silverTimer = 0;
-    }
-
-    try {
-      const res = await axios.patch(`${API_URL}/chests/${editingChest._id || editingChest.id}`, updateData);
-      setChests(prev => prev.map(c => (c._id === res.data._id || c.id === res.data.id) ? res.data : c));
-      setEditingChest(null);
-      alert('SUCCESS: INTEL DROP MODIFIED');
-    } catch (err: any) {
-      alert(`FAILED TO EDIT DROP: ${err.response?.data?.error || err.message}`);
-    }
-  };
-  const [, setCurrentZoom] = useState(3);
-
-  useEffect(() => {
-    const handleResize = () => {
-      const w = window.innerWidth;
-      if (w < 640) setDeviceType('MOBILE');
-      else if (w < 1024) setDeviceType('TABLET');
-      else setDeviceType('DESKTOP');
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => {
-    const fn = () => axios.get(`${API_URL}/chests`).then((res: any) => setChests(Array.isArray(res.data) ? res.data : [])).catch(console.error);
-    fn();
-    axios.get(`${API_URL}/ads`).then(res => setAds(Array.isArray(res.data) ? res.data : [])).catch(console.error);
-    const interval = setInterval(fn, 15000); // Faster updates for live maps
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (currentUser) {
-      if (!localStorage.getItem(`introSeen_${currentUser.username}`)) {
-        setShowIntro(true);
-      }
-    }
-  }, [currentUser]);
-
-  const handleCloseIntro = () => {
-    setShowIntro(false);
-    if (currentUser) localStorage.setItem(`introSeen_${currentUser.username}`, 'true');
-  };
-
-  // Rotate floating ad every 15 seconds
-  useEffect(() => {
-    if (ads.length <= 1) return;
-    const t = setInterval(() => {
-      setActiveAdIndex(prev => (prev + 1) % ads.length);
-    }, 15000);
-    return () => clearInterval(t);
-  }, [ads.length]);
-
-  // Countdown timer for download ad
-  useEffect(() => {
-    if (downloadAdCountdown > 0) {
-      const t = setTimeout(() => setDownloadAdCountdown(downloadAdCountdown - 1), 1000);
-      return () => clearTimeout(t);
-    }
-  }, [downloadAdCountdown]);
-
-  const handleGlobeClick = ({ lat, lng }: { lat: number, lng: number }) => {
-    if (!currentUser) { setShowLoginModal(true); return; }
-    if (selectedChest || isDropping) return;
-    setIsDropping({ lat, lng });
-    setTempTier('bronze'); setSilverValueInput('4'); setPinInput(''); setSelectedFiles([]); setDropTitle('');
-  };
-
-  const handlePointClick = (pt: any) => {
-    setSelectedChest(pt);
-    if (globeEl.current && mapMode === '3d') {
-       globeEl.current.pointOfView({ lat: pt.lat, lng: pt.lng, altitude: 0.8 }, 1500);
-    } else {
-       setMapCenter([pt.lat, pt.lng]);
-       setMapZoom(12);
-    }
-  };
-
-
-  const handleChestAction = async () => {
-    if (!selectedChest) return;
-    if (selectedChest.tier === 'bronze') { processOpen(); return; }
-
-    if (selectedChest.tier === 'silver') {
-      if (isWaitingSilver) return;
-      // If there is still a delay timer set (legacy or optional), handle it.
-      if (selectedChest.silverTimer && selectedChest.silverTimer > 0) {
-        setIsWaitingSilver(true);
-        setSilverCountdown(selectedChest.silverTimer); 
-        return; 
-      }
-      processOpen();
-      return; 
-    }
-
-    if (selectedChest.tier === 'gold') {
-      if (pinInput !== (selectedChest.pin || '0000')) { alert('INVALID PIN'); return; }
-      processOpen();
-    }
-  };
-
-  useEffect(() => {
-    if (isWaitingSilver && silverCountdown !== null && silverCountdown > 0) {
-      const timer = setTimeout(() => setSilverCountdown(prev => prev !== null ? prev - 1 : null), 1000);
-      return () => clearTimeout(timer);
-    } else if (isWaitingSilver && silverCountdown === 0) {
-       setIsWaitingSilver(false);
-       setSilverCountdown(null);
-       processOpen();
-    }
-  }, [isWaitingSilver, silverCountdown]);
-
-  const forceDownload = async (url: string, filename: string) => {
-    // If it's a Cloudinary URL, we can force the attachment flag
-    let downloadUrl = url;
-    if (url.includes('res.cloudinary.com')) {
-      downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
-    }
-    
-    try {
-      setTransferProgress(0);
-      const response = await axios({
-        url: downloadUrl,
-        method: 'GET',
-        responseType: 'blob',
-        onDownloadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            setTransferProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
-          }
-        }
-      });
-
-      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.setAttribute('download', filename || 'DATA_SECURE.dat');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (e) {
-      // Fallback if blob fetch fails (CORS etc)
-      window.open(downloadUrl, '_blank');
-    } finally {
-      setTimeout(() => setTransferProgress(null), 1000);
-    }
-  };
-
-  const filteredChests = chests.filter(c => 
-    (c.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (c.fileName || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (c.droppedBy || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const processOpen = async () => {
-    if (!selectedChest) return;
-    try {
-      // Use POST to match the new backend and pass security data
-      const res = await axios.post(`${API_URL}/chests/${selectedChest._id || selectedChest.id}/open`, {
-        pin: pinInput,
-        username: currentUser?.username
-      });
-
-      setChests(prev => prev.map(c => (c._id === selectedChest._id || c.id === selectedChest.id) ? res.data : c));
-      setIsExploding(true);
-
-      // Random ad inside the unlocked drop + wait 5 secs
-      if (ads.length > 0) {
-        setDownloadAdCountdown(5);
-        setActiveAdIndex(Math.floor(Math.random() * ads.length));
-      }
-
-      setTimeout(() => {
-        setIsExploding(false);
-        setUnlockedChest(res.data);
-        setSelectedChest(null);
-        setPinInput('');
-      }, 1000);
-    } catch (e: any) { 
-      alert(e.response?.data?.message || 'ENCRYPTION LOCK ACTIVE: ACCESS DENIED'); 
-    }
-  };
-
-  const handleDeleteDrop = async (id: string) => {
-    if (!window.confirm('PERMANENTLY SHRED THIS INTEL DROP?')) return;
-    try {
-      await axios.delete(`${API_URL}/chests/${id}`);
-      setChests(chests.filter(c => (c._id !== id && c.id !== id)));
-      alert('CLEARED: SECURE WIPEOUT COMPLETE');
-    } catch { alert('WIPEOUT FAILED'); }
-  };
-
-  const finalizeDrop = async () => {
-    if (!isDropping || !currentUser || !tempTier || isDeploying) return;
-    setIsDeploying(true);
-    const formData = new FormData();
-    formData.append('lat', isDropping.lat.toString());
-    formData.append('lng', isDropping.lng.toString());
-    formData.append('title', dropTitle || currentUser.username);
-    formData.append('message', dropMessage);
-    formData.append('tier', tempTier);
-    formData.append('droppedBy', currentUser.username);
-
-    if (tempTier === 'gold') {
-      formData.append('pin', pinInput || '0000');
-    }
-    if (tempTier === 'silver') {
-      if (silverMode === 'COUNT') {
-        formData.append('maxOpens', silverValueInput || '10');
-        formData.append('silverTimer', '0');
-      } else {
-        const hours = parseInt(silverValueInput || '24');
-        const expiryMs = Date.now() + (hours * 60 * 60 * 1000);
-        formData.append('expiresAt', expiryMs.toString());
-        formData.append('maxOpens', '999999'); 
-        formData.append('silverTimer', '0');
-      }
-    }
-    selectedFiles.forEach(file => {
-      formData.append('files', file);
-    });
-    // Init per-file progress
-    setFileUploadProgress(selectedFiles.map(() => 0));
-
-    try {
-      setTransferProgress(0);
-      const res = await axios.post(`${API_URL}/chests`, formData, { 
-        timeout: 300000, // 5 min for large files
-        onUploadProgress: (p) => {
-          if (p.total) {
-            const pct = Math.round((p.loaded * 100) / p.total);
-            setTransferProgress(pct);
-            // Simulate per-file progress
-            setFileUploadProgress(selectedFiles.map((_, i) => {
-              const fileStart = (i / selectedFiles.length) * 100;
-              const fileEnd = ((i + 1) / selectedFiles.length) * 100;
-              if (pct >= fileEnd) return 100;
-              if (pct <= fileStart) return 0;
-              return Math.round(((pct - fileStart) / (fileEnd - fileStart)) * 100);
-            }));
-          }
-        }
-      });
-      setChests(prev => [...prev, res.data]);
-      setIsDropping(null); setTempTier('bronze'); setSilverValueInput('4'); setSelectedFiles([]); setPinInput(''); setDropTitle(''); setDropMessage(''); setFileUploadProgress([]);
-      alert('✅ DROP DEPLOYED SUCCESSFULLY');
-    } catch (e: any) { 
-      alert(`❌ FAILED: ${e.response?.data?.error || e.message}`); 
-    } finally {
-      setIsDeploying(false);
-      setTimeout(() => { setTransferProgress(null); setFileUploadProgress([]); }, 1500);
-    }
-  };
-
-
-  const handleRequestAction = async (chestId: string, fromUser: string, status: 'accepted' | 'rejected') => {
-    await axios.patch(`${API_URL}/chests/${chestId}/requests`, { from: fromUser, status });
-    axios.get(`${API_URL}/chests`).then((res: any) => setChests(res.data));
-  };
-
-  return (
-    <div className="world-map relative w-full h-screen overflow-hidden bg-black">
-      <StarField />
-
-      {/* OPTIONAL: MAP TOGGLE REMOVED FOR SEAMLESS AUTO-ZOOM EFFECT */}
-
-      {/* 3D GLOBE RENDERED PUBLICLY */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: mapMode === '3d' ? 10 : 0, opacity: mapMode === '3d' ? 1 : 0, pointerEvents: mapMode === '3d' ? 'auto' : 'none', transition: 'opacity 0.5s' }} className="globe-container">
-        {/* @ts-ignore - react-globe.gl types might not include onCameraMove even though it works */}
-        <Globe
-          ref={globeEl}
-          globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
-          onGlobeClick={handleGlobeClick}
-          htmlElementsData={filteredChests}
-          htmlElement={(d: any) => {
-            const el = document.createElement('div');
-            const displayTier = d.tier === 'platinum' ? 'bronze' : d.tier;
-            const hrsLeft = d.expiresAt ? Math.ceil((d.expiresAt - Date.now()) / (1000 * 60 * 60)) : null;
-            const slotsLeft = d.maxOpens ? (d.maxOpens - (d.currentOpens || 0)) : null;
-
-            el.innerHTML = `
-               <div style="display: flex; flex-direction: column; align-items: center; position: relative;">
-                 <div style="display: flex; gap: 4px; position: absolute; top: -14px; z-index: 10;">
-                   ${hrsLeft !== null ? `<div style="background: ${hrsLeft < 3 ? '#ef4444' : '#22c55e'}; color: #fff; font-size: 7px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">â° ${hrsLeft}H</div>` : ''}
-                   ${slotsLeft !== null && d.tier === 'silver' ? `<div style="background: #fff; color: #000; font-size: 7px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.5)">ðŸ”¢ ${slotsLeft}/${d.maxOpens}</div>` : ''}
-                   <div style="background: rgba(0,0,0,0.8); color: #fbbf24; font-size: 7px; font-weight: 900; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.5)">ðŸ‘¥ ${d.currentOpens || 0}</div>
-                 </div>
-                 <div style="position: absolute; bottom: 8px; width: 24px; height: 8px; background: ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'}; filter: blur(12px); border-radius: 50%; opacity: 0.8; pointer-events: none;"></div>
-                 <img src="/${displayTier}_drop.png" style="width: 32px; height: 32px; filter: drop-shadow(0 0 8px ${displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706'}); position: relative; z-index: 1;" />
-                 <div style="font-size: 8px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; margin-top: 2px; text-transform: uppercase; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1)">${d.title || d.droppedBy}</div>
-               </div>
-            `;
-            el.style.pointerEvents = 'auto';
-            el.title = d.fileName;
-            el.onclick = (e) => { e.stopPropagation(); handlePointClick(d); };
-            return el;
-          }}
-          htmlLat="lat" htmlLng="lng"
-          htmlAltitude={0.02}
-          {...({ onCameraMove: ((v: any) => {
-             // Switch to high-res 2D Map earlier to avoid blurry globe pixels
-             if (v.altitude < 1.2 && mapMode === '3d') {
-                setMapCenter([v.lat, v.lng]);
-                setMapZoom(18); // MATCH IMAGE: high zoom level
-                setMapMode('2d');
-             }
-          }) } as any)}
+      {/* MAIN GAME ENGINE MAP CANVAS */}
+      <main className="flex-1 w-full h-full relative">
+        <IndiaGameMap
+          chests={chests}
+          playerPos={playerPos}
+          setPlayerPos={setPlayerPos}
+          onOpenBox={(chest) => setActiveBoxModal(chest)}
+          setEnergy={setEnergy}
+          currentCityName={currentCityName}
         />
-      </div>
+      </main>
 
-      {/* 2D SATELLITE HYBRID MAP — matches Google Maps satellite + roads style */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: mapMode === '2d' ? 20 : 0, opacity: mapMode === '2d' ? 1 : 0, pointerEvents: mapMode === '2d' ? 'auto' : 'none', transition: 'opacity 0.8s ease-in-out' }}>
-        {mapMode === '2d' && (
-          <MapContainer 
-            key={mapMode}
-            center={mapCenter} 
-            zoom={mapZoom} 
-            minZoom={4} 
-            preferCanvas={true}
-            style={{ height: '100%', width: '100%', background: '#0a1628' }} 
-            zoomControl={false} 
-            maxBounds={[[-90,-180],[90,180]]}
-          >
-            {/* Esri World Imagery — high-quality satellite like screenshot */}
-            <TileLayer
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              attribution="Esri, DigitalGlobe, GeoEye"
-              maxZoom={22}
-              noWrap={true}
-            />
-            {/* Road + Labels overlay on top of satellite — matches the screenshot style */}
-            <TileLayer
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
-              attribution=""
-              maxZoom={22}
-              noWrap={true}
-              opacity={0.85}
-            />
-            <TileLayer
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-              attribution=""
-              maxZoom={22}
-              noWrap={true}
-              opacity={0.9}
-            />
-            <LeafletMapEvents 
-              onMapClick={(lat: number, lng: number) => handleGlobeClick({ lat, lng })} 
-              onZoomEnd={(zoom: number) => {
-                if (zoom <= 4 && mapMode === '2d') {
-                  setMapMode('3d');
-                }
-                setCurrentZoom(zoom);
-              }}
-              onMove={(zoom, center) => {
-                setCurrentZoom(zoom);
-                setMapCenter(center);
-              }}
-            />
-            {filteredChests.map((chest) => {
-              const displayTier = chest.tier === 'platinum' ? 'bronze' : chest.tier;
-              const pinColor = displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#f59e0b';
-              const shadowColor = displayTier === 'gold' ? '#fbbf24' : displayTier === 'silver' ? '#94a3b8' : '#d97706';
-              const hrsLeft = chest.expiresAt ? Math.ceil((chest.expiresAt - Date.now()) / (1000 * 60 * 60)) : null;
-              const slotsLeft = chest.maxOpens ? (chest.maxOpens - (chest.currentOpens || 0)) : null;
-              const isUrgent = (hrsLeft !== null && hrsLeft < 3) || (slotsLeft !== null && slotsLeft <= 1);
+      {/* MULTI-MODE UNLOCK BOX MODAL */}
+      <BoxModal
+        chest={activeBoxModal}
+        onClose={() => setActiveBoxModal(null)}
+        onSuccessUnlock={handleSuccessUnlock}
+        forceDownload={forceDownload}
+      />
 
-              const chestIcon = L.divIcon({
-                html: `
-                  <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;position:relative;width:80px;transform:translateX(-20px);">
-                    ${isUrgent ? `<div style="position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:50px;height:50px;border-radius:50%;background:${pinColor}22;animation:ping 1s cubic-bezier(0,0,0.2,1) infinite;pointer-events:none;"></div>` : ''}
-                    <div style="display:flex;gap:3px;position:absolute;top:-18px;left:50%;transform:translateX(-50%);white-space:nowrap;">
-                       ${hrsLeft !== null ? `<div style="background:${hrsLeft < 3 ? '#ef4444' : '#16a34a'};color:#fff;font-size:8px;font-weight:900;padding:2px 5px;border-radius:5px;box-shadow:0 2px 6px rgba(0,0,0,0.6);">⏰${hrsLeft}h</div>` : ''}
-                       ${slotsLeft !== null && chest.tier === 'silver' ? `<div style="background:rgba(255,255,255,0.95);color:#000;font-size:8px;font-weight:900;padding:2px 5px;border-radius:5px;box-shadow:0 2px 6px rgba(0,0,0,0.6);">${slotsLeft}left</div>` : ''}
-                       <div style="background:rgba(0,0,0,0.75);color:#fbbf24;font-size:8px;font-weight:900;padding:2px 5px;border-radius:5px;box-shadow:0 2px 6px rgba(0,0,0,0.6);">💥${chest.currentOpens||0}</div>
-                    </div>
-                    <div style="position:absolute;bottom:8px;width:32px;height:10px;background:${shadowColor};filter:blur(12px);border-radius:50%;opacity:0.85;pointer-events:none;"></div>
-                    <img src="/${displayTier}_drop.png" style="width:42px;height:42px;filter:drop-shadow(0 4px 12px ${shadowColor}99);position:relative;z-index:1;transition:transform 0.2s;" />
-                    <div style="font-size:9px;font-weight:800;color:#fff;background:rgba(2,6,23,0.85);padding:3px 7px;border-radius:6px;margin-top:2px;text-transform:uppercase;white-space:nowrap;border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(4px);max-width:80px;overflow:hidden;text-overflow:ellipsis;">${(chest.title || chest.droppedBy || '').substring(0,14)}</div>
-                  </div>
-                `,
-                className: 'custom-chest-icon',
-                iconSize: [42, 55],
-                iconAnchor: [21, 50]
-              });
-              return (
-                <Marker
-                  key={chest._id || chest.id}
-                  position={[chest.lat || 0, chest.lng || 0]}
-                  icon={chestIcon}
-                  eventHandlers={{ click: (e) => { L.DomEvent.stopPropagation(e as any); handlePointClick(chest); } }}
-                />
-              );
-            })}
-          </MapContainer>
-        )}
-      </div>
+      {/* PERIODIC AD OVERLAY */}
+      <AdsOverlay
+        ad={activeAd}
+        onClose={() => setActiveAd(null)}
+        onReward={handleAdReward}
+      />
 
-      {/* TOP USER BAR */}
-      <div style={{ position: 'fixed', top: 20, left: deviceType === 'MOBILE' ? 10 : '50%', right: deviceType === 'MOBILE' ? 10 : 'auto', transform: deviceType === 'MOBILE' ? 'none' : 'translateX(-50%)', zIndex: 300, display: 'flex', alignItems: 'center', gap: deviceType === 'MOBILE' ? 8 : 16, padding: deviceType === 'MOBILE' ? '8px 16px' : '12px 28px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 10px 40px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-        {/* APP LOGO */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: deviceType === 'MOBILE' ? 8 : 20, paddingRight: deviceType === 'MOBILE' ? 8 : 20, borderRight: '1px solid rgba(255,255,255,0.1)' }}>
-          <span style={{ fontSize: deviceType === 'MOBILE' ? 20 : 24 }}>ðŸ“¦</span>
-          {deviceType !== 'MOBILE' && <span style={{ fontSize: 14, fontWeight: 900, color: '#5ba4e5', letterSpacing: 1, textTransform: 'uppercase' }}>DATA DROPPER</span>}
-        </div>
+      {/* HIDDEN SECRET ADMIN PANEL */}
+      <HiddenAdminPanel
+        isOpen={isHiddenAdminOpen}
+        onClose={() => setIsHiddenAdminOpen(false)}
+        chests={chests}
+        ads={ads}
+        onDeleteChest={handleDeleteChest}
+        onAddChest={handleAddChest}
+        onAddAd={handleAddAd}
+        onDeleteAd={handleDeleteAd}
+        onTeleportPlayer={handleTeleportPlayer}
+      />
 
-        {/* SEARCH BAR (TACTICAL) */}
-        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: '6px 12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-           <span style={{ opacity: 0.5, fontSize: 14 }}>ðŸ”</span>
-           <input 
-             type="text" 
-             value={searchQuery} 
-             onChange={(e) => setSearchQuery(e.target.value)} 
-             placeholder="Search Intel..." 
-             style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: 11, fontWeight: 700, padding: 8, outline: 'none', width: deviceType === 'MOBILE' ? 80 : 150 }} 
-           />
-        </div>
-
-        {currentUser ? (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <User size={18} style={{ color: '#f97316' }} />
-              <span style={{ fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: 2, textTransform: 'uppercase' }}>{currentUser.username.toUpperCase()}</span>
-            </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button className="tactical-btn" style={{ height: 36, width: 36, padding: 0 }} onClick={() => setShowRequests(!showRequests)}>
-                <Bell size={16} style={{ color: chests.some(c => c.droppedBy === currentUser.username && c.requests?.some(r => r.status === 'pending')) ? '#f97316' : '#fff' }} />
+      {/* INVENTORY DRAWER MODAL */}
+      {isInventoryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-lg rounded-3xl bg-slate-900 border border-cyan-500/30 p-6 space-y-4 text-slate-100">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+              <div className="flex items-center gap-2 text-cyan-300 font-bold">
+                <Package className="w-5 h-5" />
+                <span>UNLOCKED INTEL INVENTORY ({unlockedItems.length})</span>
+              </div>
+              <button onClick={() => setIsInventoryOpen(false)} className="p-1 text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
               </button>
-              <button className="tactical-btn" style={{ height: 36, width: 36, padding: 0 }} onClick={() => { setCurrentUser(null); localStorage.removeItem('dataDropperUser'); }}><LogOut size={16} /></button>
             </div>
-          </>
-        ) : (
-          <button style={{ fontSize: 10, width: '100%', textAlign: 'center', fontWeight: 900, color: '#fff', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: 4, textTransform: 'uppercase' }} onClick={() => setShowLoginModal(true)}>
-            ðŸ” INITIATE OPERATOR LOGIN
-          </button>
-        )}
-      </div>
 
-      {/* PUBLIC STATISTICS HUD (LEFT) */}
-      <div style={{ position: 'fixed', top: 130, left: 20, zIndex: 100, display: 'flex', flexDirection: 'column', gap: 10, pointerEvents: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #eab308', borderRadius: 10 }}>
-          <img src="/gold_drop.png" style={{ width: 24, height: 24 }} />
-          <span style={{ fontSize: 12, fontWeight: 900, color: '#eab308', letterSpacing: 3, textTransform: 'uppercase' }}>GOLD: {chests.filter(c => c.tier === 'gold').length}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #94a3b8', borderRadius: 10 }}>
-          <img src="/silver_drop.png" style={{ width: 24, height: 24 }} />
-          <span style={{ fontSize: 12, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>SILVER: {chests.filter(c => c.tier === 'silver').length}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #d97706', borderRadius: 10 }}>
-          <img src="/bronze_drop.png" style={{ width: 24, height: 24 }} />
-          <span style={{ fontSize: 12, fontWeight: 900, color: '#f59e0b', letterSpacing: 3, textTransform: 'uppercase' }}>BRONZE: {chests.filter(c => c.tier === 'bronze' || c.tier === 'platinum').length}</span>
-        </div>
-      </div>
-
-      {/* PUBLIC STATISTICS HUD (RIGHT) - Hide on mobile map to avoid clutter */}
-      {deviceType !== 'MOBILE' && (
-        <div style={{ position: 'fixed', top: 130, right: 20, zIndex: 100, pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRight: '4px solid #f97316', borderRadius: 10 }}>
-            <span style={{ fontSize: 26, fontWeight: 900, color: '#fff', fontStyle: 'italic' }}>{chests.length}</span>
-            <span style={{ fontSize: 12, fontWeight: 900, color: '#f97316', letterSpacing: 2, textTransform: 'uppercase' }}>TOTAL<br />DROPS</span>
-          </div>
-
-        </div>
-      )}
-
-      {/* MY DROPS SHELF (BOTTOM CENTER) */}
-      {currentUser && (
-        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 300, width: 'calc(100% - 40px)', maxWidth: 800 }}>
-           <div style={{ background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(20px)', border: '2px solid rgba(255,255,255,0.1)', borderRadius: 28, padding: '16px 24px', boxShadow: '0 -10px 40px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                 <p style={{ fontSize: 10, fontWeight: 900, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase' }}>ðŸ“¡ YOUR ACTIVE DROPS</p>
-                 <span style={{ fontSize: 10, background: '#f97316', color: '#000', padding: '2px 8px', borderRadius: 4, fontWeight: 900 }}>{chests.filter(c => c.droppedBy === currentUser.username).length} UNIT(S)</span>
+            {unlockedItems.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-xs font-mono space-y-2">
+                <Package className="w-10 h-10 mx-auto text-slate-600" />
+                <p>No boxes unlocked yet! Explore real street map & open boxes.</p>
               </div>
-              <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }} className="no-scrollbar">
-                 {chests.filter(c => c.droppedBy === currentUser.username).map(drop => (
-                    <div key={drop._id || drop.id} style={{ minWidth: 240, flexShrink: 0, background: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 16, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <img src={`/${drop.tier === 'platinum' ? 'bronze' : drop.tier}_drop.png`} style={{ width: 32, height: 32 }} />
-                          <div style={{ overflow: 'hidden' }}>
-                             <p style={{ fontSize: 11, fontWeight: 800, color: '#fff', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drop.fileName}</p>
-                             <p style={{ fontSize: 9, color: '#64748b', margin: 0 }}>ðŸ“  {drop.lat.toFixed(2)}, {drop.lng.toFixed(2)}</p>
-                          </div>
-                       </div>
-                       <div style={{ display: 'flex', gap: 6, marginTop: 'auto' }}>
-                          <button onClick={(e) => { e.stopPropagation(); handlePointClick(drop); }} style={{ flex: 1.2, background: 'rgba(59, 130, 246, 0.4)', border: 'none', color: '#fff', fontSize: 9, fontWeight: 900, padding: '8px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>LOCATE</button>
-                          <button onClick={(e) => { e.stopPropagation(); setEditingChest(drop); }} style={{ flex: 1, background: 'rgba(245, 158, 11, 0.2)', border: 'none', color: '#fbbf24', fontSize: 9, fontWeight: 900, padding: '8px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>EDIT</button>
-                          <button onClick={(e) => { e.stopPropagation(); handleDeleteDrop((drop._id || drop.id)!); }} style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#ef4444', fontSize: 9, fontWeight: 900, padding: '8px 0', borderRadius: 8, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}>DELETE</button>
-                       </div>
-                    </div>
-                 ))}
-                 {chests.filter(c => c.droppedBy === currentUser.username).length === 0 && (
-                    <p style={{ fontSize: 13, color: '#475569', textAlign: 'center', width: '100%', fontStyle: 'italic', padding: '20px 0' }}>No deployments registered in this sector.</p>
-                 )}
-              </div>
-           </div>
-        </div>
-      )}
-
-      <AnimatePresence>
-        {/* LOGIN MODAL */}
-        {!currentUser && showLoginModal && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(16px)' }}>
-            <LoginScreen
-              onLogin={(user) => { setCurrentUser(user); localStorage.setItem('dataDropperUser', JSON.stringify(user)); setShowLoginModal(false); }}
-              onCancel={() => setShowLoginModal(false)}
-            />
-          </div>
-        )}
-
-        {/* DEPLOY MODAL */}
-        {isDropping && currentUser && (
-          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 500, background: 'rgba(2,6,23,0.88)', backdropFilter: 'blur(20px)' }}>
-            <motion.div
-              initial={{ scale: 0.93, y: 20, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              style={{ width: '100%', maxWidth: 520, background: 'linear-gradient(160deg, #0f172a 0%, #0a1628 100%)', borderRadius: 32, border: '1.5px solid rgba(91,164,229,0.25)', padding: 28, color: '#fff', boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)', overflowY: 'auto', maxHeight: '95vh' }}
-            >
-              {/* HEADER */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 900, color: '#5ba4e5', letterSpacing: 4, textTransform: 'uppercase', marginBottom: 4 }}>Deploy Intel</div>
-                  <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0, color: '#fff', letterSpacing: -0.5 }}>Create Drop</h2>
-                </div>
-                <button onClick={() => { setIsDropping(null); setDropMessage(''); setDropTitle(''); setSelectedFiles([]); }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: 12, padding: '8px 14px', fontWeight: 900, cursor: 'pointer', fontSize: 13 }}>✕</button>
-              </div>
-
-              {/* TIER SELECTION */}
-              <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-                {(['bronze','gold','silver'] as const).map(t => {
-                  const active = tempTier === t;
-                  const colors: Record<string, string> = { bronze: '#d97706', gold: '#fbbf24', silver: '#94a3b8' };
-                  const labels: Record<string, string> = { bronze: '🌐 Free', gold: '🔒 PIN', silver: '⏱ Limited' };
-                  return (
-                    <button key={t} onClick={() => setTempTier(t)} style={{ flex: 1, padding: '14px 0', borderRadius: 16, border: `2px solid ${active ? colors[t] : 'rgba(255,255,255,0.07)'}`, background: active ? `${colors[t]}18` : 'rgba(255,255,255,0.03)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, transition: 'all 0.2s' }}>
-                      <img src={`/${t}_drop.png`} style={{ width: 32, height: 32, filter: active ? `drop-shadow(0 0 8px ${colors[t]})` : 'grayscale(0.6)' }} />
-                      <span style={{ fontSize: 9, fontWeight: 900, color: active ? colors[t] : '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>{labels[t]}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* TITLE INPUT */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-                <input
-                  type="text"
-                  value={dropTitle}
-                  onChange={e => setDropTitle(e.target.value)}
-                  placeholder={`Drop Title (default: ${currentUser.username})`}
-                  style={{ width: '100%', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 16px', background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: 600, fontSize: 14, outline: 'none', transition: 'all 0.2s' }}
-                  onFocus={e => e.currentTarget.style.borderColor = '#5ba4e5'}
-                  onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
-                />
-
-                {/* MESSAGE INPUT */}
-                <textarea
-                  value={dropMessage}
-                  onChange={e => setDropMessage(e.target.value)}
-                  placeholder="💬 Add a message about this drop (optional — shown after unlock)"
-                  rows={3}
-                  style={{ width: '100%', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 16px', background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: 500, fontSize: 13, outline: 'none', resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, transition: 'all 0.2s' }}
-                  onFocus={e => e.currentTarget.style.borderColor = '#5ba4e5'}
-                  onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
-                />
-              </div>
-
-              {/* FILE PICKER — ALL TYPES */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '2px dashed rgba(91,164,229,0.3)', borderRadius: 16, padding: '16px 20px', background: 'rgba(91,164,229,0.04)', cursor: 'pointer', marginBottom: 12, transition: 'all 0.2s' }}
-                onMouseOver={e => { (e.currentTarget as any).style.borderColor = '#5ba4e5'; (e.currentTarget as any).style.background = 'rgba(91,164,229,0.09)'; }}
-                onMouseOut={e => { (e.currentTarget as any).style.borderColor = 'rgba(91,164,229,0.3)'; (e.currentTarget as any).style.background = 'rgba(91,164,229,0.04)'; }}
-              >
-                <input type="file" multiple accept="*/*" onChange={e => {
-                    const files = Array.from(e.target.files || []);
-                    const valid = files.filter(f => {
-                      if (f.size > 2 * 1024 * 1024 * 1024) { alert(`${f.name} exceeds 2GB`); return false; }
-                      return true;
-                    });
-                    setSelectedFiles(prev => [...prev, ...valid]);
-                  }} style={{ display: 'none' }} />
-                <div style={{ fontSize: 28 }}>📂</div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Click to add files'}</div>
-                  <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>All file types • Max 2GB per file</div>
-                </div>
-                {selectedFiles.length > 0 && <div style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#5ba4e5' }}>{(selectedFiles.reduce((a, f) => a + f.size, 0) / (1024*1024)).toFixed(1)} MB total</div>}
-              </label>
-
-              {/* PER-FILE LIST WITH PROGRESS */}
-              {selectedFiles.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16, maxHeight: 160, overflowY: 'auto' }} className="custom-scrollbar">
-                  {selectedFiles.map((f, i) => {
-                    const ext = f.name.split('.').pop()?.toUpperCase() || 'FILE';
-                    const sizeMB = (f.size / (1024 * 1024)).toFixed(1);
-                    const progress = fileUploadProgress[i];
-                    return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ fontSize: 18 }}>{f.type.startsWith('image/') ? '🖼️' : f.type.startsWith('video/') ? '🎬' : f.type.startsWith('audio/') ? '🎵' : ext === 'PDF' ? '📕' : ext === 'APK' ? '📱' : '📄'}</div>
-                        <div style={{ flex: 1, overflow: 'hidden' }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</div>
-                          <div style={{ fontSize: 9, color: '#475569' }}>{ext} • {sizeMB} MB</div>
-                          {progress !== undefined && progress > 0 && (
-                            <div style={{ height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 2, marginTop: 4, overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${progress}%`, background: progress === 100 ? '#22c55e' : '#5ba4e5', borderRadius: 2, transition: 'width 0.3s' }} />
-                            </div>
-                          )}
-                        </div>
-                        <button onClick={() => setSelectedFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 16, flexShrink: 0 }}>×</button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* GOLD PIN */}
-              {tempTier === 'gold' && (
-                <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="🔒 Set access password" style={{ width: '100%', border: '1.5px solid rgba(251,191,36,0.3)', borderRadius: 14, padding: '12px 16px', background: 'rgba(251,191,36,0.05)', color: '#fbbf24', fontWeight: 700, fontSize: 15, outline: 'none', marginBottom: 16, textAlign: 'center', letterSpacing: 4 }} />
-              )}
-
-              {/* SILVER SETTINGS */}
-              {tempTier === 'silver' && (
-                <div style={{ padding: 16, borderRadius: 16, border: '1px solid rgba(148,163,184,0.2)', background: 'rgba(148,163,184,0.04)', marginBottom: 16 }}>
-                  <p style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', marginBottom: 14, textTransform: 'uppercase', letterSpacing: 2 }}>Access Restriction</p>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                    {(['COUNT', 'TIME'] as const).map(m => (
-                      <button key={m} type="button" onClick={() => setSilverMode(m)} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', background: silverMode === m ? '#94a3b8' : 'rgba(255,255,255,0.06)', color: silverMode === m ? '#000' : '#475569' }}>
-                        {m === 'COUNT' ? '🔢 Max Downloads' : '⏰ Time Limit'}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <input type="number" value={silverValueInput} onChange={e => setSilverValueInput(e.target.value)} style={{ width: 120, border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', background: 'rgba(255,255,255,0.06)', color: '#fff', fontWeight: 800, fontSize: 15, outline: 'none', textAlign: 'center' }} />
-                    <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{silverMode === 'TIME' ? 'Hours until expiry' : 'Maximum downloads'}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* UPLOAD PROGRESS BAR (global) */}
-              {isDeploying && transferProgress !== null && (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: '#5ba4e5', textTransform: 'uppercase', letterSpacing: 2 }}>Uploading...</span>
-                    <span style={{ fontSize: 12, fontWeight: 900, color: '#fff' }}>{transferProgress}%</span>
-                  </div>
-                  <div style={{ height: 5, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
-                    <motion.div animate={{ width: `${transferProgress}%` }} transition={{ duration: 0.3 }} style={{ height: '100%', background: 'linear-gradient(90deg, #3b82f6, #5ba4e5)', borderRadius: 3, boxShadow: '0 0 10px #3b82f6' }} />
-                  </div>
-                </div>
-              )}
-
-              {/* ACTION BUTTONS */}
-              <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-                <button
-                  onClick={() => { setIsDropping(null); setDropMessage(''); setDropTitle(''); setSelectedFiles([]); }}
-                  style={{ flex: 1, border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '14px 0', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', fontWeight: 800, fontSize: 12, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}
-                >
-                  Abort
-                </button>
-                <button
-                  onClick={finalizeDrop}
-                  disabled={isDeploying || selectedFiles.length === 0}
-                  style={{ flex: 2.5, border: 'none', borderRadius: 20, padding: '14px 0', background: isDeploying || selectedFiles.length === 0 ? 'rgba(91,164,229,0.3)' : 'linear-gradient(135deg, #2563eb 0%, #5ba4e5 100%)', color: '#fff', fontWeight: 900, fontSize: 14, cursor: isDeploying || selectedFiles.length === 0 ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: 2, boxShadow: isDeploying ? 'none' : '0 6px 20px rgba(37,99,235,0.4)' }}
-                >
-                  🚀 {isDeploying ? `Uploading ${transferProgress || 0}%...` : 'Deploy Drop'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {/* CHEST MODAL */}
-        {selectedChest && activeAd === null && !isExploding && (
-          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 500, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedChest(null)}>
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 380, background: '#5ba4e5', borderRadius: 40, border: '2px solid #000', padding: 32, color: '#000', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-              <button onClick={() => setSelectedChest(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#000' }}>✖</button>
-
-              <div style={{ width: '100%', height: 140, border: '2px solid #000', borderRadius: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.15)', marginTop: 12, textAlign: 'center', padding: 12 }}>
-                <img src={`/${selectedChest.tier === 'platinum' ? 'bronze' : selectedChest.tier}_drop.png`} style={{ width: 48, height: 48 }} />
-                <span style={{ fontSize: 18, fontWeight: 900, marginTop: 4, textTransform: 'uppercase' }}>{selectedChest.title || 'SECURE INTEL'}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.7, marginTop: 4 }}>[{selectedChest.fileName}]</span>
-                <span style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>By: {selectedChest.droppedBy} • {selectedChest.tier.toUpperCase()}</span>
-              </div>
-
-              {selectedChest.tier === 'gold' && (
-                <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="Enter password" style={{ width: '100%', padding: '14px 16px', textAlign: 'center', borderRadius: 20, border: '2px solid #000', background: 'transparent', fontWeight: 700, fontSize: 16, outline: 'none' }} />
-              )}
-
-              <div style={{ width: '100%', padding: '12px 16px', borderRadius: 20, border: '1px solid rgba(0,0,0,0.1)', background: 'rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, fontWeight: 900 }}>RESTRICTION</span>
-                <span style={{ fontSize: 14, fontWeight: 900, color: '#000' }}>
-                  {selectedChest.expiresAt 
-                    ? `⌛ ERASE IN ${Math.ceil((selectedChest.expiresAt - Date.now()) / (1000 * 60 * 60))}H` 
-                    : `🔢 ${selectedChest.maxOpens ? selectedChest.maxOpens - (selectedChest.currentOpens || 0) : '∞'} SLOTS`}
-                </span>
-              </div>
-
-              {isWaitingSilver ? (
-                <div style={{ width: '100%', background: '#000', borderRadius: 24, padding: '20px', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-                   <div style={{ fontSize: 10, fontWeight: 900, color: '#5ba4e5', letterSpacing: 4 }}>DECRYPTING INTEL</div>
-                   <div style={{ width: '100%', height: 4, background: 'rgba(91, 164, 229, 0.2)', borderRadius: 2, overflow: 'hidden' }}>
-                      <motion.div initial={{ width: '100%' }} animate={{ width: `${(silverCountdown || 0) * 100 / (selectedChest.silverTimer || 15)}%` }} transition={{ duration: 1, ease: 'linear' }} style={{ height: '100%', background: '#5ba4e5' }} />
-                   </div>
-                   <div style={{ fontSize: 24, fontWeight: 900, color: '#fff', fontStyle: 'italic' }}>{silverCountdown}s</div>
-                </div>
-              ) : (
-                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleChestAction(); }} style={{ width: '100%', border: '2px solid #000', borderRadius: 24, padding: '16px 0', background: '#000', color: '#5ba4e5', fontWeight: 900, fontSize: 20, cursor: 'pointer', letterSpacing: 2, textTransform: 'uppercase', boxShadow: '0 4px 0 rgba(0,0,0,0.3)' }}>
-                  🔓 {selectedChest.tier === 'silver' ? (selectedChest.expiresAt ? 'GET INTEL (TIME LIMITED)' : 'INITIATE DECRYPTION') : 'UNLOCK INTEL'}
-                </button>
-              )}
-            </motion.div>
-          </div>
-        )}
-
-        {/* UNLOCKED CHEST VIEWER */}
-        {unlockedChest && (
-          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 600, background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(24px)' }}>
-            <motion.div
-              initial={{ scale: 0.93, y: 20, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              style={{ width: '100%', maxWidth: 860, background: 'linear-gradient(160deg, #0f172a 0%, #0a1628 100%)', borderRadius: 32, border: '1.5px solid rgba(91,164,229,0.2)', padding: 28, display: 'flex', flexDirection: 'column', gap: 20, boxShadow: '0 32px 80px rgba(0,0,0,0.8)' }}
-            >
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <img src={`/${(unlockedChest.tier === 'platinum' ? 'bronze' : unlockedChest.tier)}_drop.png`} style={{ width: 44, height: 44, filter: 'drop-shadow(0 0 12px #5ba4e5)' }} />
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 900, color: '#5ba4e5', letterSpacing: 4, textTransform: 'uppercase' }}>Intel Unlocked</div>
-                    <h3 style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: 0 }}>{unlockedChest.title || 'SECURE INTEL'}</h3>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>By {unlockedChest.droppedBy} • {(unlockedChest.files?.length || 1)} file(s)</div>
-                  </div>
-                </div>
-                <button onClick={() => setUnlockedChest(null)} style={{ background: 'rgba(255,255,255,0.08)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '8px 16px', fontWeight: 900, cursor: 'pointer', fontSize: 13 }}>✕ Close</button>
-              </div>
-
-              {/* MESSAGE BANNER — shown if dropper left a message */}
-              {unlockedChest.message && unlockedChest.message.trim() && (
-                <div style={{ background: 'linear-gradient(135deg, rgba(91,164,229,0.12) 0%, rgba(59,130,246,0.06) 100%)', border: '1px solid rgba(91,164,229,0.25)', borderRadius: 16, padding: '14px 18px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <div style={{ fontSize: 22, flexShrink: 0 }}>💬</div>
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 900, color: '#5ba4e5', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 }}>Message from {unlockedChest.droppedBy}</div>
-                    <p style={{ fontSize: 14, color: '#e2e8f0', lineHeight: 1.6, margin: 0, fontWeight: 500 }}>{unlockedChest.message}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* SPONSORED IN-DROP AD */}
-              {ads.length > 0 && ads[activeAdIndex] && (
-                <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: 16, border: '1px solid rgba(234, 88, 12, 0.3)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ padding: '6px 12px', background: 'rgba(234, 88, 12, 0.1)', borderBottom: '1px solid rgba(234, 88, 12, 0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 9, fontWeight: 900, color: '#ea580c', textTransform: 'uppercase', letterSpacing: 2 }}>Decryption Powered By</span>
-                    {downloadAdCountdown > 0 && (
-                      <span style={{ fontSize: 10, fontWeight: 900, color: '#fff' }}>Unlocking in {downloadAdCountdown}s...</span>
-                    )}
-                  </div>
-                  <a href={ads[activeAdIndex].link || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', gap: 16, padding: 12, textDecoration: 'none', alignItems: 'center' }}>
-                    <div style={{ width: 100, height: 60, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#000' }}>
-                      {ads[activeAdIndex].videoUrl ? (
-                         <video src={ads[activeAdIndex].videoUrl} autoPlay muted loop playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                         <img src={ads[activeAdIndex].imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      )}
-                    </div>
-                    <div>
-                      <h4 style={{ margin: 0, color: '#fff', fontSize: 15, fontWeight: 800 }}>{ads[activeAdIndex].title}</h4>
-                      {ads[activeAdIndex].link && <p style={{ margin: '4px 0 0', fontSize: 11, color: '#38bdf8', fontWeight: 600 }}>Visit Sponsor →</p>}
-                    </div>
-                  </a>
-                </div>
-              )}
-
-              {/* FILES GRID */}
-              <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8, scrollSnapType: 'x mandatory' }} className="hide-scrollbar">
-                {(unlockedChest.files && unlockedChest.files.length > 0
-                  ? unlockedChest.files
-                  : [{ fileUrl: unlockedChest.fileUrl, fileName: unlockedChest.fileName, fileSize: unlockedChest.fileSize, mimeType: '' }]
-                ).map((file: any, index: number) => {
-                  const name = file.fileName || '';
-                  const ext = name.split('.').pop()?.toUpperCase() || '';
-                  const isImage = name.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i);
-                  const isVideo = name.match(/\.(mp4|mov|avi|webm|mkv)$/i) || (file.mimeType||'').startsWith('video/');
-                  const isAudio = name.match(/\.(mp3|wav|ogg|aac|flac)$/i) || (file.mimeType||'').startsWith('audio/');
-                  const isPdf = name.match(/\.pdf$/i);
-                  const isApk = name.match(/\.apk$/i);
-                  const emoji = isImage ? '🖼️' : isVideo ? '🎬' : isAudio ? '🎵' : isPdf ? '📕' : isApk ? '📱' : '📄';
-
-                  return (
-                    <div key={index} style={{ minWidth: 260, width: 260, borderRadius: 20, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', scrollSnapAlign: 'start', flexShrink: 0 }}>
-                      {/* Preview Area */}
-                      <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', position: 'relative', overflow: 'hidden' }}>
-                        {isImage && <img src={file.fileUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={name} />}
-                        {isVideo && (
-                          <video src={file.fileUrl} controls muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        )}
-                        {isAudio && (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 16 }}>
-                            <div style={{ fontSize: 56 }}>🎵</div>
-                            <audio src={file.fileUrl} controls style={{ width: '100%' }} />
-                          </div>
-                        )}
-                        {isPdf && <iframe src={file.fileUrl} style={{ width: '100%', height: '100%', border: 'none' }} />}
-                        {!isImage && !isVideo && !isAudio && !isPdf && (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                            <div style={{ fontSize: 64 }}>{emoji}</div>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '4px 12px', borderRadius: 8 }}>{ext}</div>
-                          </div>
-                        )}
-                      </div>
-                      {/* File Info + Download */}
-                      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(15,23,42,0.8)' }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={name}>{name}</div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 10, color: '#475569', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 6 }}>{ext || 'FILE'}</span>
-                          <span style={{ fontSize: 10, color: '#475569' }}>{file.fileSize || ''}</span>
-                        </div>
-                        <button
-                          onClick={() => forceDownload(file.fileUrl, file.fileName)}
-                          disabled={downloadAdCountdown > 0}
-                          style={{ 
-                            background: downloadAdCountdown > 0 ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #2563eb, #5ba4e5)', 
-                            color: downloadAdCountdown > 0 ? '#64748b' : '#fff', 
-                            padding: '10px', 
-                            borderRadius: 12, 
-                            border: 'none', 
-                            fontWeight: 900, 
-                            cursor: downloadAdCountdown > 0 ? 'not-allowed' : 'pointer', 
-                            fontSize: 12, 
-                            textTransform: 'uppercase', 
-                            letterSpacing: 1, 
-                            boxShadow: downloadAdCountdown > 0 ? 'none' : '0 4px 14px rgba(37,99,235,0.35)', 
-                            transition: 'all 0.2s' 
-                          }}
-                          onMouseOver={e => { if (downloadAdCountdown === 0) e.currentTarget.style.transform = 'translateY(-1px)' }}
-                          onMouseOut={e => { if (downloadAdCountdown === 0) e.currentTarget.style.transform = 'translateY(0)' }}
-                        >
-                          {downloadAdCountdown > 0 ? `Wait ${downloadAdCountdown}s...` : '⬇ Download'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {/* REQUESTS LIST MODAL */}
-        {showRequests && currentUser && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[400] bg-slate-950/90 backdrop-blur-md p-10 overflow-y-auto">
-            <div className="flex justify-between items-center mb-10">
-              <h2 className="text-4xl font-black italic uppercase">Access Requests</h2>
-              <button onClick={() => setShowRequests(false)} className="tactical-btn h-12 w-12"><X size={20} /></button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {chests.filter(c => c.droppedBy === currentUser.username).map(c => (
-                c.requests?.map(r => (
-                  <div key={r.from + c._id} className="tactical-panel p-6 flex flex-col gap-4 border-l-4 border-l-amber-500">
-                    <p className="text-xs font-bold">{r.from.toUpperCase()} ACCESS {c.fileName}</p>
-                    <div className="flex gap-2">
-                      {r.status === 'pending' ? (
-                        <><button className="tactical-btn primary flex-1 h-10 text-[9px]" onClick={() => handleRequestAction(c._id!, r.from, 'accepted')}>GRANT</button>
-                          <button className="tactical-btn flex-1 h-10 text-[9px] text-red-500" onClick={() => handleRequestAction(c._id!, r.from, 'rejected')}>DENY</button></>
-                      ) : <span className="text-[10px] font-black uppercase text-slate-500">{r.status}</span>}
-                    </div>
-                  </div>
-                ))
-              ))}
-            </div>
-          </motion.div>
-        )}
-        {/* EDIT INTEL DROP MODAL */}
-        {editingChest && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(16px)' }}>
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} style={{ width: '100%', maxWidth: 500, background: '#0f172a', borderRadius: 32, border: '2px solid rgba(255,255,255,0.1)', padding: 32, display: 'flex', flexDirection: 'column', gap: 24, boxShadow: '0 20px 80px rgba(0,0,0,0.6)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: 0, textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-0.5px' }}>Modify Intel Drop Settings</h3>
-                <button onClick={() => setEditingChest(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 20, padding: '8px 16px', fontWeight: 900, cursor: 'pointer' }}>Close ✕</button>
-              </div>
-
-              <form onSubmit={handleUpdateChestSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px' }}>Drop Name / Title</label>
-                  <input required value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Enter drop title..." style={{ width: '100%', padding: 14, borderRadius: 12, border: '2px solid rgba(255, 255, 255, 0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700, fontSize: 15, outline: 'none' }} />
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px' }}>Security Tier</label>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    {['bronze', 'silver', 'gold'].map((t) => (
-                      <button key={t} type="button" onClick={() => setEditTier(t as any)} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: '2px solid', fontWeight: 900, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, cursor: 'pointer', transition: 'all 0.2s',
-                        backgroundColor: editTier === t ? (t === 'gold' ? '#eab308' : t === 'silver' ? '#cbd5e1' : '#d97706') : 'rgba(255,255,255,0.02)',
-                        borderColor: editTier === t ? '#fff' : 'rgba(255,255,255,0.05)',
-                        color: editTier === t ? '#000' : '#64748b'
-                      }}>{t}</button>
-                    ))}
-                  </div>
-                </div>
-
-                {editTier === 'gold' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <label style={{ fontSize: 9, fontWeight: 900, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '2px' }}>PIN Password Code</label>
-                    <input required type="text" maxLength={8} value={editPin} onChange={e => setEditPin(e.target.value)} placeholder="0000" style={{ width: '100%', padding: 14, borderRadius: 12, border: '2px solid rgba(251, 191, 36, 0.2)', backgroundColor: 'rgba(251, 191, 36, 0.05)', color: '#fbbf24', fontWeight: 900, fontFamily: 'monospace', fontSize: 18, textAlign: 'center', outline: 'none' }} />
-                  </div>
-                )}
-
-                {editTier === 'silver' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <button type="button" onClick={() => setEditSilverMode('COUNT')} style={{ flex: 1, padding: 8, fontSize: 9, fontWeight: 900, borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: editSilverMode === 'COUNT' ? '#cbd5e1' : 'rgba(255,255,255,0.05)', color: editSilverMode === 'COUNT' ? '#000' : '#64748b' }}>ACCESS COUNT LIMIT</button>
-                      <button type="button" onClick={() => setEditSilverMode('TIME')} style={{ flex: 1, padding: 8, fontSize: 9, fontWeight: 900, borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: editSilverMode === 'TIME' ? '#cbd5e1' : 'rgba(255,255,255,0.05)', color: editSilverMode === 'TIME' ? '#000' : '#64748b' }}>TIME TO EXPIRY</button>
-                    </div>
-                    {editSilverMode === 'COUNT' ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Maximum Unlocks (Times)</label>
-                        <input type="number" required value={editMaxOpens} onChange={e => setEditMaxOpens(e.target.value)} placeholder="10" style={{ width: '100%', padding: 12, borderRadius: 10, border: '2px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700 }} />
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <label style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Expires In (Hours from now)</label>
-                        <input type="number" required value={editExpiresAt} onChange={e => setEditExpiresAt(e.target.value)} placeholder="24" style={{ width: '100%', padding: 12, borderRadius: 10, border: '2px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', fontWeight: 700 }} />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <button type="submit" style={{ backgroundColor: '#2563eb', color: '#fff', fontWeight: 900, padding: 16, borderRadius: 12, fontSize: 15, textTransform: 'uppercase', letterSpacing: '2px', cursor: 'pointer', border: 'none', marginTop: 10, boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
-                  Save Intel Changes
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        )}
-
-        {/* INTRO MODAL (HOW TO USE & DOWNLOADS) */}
-        {showIntro && currentUser && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(16px)' }}>
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} style={{ width: '100%', maxWidth: 560, background: '#5ba4e5', border: '2px solid #000', borderRadius: 40, padding: 32, boxShadow: '0 20px 60px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
-              <h2 style={{ fontSize: 28, fontWeight: 900, color: '#000', marginBottom: 24, textTransform: 'uppercase', textAlign: 'center', letterSpacing: 4 }}>HOW TO USE</h2>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
-                <div style={{ display: 'flex', gap: 16, alignItems: 'center', background: 'rgba(255,255,255,0.2)', padding: 16, borderRadius: 24, border: '2px solid #000' }}>
-                  <div style={{ fontSize: 32 }}>ðŸŒ</div>
-                  <div>
-                    <h4 style={{ fontWeight: 800, margin: 0, textTransform: 'uppercase', fontSize: 13 }}>Global Dashboard</h4>
-                    <p style={{ margin: 0, fontSize: 11, fontWeight: 600 }}>Drag to rotate. Scroll to zoom into any sector.</p>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 16, alignItems: 'center', background: 'rgba(255,255,255,0.2)', padding: 16, borderRadius: 24, border: '2px solid #000' }}>
-                  <div style={{ fontSize: 32 }}>ðŸ“¦</div>
-                  <div>
-                    <h4 style={{ fontWeight: 800, margin: 0, textTransform: 'uppercase', fontSize: 13 }}>Drop Data</h4>
-                    <p style={{ margin: 0, fontSize: 11, fontWeight: 600 }}>Click empty areas to drop ordnance (Gold/Silver/Bronze).</p>
-                  </div>
-                </div>
-              </div>
-
-
-
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <button onClick={handleCloseIntro} style={{ background: '#000', color: '#5ba4e5', padding: '14px 48px', borderRadius: 24, fontWeight: 900, fontSize: 18, border: '2px solid #000', cursor: 'pointer', textTransform:       {/* NEW FLOATING SPONSOR PANEL */}
-      {ads.length > 0 && (
-        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 400, width: 320, background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(16px)', borderRadius: 24, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: 'rgba(0,0,0,0.4)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#ea580c', boxShadow: '0 0 10px #ea580c' }}></div>
-              <span style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1 }}>Sponsored Intercept</span>
-            </div>
-            <span style={{ fontSize: 9, fontWeight: 900, color: '#475569' }}>{activeAdIndex + 1}/{ads.length}</span>
-          </div>
-          
-          <a href={ads[activeAdIndex]?.link || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'block', textDecoration: 'none', position: 'relative', aspectRatio: '16/9', overflow: 'hidden' }}>
-            {ads[activeAdIndex]?.videoUrl ? (
-              <video 
-                src={ads[activeAdIndex].videoUrl} 
-                autoPlay 
-                muted 
-                loop 
-                playsInline 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-              />
             ) : (
-              <img 
-                src={ads[activeAdIndex]?.imageUrl} 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                alt="Sponsored" 
-              />
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                {unlockedItems.map((item, idx) => (
+                  <div key={idx} className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-xs text-cyan-300">{item.title}</h4>
+                      <p className="text-[10px] text-slate-400 font-mono">Type: {item.boxType || item.tier}</p>
+                    </div>
+                    {item.fileUrl && (
+                      <button
+                        onClick={() => forceDownload(item.fileUrl!, item.fileName || 'intel.dat')}
+                        className="px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-bold flex items-center gap-1"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        DOWNLOAD
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px 16px 12px', background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)' }}>
-              <h4 style={{ margin: 0, color: '#fff', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ads[activeAdIndex]?.title}</h4>
-              {ads[activeAdIndex]?.link && (
-                <div style={{ fontSize: 10, color: '#38bdf8', fontWeight: 800, marginTop: 2, textTransform: 'uppercase', letterSpacing: 1 }}>Click to access</div>
-              )}
-            </div>
-          </a>
-        </div>
-      )}          )}
-             </div>
           </div>
-          <p style={{ marginTop: 40, fontSize: 10, fontWeight: 900, color: '#475569', textTransform: 'uppercase', letterSpacing: 8 }}>Decryption in Progress â€¢ Please Stand By</p>
         </div>
       )}
-
-      {/* GLOBAL TRANSFER PROGRESS OVERLAY */}
-      <AnimatePresence>
-        {transferProgress !== null && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.9)', backdropFilter: 'blur(32px)' }}>
-             <div style={{ width: '100%', maxWidth: 400, padding: 40, textAlign: 'center' }}>
-                <div style={{ fontSize: 10, fontWeight: 900, color: '#f97316', textTransform: 'uppercase', letterSpacing: 8, marginBottom: 24 }}>System Data Transfer</div>
-                <div style={{ position: 'relative', width: '100%', height: 4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
-                   <motion.div initial={{ width: 0 }} animate={{ width: `${transferProgress}%` }} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, backgroundColor: '#f97316', boxShadow: '0 0 20px #f97316' }} />
-                </div>
-                <div style={{ marginTop: 24, fontSize: 48, fontWeight: 900, fontStyle: 'italic', letterSpacing: -2, color: '#fff' }}>{transferProgress}%</div>
-                <p style={{ fontSize: 9, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginTop: 12 }}>Syncing with Strategic Cloud Network</p>
-             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-
     </div>
   );
 }
 
-export default function App() {
-  if (window.location.pathname === '/admin') {
-    return <AdminPanel />;
-  }
-  return <MainApp />;
-}
+export default App;
