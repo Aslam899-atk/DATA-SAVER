@@ -316,6 +316,25 @@ export function App() {
     }
   };
 
+  const handleMapClickDrop = (lat: number, lng: number) => {
+    const title = prompt('Enter Title for New Box Drop:', 'Secret Map Drop Box');
+    if (!title) return;
+    const pin = prompt('Enter Password / PIN (or leave blank for Free Box):', '');
+    
+    handleAddChest({
+      title,
+      lat,
+      lng,
+      hasPin: !!pin,
+      pin: pin || undefined,
+      boxType: pin ? 'password' : 'free',
+      tier: pin ? 'gold' : 'bronze',
+      message: `Drop placed at Lat ${lat.toFixed(4)}, Lng ${lng.toFixed(4)}`
+    });
+    soundFx.playSuccess();
+    alert('✅ NEW DROP PLACED ON MAP AT CLICKED LOCATION!');
+  };
+
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 font-sans select-none flex flex-col">
       {/* GAME TOP HUD HEADER */}
@@ -403,6 +422,7 @@ export function App() {
           onOpenBox={(chest) => setActiveBoxModal(chest)}
           setEnergy={setEnergy}
           currentCityName={currentCityName}
+          onMapClickDrop={handleMapClickDrop}
         />
       </main>
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { MapPin, Building, Zap, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { MapPin, Building, Zap, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, PlusCircle } from 'lucide-react';
 import { soundFx } from '../utils/soundEffects';
 
 export interface Chest {
@@ -31,6 +31,7 @@ interface IndiaGameMapProps {
   onOpenBox: (chest: Chest) => void;
   setEnergy: React.Dispatch<React.SetStateAction<number>>;
   currentCityName: string;
+  onMapClickDrop?: (lat: number, lng: number) => void;
 }
 
 // Custom Leaflet DivIcon for the Avatar Character
@@ -109,13 +110,26 @@ const MapController: React.FC<{ center: { lat: number; lng: number } }> = ({ cen
   return null;
 };
 
+// Map Click Listener Component for dropping boxes anywhere
+const MapClickHandler: React.FC<{ onMapClick?: (lat: number, lng: number) => void }> = ({ onMapClick }) => {
+  useMapEvents({
+    click(e) {
+      if (onMapClick) {
+        onMapClick(e.latlng.lat, e.latlng.lng);
+      }
+    }
+  });
+  return null;
+};
+
 export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   chests,
   playerPos,
   setPlayerPos,
   onOpenBox,
   setEnergy,
-  currentCityName
+  currentCityName,
+  onMapClickDrop
 }) => {
   // Tile layer style (Street, Dark Cyber, Satellite)
   const [tileStyle, setTileStyle] = useState<'STREET' | 'DARK' | 'SATELLITE'>('STREET');
@@ -123,6 +137,9 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   const [isMoving, setIsMoving] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [nearbyChest, setNearbyChest] = useState<Chest | null>(null);
+
+  // Quick Drop Mode Toggle
+  const [isDropModeActive, setIsDropModeActive] = useState(false);
 
   // Interior Building View toggle
   const [isInsideBuilding, setIsInsideBuilding] = useState(false);
@@ -139,13 +156,11 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   // Keyboard Movement Listener Hook
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Avoid capturing input if user is typing in form inputs
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
 
       keysPressed.current[e.key.toLowerCase()] = true;
       if (e.key === 'Shift') setIsRunning(true);
 
-      // Interact with nearby box using E key
       if ((e.key === 'e' || e.key === 'E') && nearbyChest) {
         onOpenBox(nearbyChest);
       }
@@ -172,7 +187,7 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
 
     const gameLoop = (timestamp: number) => {
       const isShift = keysPressed.current['shift'];
-      const stepSpeed = isShift ? 0.00018 : 0.00008; // Running vs Walking speed on map
+      const stepSpeed = isShift ? 0.00018 : 0.00008;
 
       let dx = 0;
       let dy = 0;
@@ -205,18 +220,15 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
         setDirection(nextDir);
         setIsRunning(isShift);
 
-        // Update player coordinates
         setPlayerPos((prev) => ({
           lat: prev.lat + dy,
           lng: prev.lng + dx
         }));
 
-        // Sound footsteps every 250ms
         if (timestamp - lastStepTime > (isShift ? 180 : 300)) {
           soundFx.playFootstep(isShift);
           lastStepTime = timestamp;
           
-          // Deplete energy slightly when running
           if (isShift) {
             setEnergy((prev) => Math.max(0, prev - 0.2));
           }
@@ -235,7 +247,7 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   // Check Proximity to Chests
   useEffect(() => {
     let closest: Chest | null = null;
-    let minDistance = 0.0006; // Proximity threshold (~50 meters)
+    let minDistance = 0.0006;
 
     chests.forEach((chest) => {
       const dLat = chest.lat - playerPos.lat;
@@ -251,7 +263,14 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
     setNearbyChest(closest);
   }, [playerPos, chests]);
 
-  // Mobile Manual D-Pad Controller Trigger
+  const handleMapClick = (lat: number, lng: number) => {
+    if (isDropModeActive && onMapClickDrop) {
+      soundFx.playSuccess();
+      onMapClickDrop(lat, lng);
+      setIsDropModeActive(false);
+    }
+  };
+
   const triggerMobileStep = (dir: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
     const stepSpeed = isRunning ? 0.0002 : 0.0001;
     setDirection(dir);
@@ -280,13 +299,23 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
         <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-900/90 border border-cyan-500/30 backdrop-blur-md shadow-lg text-slate-100 text-xs font-mono">
           <MapPin className="w-4 h-4 text-cyan-400 animate-pulse" />
           <div>
-            <span className="text-[10px] text-slate-400 block">CURRENT REAL STREET LOCATION:</span>
+            <span className="text-[10px] text-slate-400 block">LOCATION:</span>
             <span className="font-bold text-cyan-300">{currentCityName}</span>
           </div>
         </div>
 
-        {/* Tile Layer & View Mode Switches */}
+        {/* Tile Layer & Quick Drop Switches */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-md">
+          <button
+            onClick={() => setIsDropModeActive(!isDropModeActive)}
+            className={`px-3 py-1 rounded-xl text-[11px] font-mono font-bold flex items-center gap-1 transition-all ${
+              isDropModeActive ? 'bg-amber-400 text-slate-950 animate-pulse shadow-lg' : 'bg-slate-800 text-amber-300 hover:bg-slate-700'
+            }`}
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            {isDropModeActive ? 'CLICK MAP TO DROP BOX' : 'CLICK-DROP MODE'}
+          </button>
+
           {(['STREET', 'DARK', 'SATELLITE'] as const).map((style) => (
             <button
               key={style}
@@ -312,6 +341,13 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
           </button>
         </div>
       </div>
+
+      {/* DROP MODE BANNER INSTRUCTION */}
+      {isDropModeActive && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-auto bg-amber-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs shadow-xl animate-bounce">
+          🎯 Click anywhere on the map to place a new Box Drop!
+        </div>
+      )}
 
       {/* PROXIMITY INTERACT PROMPT OVERLAY */}
       {nearbyChest && !isInsideBuilding && (
@@ -377,6 +413,7 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
           >
             <TileLayer url={tileUrls[tileStyle]} />
             <MapController center={playerPos} />
+            <MapClickHandler onMapClick={handleMapClick} />
 
             {/* AVATAR CHARACTER MARKER ON REAL STREETS */}
             <Marker
