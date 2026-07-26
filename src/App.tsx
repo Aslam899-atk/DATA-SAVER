@@ -267,16 +267,18 @@ export function App() {
       id: `chest-custom-${Date.now()}`,
       lat: newChest.lat || playerPos.lat,
       lng: newChest.lng || playerPos.lng,
-      title: newChest.title || 'Admin Drop Box',
-      message: newChest.message || 'Secret admin drop',
+      title: newChest.title || 'User Drop Box',
+      message: newChest.message || 'Secret drop message',
       tier: newChest.tier || 'bronze',
       boxType: newChest.boxType || 'free',
       pin: newChest.pin,
       timerSeconds: newChest.timerSeconds,
       taskType: newChest.taskType,
-      fileName: newChest.fileName || 'admin_drop.dat',
-      fileSize: '1.5 MB',
-      droppedBy: 'ADMIN',
+      fileName: newChest.fileName || 'drop_intel.dat',
+      fileSize: newChest.fileSize || '1.5 MB',
+      fileUrl: newChest.fileUrl,
+      files: newChest.files,
+      droppedBy: newChest.droppedBy || 'Explorer',
       hasPin: !!newChest.pin,
       currentOpens: 0
     };
@@ -316,23 +318,31 @@ export function App() {
     }
   };
 
-  const handleMapClickDrop = (lat: number, lng: number) => {
+  const handleMapClickDrop = async (lat: number, lng: number) => {
     const title = prompt('Enter Title for New Box Drop:', 'Secret Map Drop Box');
     if (!title) return;
+    const message = prompt('Enter Message / Intel text for this Box:', 'Secret message hidden inside!');
     const pin = prompt('Enter Password / PIN (or leave blank for Free Box):', '');
+    const fileUrlInput = prompt('Enter File URL or Image Link (optional):', '');
     
-    handleAddChest({
+    const newChestData: Partial<Chest> = {
       title,
+      message: message || '',
       lat,
       lng,
       hasPin: !!pin,
       pin: pin || undefined,
       boxType: pin ? 'password' : 'free',
       tier: pin ? 'gold' : 'bronze',
-      message: `Drop placed at Lat ${lat.toFixed(4)}, Lng ${lng.toFixed(4)}`
-    });
+      fileUrl: fileUrlInput || undefined,
+      fileName: fileUrlInput ? (fileUrlInput.split('/').pop() || 'attached_intel.dat') : 'intel_drop.dat',
+      fileSize: fileUrlInput ? '1.5 MB' : '0.5 MB',
+      droppedBy: 'Map Explorer'
+    };
+
+    handleAddChest(newChestData);
     soundFx.playSuccess();
-    alert('✅ NEW DROP PLACED ON MAP AT CLICKED LOCATION!');
+    alert('✅ NEW DROP PLACED ON MAP WITH YOUR MESSAGE & FILE!');
   };
 
   return (

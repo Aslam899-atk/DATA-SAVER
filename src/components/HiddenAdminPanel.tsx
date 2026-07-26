@@ -42,6 +42,7 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
   // New Drop Form State
   const [newTitle, setNewTitle] = useState('');
   const [newMessage, setNewMessage] = useState('');
+  const [newFileUrl, setNewFileUrl] = useState('');
   const [newBoxType, setNewBoxType] = useState<'free' | 'password' | 'timer' | 'task'>('free');
   const [newPin, setNewPin] = useState('');
   const [newTimerSeconds, setNewTimerSeconds] = useState(15);
@@ -86,6 +87,9 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
     const chestObj: Partial<Chest> = {
       title: newTitle,
       message: newMessage,
+      fileUrl: newFileUrl || undefined,
+      fileName: newFileUrl ? (newFileUrl.split('/').pop() || 'admin_file.dat') : 'admin_intel_pack.dat',
+      fileSize: newFileUrl ? '2.5 MB' : '1.2 MB',
       boxType: newBoxType,
       tier: newBoxType === 'password' ? 'gold' : newBoxType === 'timer' ? 'silver' : 'bronze',
       hasPin: newBoxType === 'password',
@@ -94,8 +98,6 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
       taskType: newTaskType,
       lat: targetCoords.lat + (Math.random() * 0.004 - 0.002),
       lng: targetCoords.lng + (Math.random() * 0.004 - 0.002),
-      fileName: 'admin_intel_pack.dat',
-      fileSize: '1.2 MB',
       droppedBy: 'HIDDEN_ADMIN'
     };
 
@@ -103,6 +105,7 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
     soundFx.playSuccess();
     setNewTitle('');
     setNewMessage('');
+    setNewFileUrl('');
     alert('SUCCESS: NEW DROP CREATED ON MAP!');
   };
 
@@ -323,6 +326,17 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
                         onChange={(e) => setNewMessage(e.target.value)}
                         placeholder="Secret message hidden inside the box..."
                         rows={2}
+                        className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">Attached File URL / Image Link (Optional)</label>
+                      <input
+                        type="text"
+                        value={newFileUrl}
+                        onChange={(e) => setNewFileUrl(e.target.value)}
+                        placeholder="https://images.unsplash.com/... or document URL"
                         className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
                       />
                     </div>
