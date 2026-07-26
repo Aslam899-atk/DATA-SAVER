@@ -42,6 +42,9 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
   // New Drop Form State
   const [newTitle, setNewTitle] = useState('');
   const [newMessage, setNewMessage] = useState('');
+  // New file upload handling
+  const [newFile, setNewFile] = useState<File | null>(null);
+  const [newFileDataUrl, setNewFileDataUrl] = useState('');
   const [newFileUrl, setNewFileUrl] = useState('');
   const [newBoxType, setNewBoxType] = useState<'free' | 'password' | 'timer' | 'task' | 'puzzle' | 'quiz'>('free');
   const [newPin, setNewPin] = useState('');
@@ -53,7 +56,6 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
   const [newQuizQuestion, setNewQuizQuestion] = useState('');
   const [newQuizAnswer, setNewQuizAnswer] = useState('');
   const [newCityPreset, setNewCityPreset] = useState('malappuram');
-
   // New Ad Form State
   const [newAdTitle, setNewAdTitle] = useState('');
   const [newAdImageUrl, setNewAdImageUrl] = useState('');
@@ -83,18 +85,31 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
     }
   };
 
-  const handleCreateDrop = (e: React.FormEvent) => {
+  const handleCreateDrop = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
     const targetCoords = cityCoordinates[newCityPreset] || cityCoordinates.malappuram;
 
+    // Prepare file data if a file was uploaded
+    let filesArray: Chest['files'] | undefined = undefined;
+    if (newFile && newFileDataUrl) {
+      filesArray = [{
+        fileUrl: newFileDataUrl,
+        fileName: newFile.name,
+        fileSize: `${(newFile.size / 1024).toFixed(1)} KB`,
+        mimeType: newFile.type,
+      }];
+    }
+
     const chestObj: Partial<Chest> = {
       title: newTitle,
       message: newMessage,
-      fileUrl: newFileUrl || undefined,
-      fileName: newFileUrl ? (newFileUrl.split('/').pop() || 'admin_file.dat') : 'admin_intel_pack.dat',
-      fileSize: newFileUrl ? '2.5 MB' : '1.2 MB',
+      // If a file URL was provided manually, keep it; otherwise use uploaded file data
+      fileUrl: newFileUrl || (filesArray ? filesArray[0].fileUrl : undefined),
+      fileName: newFileUrl ? (newFileUrl.split('/').pop() || 'admin_file.dat') : (filesArray ? filesArray[0].fileName : 'admin_intel_pack.dat'),
+      fileSize: newFileUrl ? '2.5 MB' : (filesArray ? filesArray[0].fileSize || '' : '1.2 MB'),
+      files: filesArray,
       boxType: newBoxType,
       tier: newBoxType === 'password' ? 'gold' : newBoxType === 'timer' ? 'silver' : 'bronze',
       hasPin: newBoxType === 'password',
@@ -113,9 +128,12 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
 
     onAddChest(chestObj);
     soundFx.playSuccess();
+    // Reset form fields
     setNewTitle('');
     setNewMessage('');
     setNewFileUrl('');
+    setNewFile(null);
+    setNewFileDataUrl('');
     alert('SUCCESS: NEW DROP CREATED ON MAP!');
   };
 
@@ -340,16 +358,37 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-mono text-slate-400 mb-1">Attached File URL / Image Link (Optional)</label>
-                      <input
-                        type="text"
-                        value={newFileUrl}
-                        onChange={(e) => setNewFileUrl(e.target.value)}
-                        placeholder="https://images.unsplash.com/... or document URL"
-                        className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-xs font-mono text-slate-400 mb-1">File URL (optional)</label>
+                        <input
+                          type="text"
+                          value={newFileUrl}
+                          onChange={(e) => setNewFileUrl(e.target.value)}
+                          placeholder="https://example.com/file.pdf"
+                          className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
+                        />
+                      </div>
+                      <div className="mt-2">
+                        <label className="block text-xs font-mono text-slate-400 mb-1">Upload File (optional)</label>
+                        <input
+                          type="file"
+                          accept="*/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            setNewFile(file);
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                setNewFileDataUrl(reader.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                            } else {
+                              setNewFileDataUrl('');
+                            }
+                          }}
+                          className="w-full text-xs text-slate-200"
+                        />
+                      </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
