@@ -140,8 +140,8 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   currentCityName,
   onMapClickDrop
 }) => {
-  // Tile layer style & Character skins (PUBG, FreeFire, GTA themes)
-  const [tileStyle, setTileStyle] = useState<'STREET' | 'GTA' | 'PUBG' | 'FREEFIRE' | 'SATELLITE'>('GTA');
+  // Tile layer style & Character skins
+  const [tileStyle] = useState<'SATELLITE'>('SATELLITE');
   const [characterSkin, setCharacterSkin] = useState<'pava' | 'pubg' | 'ninja' | 'gta'>('pava');
   const [direction, setDirection] = useState<'UP' | 'DOWN' | 'LEFT' | 'RIGHT'>('DOWN');
   const [isMoving, setIsMoving] = useState(false);
@@ -158,10 +158,6 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   const keysPressed = useRef<{ [key: string]: boolean }>({});
 
   const tileUrls = {
-    STREET: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    GTA: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    PUBG: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    FREEFIRE: 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
     SATELLITE: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
   };
 
@@ -316,8 +312,12 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
           </div>
         </div>
 
-        {/* Tile Layer (GTA, PUBG, FreeFire, Street, Satellite) & Skins */}
+        {/* Satellite Map Indicator & Quick Drop / Skins */}
         <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-md">
+          <div className="px-3 py-1 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[11px] font-mono font-extrabold flex items-center gap-1.5 shadow-md">
+            <span>🛰️ SATELLITE MAP (REAL WORLD)</span>
+          </div>
+
           <button
             onClick={() => setIsDropModeActive(!isDropModeActive)}
             className={`px-3 py-1 rounded-xl text-[11px] font-mono font-bold flex items-center gap-1 transition-all ${
@@ -327,26 +327,6 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
             <PlusCircle className="w-3.5 h-3.5" />
             {isDropModeActive ? 'CLICK MAP TO DROP BOX' : 'CLICK-DROP MODE'}
           </button>
-
-          {(['GTA', 'PUBG', 'FREEFIRE', 'STREET', 'SATELLITE'] as const).map((style) => (
-            <button
-              key={style}
-              onClick={() => setTileStyle(style)}
-              className={`px-3 py-1 rounded-xl text-[11px] font-mono font-bold transition-all ${
-                tileStyle === style
-                  ? style === 'PUBG' ? 'bg-emerald-500 text-slate-950 shadow-md font-extrabold' :
-                    style === 'FREEFIRE' ? 'bg-orange-500 text-slate-950 shadow-md font-extrabold' :
-                    style === 'GTA' ? 'bg-amber-400 text-slate-950 shadow-md font-extrabold' :
-                    'bg-cyan-500 text-slate-950 shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              {style === 'GTA' ? '🏎️ GTA MAP' :
-               style === 'PUBG' ? '🪂 PUBG WARZONE' :
-               style === 'FREEFIRE' ? '🔥 FREEFIRE MAP' :
-               style === 'STREET' ? '🗺️ STREET' : '🛰️ SATELLITE'}
-            </button>
-          ))}
 
           {/* Skin Selector */}
           <select
