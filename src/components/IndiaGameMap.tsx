@@ -38,8 +38,17 @@ interface IndiaGameMapProps {
 const createAvatarDivIcon = (
   direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT',
   isMoving: boolean,
-  isRunning: boolean
+  isRunning: boolean,
+  skin: 'pava' | 'pubg' | 'ninja' | 'gta' = 'pava'
 ) => {
+  const skinTitle = skin === 'pubg' ? '🪂 PUBG Commando' :
+                    skin === 'ninja' ? '🥷 Cyber Ninja' :
+                    skin === 'gta' ? '🕶️ GTA Heister' : '🧍 Pava Explorer';
+
+  const skinShirtColor = skin === 'pubg' ? '#15803d' :
+                         skin === 'ninja' ? '#7e22ce' :
+                         skin === 'gta' ? '#dc2626' : (isRunning ? '#f59e0b' : '#06b6d4');
+
   return L.divIcon({
     className: 'custom-avatar-marker-icon',
     html: `
@@ -47,17 +56,17 @@ const createAvatarDivIcon = (
         <div class="relative flex flex-col items-center justify-center">
           <div class="absolute -top-7 px-2 py-0.5 rounded-full bg-black/80 border border-cyan-400/60 text-[10px] text-cyan-300 font-mono font-bold whitespace-nowrap shadow-lg flex items-center gap-1 backdrop-blur-md">
             <span class="w-1.5 h-1.5 rounded-full ${isRunning ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}"></span>
-            Pava Explorer ${isRunning ? '⚡RUN' : ''}
+            ${skinTitle} ${isRunning ? '⚡RUN' : ''}
           </div>
           ${isRunning ? '<div class="absolute w-12 h-12 rounded-full bg-amber-500/30 blur-sm animate-pulse"></div>' : ''}
           <div class="relative w-10 h-10 ${isMoving ? (isRunning ? 'animate-bounce' : 'animate-pulse') : ''}">
             <svg viewBox="0 0 64 64" class="w-full h-full drop-shadow-[0_0_10px_rgba(6,182,212,0.8)] ${direction === 'LEFT' ? 'style="transform: scaleX(-1);"' : ''}">
-              <circle cx="32" cy="18" r="11" fill="#fcd34d" stroke="#d97706" stroke-width="2" />
-              <path d="M 23 14 Q 32 8 41 14 Q 32 12 23 14 Z" fill="#92400e" />
+              <circle cx="32" cy="18" r="11" fill="${skin === 'pubg' ? '#d97706' : skin === 'ninja' ? '#581c87' : '#fcd34d'}" stroke="#d97706" stroke-width="2" />
+              <path d="M 23 14 Q 32 8 41 14 Q 32 12 23 14 Z" fill="${skin === 'pubg' ? '#166534' : skin === 'gta' ? '#1e293b' : '#92400e'}" />
               <circle cx="28" cy="18" r="2" fill="#000" />
               <circle cx="36" cy="18" r="2" fill="#000" />
               <path d="M 28 23 Q 32 26 36 23" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" />
-              <path d="M 20 29 C 20 26, 44 26, 44 29 L 42 45 C 42 47, 22 47, 22 45 Z" fill="${isRunning ? '#f59e0b' : '#06b6d4'}" stroke="#0891b2" stroke-width="2" />
+              <path d="M 20 29 C 20 26, 44 26, 44 29 L 42 45 C 42 47, 22 47, 22 45 Z" fill="${skinShirtColor}" stroke="#0891b2" stroke-width="2" />
               <circle cx="32" cy="35" r="3" fill="#ffffff" />
               <rect x="24" y="45" width="6" height="13" rx="3" fill="#1e293b" />
               <rect x="34" y="45" width="6" height="13" rx="3" fill="#1e293b" />
@@ -131,8 +140,9 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   currentCityName,
   onMapClickDrop
 }) => {
-  // Tile layer style (Street, Dark Cyber, Satellite)
-  const [tileStyle, setTileStyle] = useState<'STREET' | 'DARK' | 'SATELLITE'>('STREET');
+  // Tile layer style & Character skins (PUBG, FreeFire, GTA themes)
+  const [tileStyle, setTileStyle] = useState<'STREET' | 'GTA' | 'PUBG' | 'FREEFIRE' | 'SATELLITE'>('GTA');
+  const [characterSkin, setCharacterSkin] = useState<'pava' | 'pubg' | 'ninja' | 'gta'>('pava');
   const [direction, setDirection] = useState<'UP' | 'DOWN' | 'LEFT' | 'RIGHT'>('DOWN');
   const [isMoving, setIsMoving] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
@@ -149,7 +159,9 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
 
   const tileUrls = {
     STREET: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    DARK: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    GTA: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    PUBG: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    FREEFIRE: 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
     SATELLITE: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
   };
 
@@ -304,8 +316,8 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
           </div>
         </div>
 
-        {/* Tile Layer & Quick Drop Switches */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-md">
+        {/* Tile Layer (GTA, PUBG, FreeFire, Street, Satellite) & Skins */}
+        <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-md">
           <button
             onClick={() => setIsDropModeActive(!isDropModeActive)}
             className={`px-3 py-1 rounded-xl text-[11px] font-mono font-bold flex items-center gap-1 transition-all ${
@@ -316,19 +328,37 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
             {isDropModeActive ? 'CLICK MAP TO DROP BOX' : 'CLICK-DROP MODE'}
           </button>
 
-          {(['STREET', 'DARK', 'SATELLITE'] as const).map((style) => (
+          {(['GTA', 'PUBG', 'FREEFIRE', 'STREET', 'SATELLITE'] as const).map((style) => (
             <button
               key={style}
               onClick={() => setTileStyle(style)}
               className={`px-3 py-1 rounded-xl text-[11px] font-mono font-bold transition-all ${
                 tileStyle === style
-                  ? 'bg-cyan-500 text-slate-950 shadow-md'
+                  ? style === 'PUBG' ? 'bg-emerald-500 text-slate-950 shadow-md font-extrabold' :
+                    style === 'FREEFIRE' ? 'bg-orange-500 text-slate-950 shadow-md font-extrabold' :
+                    style === 'GTA' ? 'bg-amber-400 text-slate-950 shadow-md font-extrabold' :
+                    'bg-cyan-500 text-slate-950 shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              {style} MAP
+              {style === 'GTA' ? '🏎️ GTA MAP' :
+               style === 'PUBG' ? '🪂 PUBG WARZONE' :
+               style === 'FREEFIRE' ? '🔥 FREEFIRE MAP' :
+               style === 'STREET' ? '🗺️ STREET' : '🛰️ SATELLITE'}
             </button>
           ))}
+
+          {/* Skin Selector */}
+          <select
+            value={characterSkin}
+            onChange={(e) => setCharacterSkin(e.target.value as any)}
+            className="px-2 py-1 rounded-xl bg-slate-950 text-cyan-300 border border-cyan-500/40 text-[11px] font-mono font-bold focus:outline-none"
+          >
+            <option value="pava">🧍 SKIN: PAVA RUNNER</option>
+            <option value="pubg">🪂 SKIN: PUBG COMMANDO</option>
+            <option value="ninja">🥷 SKIN: CYBER NINJA</option>
+            <option value="gta">🕶️ SKIN: GTA HEISTER</option>
+          </select>
 
           <button
             onClick={() => setIsInsideBuilding(!isInsideBuilding)}
@@ -418,7 +448,7 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
             {/* AVATAR CHARACTER MARKER ON REAL STREETS */}
             <Marker
               position={[playerPos.lat, playerPos.lng]}
-              icon={createAvatarDivIcon(direction, isMoving, isRunning)}
+              icon={createAvatarDivIcon(direction, isMoving, isRunning, characterSkin)}
             />
 
             {/* REAL MAP CHEST DROPS */}
