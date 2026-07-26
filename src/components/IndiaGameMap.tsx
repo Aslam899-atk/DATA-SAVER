@@ -158,7 +158,8 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   // Quick Drop Mode Toggle
   const [isDropModeActive, setIsDropModeActive] = useState(false);
 
-  // Interior Building View toggle
+  // 3D Sketchfab Map View & Interior Building View toggles
+  const [is3DViewMode, setIs3DViewMode] = useState(false);
   const [isInsideBuilding, setIsInsideBuilding] = useState(false);
 
   // Key state tracking
@@ -319,11 +320,22 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
           </div>
         </div>
 
-        {/* Satellite Map Indicator & Quick Drop / Skins */}
+        {/* Satellite Map Indicator & Quick Drop / Skins & 3D Interactive Map Switcher */}
         <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-md">
-          <div className="px-3 py-1 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[11px] font-mono font-extrabold flex items-center gap-1.5 shadow-md">
-            <span>🛰️ SATELLITE MAP (REAL WORLD)</span>
-          </div>
+          <button
+            onClick={() => setIs3DViewMode(!is3DViewMode)}
+            className={`px-3 py-1 rounded-xl text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all ${
+              is3DViewMode ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg animate-pulse' : 'bg-slate-800 text-purple-300 hover:bg-slate-700'
+            }`}
+          >
+            <span>🧊 {is3DViewMode ? 'RETURN TO SATELLITE MAP' : '3D SKETCHFAB INTERACTIVE MAP'}</span>
+          </button>
+
+          {!is3DViewMode && (
+            <div className="px-3 py-1 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[11px] font-mono font-extrabold flex items-center gap-1.5 shadow-md">
+              <span>🛰️ SATELLITE MAP (REAL WORLD)</span>
+            </div>
+          )}
 
           <button
             onClick={() => setIsDropModeActive(!isDropModeActive)}
