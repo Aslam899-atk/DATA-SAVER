@@ -18,9 +18,16 @@ export interface Chest {
   droppedBy: string;
   hasPin?: boolean;
   pin?: string;
-  boxType?: 'free' | 'password' | 'timer' | 'task';
+  boxType?: 'free' | 'password' | 'timer' | 'task' | 'puzzle' | 'quiz';
   taskType?: 'memory' | 'cipher' | 'pattern';
   timerSeconds?: number;
+  expiresAtHours?: number;
+  maxUserOpens?: number;
+  currentOpens?: number;
+  puzzleGridSize?: '3x3' | '4x4' | '5x5';
+  puzzleImage?: string;
+  quizQuestion?: string;
+  quizAnswer?: string;
 }
 
 interface BoxModalProps {
@@ -28,25 +35,33 @@ interface BoxModalProps {
   onClose: () => void;
   onSuccessUnlock: (chest: Chest) => void;
   forceDownload: (url: string, filename: string) => void;
+  isAdmin?: boolean;
 }
 
 export const BoxModal: React.FC<BoxModalProps> = ({
   chest,
   onClose,
   onSuccessUnlock,
-  forceDownload
+  forceDownload,
+  isAdmin = false
 }) => {
   if (!chest) return null;
 
   // Determine effective box mode
-  const effectiveType: 'free' | 'password' | 'timer' | 'task' = chest.boxType || (
+  const effectiveType = chest.boxType || (
     chest.hasPin || chest.tier === 'gold' ? 'password' :
     chest.tier === 'silver' ? 'timer' : 'free'
   );
 
   const [enteredPin, setEnteredPin] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(isAdmin);
+  const [userQuizAnswer, setUserQuizAnswer] = useState('');
+
+  // Sliding Tile Puzzle State (3x3, 4x4, 5x5)
+  const gridSize = chest.puzzleGridSize === '5x5' ? 5 : chest.puzzleGridSize === '4x4' ? 4 : 3;
+  const totalTiles = gridSize * gridSize;
+  const [tiles, setTiles] = useState<number[]>([]);
 
   // Timer mode state
   const [timeLeft, setTimeLeft] = useState<number>(chest.timerSeconds || 10);
@@ -168,6 +183,57 @@ export const BoxModal: React.FC<BoxModalProps> = ({
       onSuccessUnlock(chest);
     } else {
       setErrorMsg('CIPHER SOLVE FAILED');
+      soundFx.playError();
+    }
+  };
+
+  // Initialize sliding tile puzzle when box opens
+  useEffect(() => {
+    if (effectiveType === 'puzzle') {
+      const initial = Array.from({ length: totalTiles }, (_, i) => i);
+      // Shuffle array
+      for (let i = initial.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [initial[i], initial[j]] = [initial[j], initial[i]];
+      }
+      setTiles(initial);
+    }
+  }, [chest, effectiveType, totalTiles]);
+
+  const handleTileClick = (index: number) => {
+    const emptyIndex = tiles.indexOf(totalTiles - 1);
+    const row = Math.floor(index / gridSize);
+    const col = index % gridSize;
+    const emptyRow = Math.floor(emptyIndex / gridSize);
+    const emptyCol = emptyIndex % gridSize;
+
+    // Check if adjacent
+    if (Math.abs(row - emptyRow) + Math.abs(col - emptyCol) === 1) {
+      soundFx.playAdminBeep();
+      const nextTiles = [...tiles];
+      [nextTiles[index], nextTiles[emptyIndex]] = [nextTiles[emptyIndex], nextTiles[index]];
+      setTiles(nextTiles);
+
+      // Check if solved
+      const isSolved = nextTiles.every((val, i) => val === i);
+      if (isSolved) {
+        setIsUnlocked(true);
+        soundFx.playSuccess();
+        onSuccessUnlock(chest);
+      }
+    }
+  };
+
+  const handleQuizSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const correct = (chest.quizAnswer || '').trim().toLowerCase();
+    if (userQuizAnswer.trim().toLowerCase() === correct) {
+      setIsUnlocked(true);
+      setErrorMsg('');
+      soundFx.playSuccess();
+      onSuccessUnlock(chest);
+    } else {
+      setErrorMsg('INCORRECT QUIZ ANSWER! TRY AGAIN.');
       soundFx.playError();
     }
   };
@@ -388,6 +454,73 @@ export const BoxModal: React.FC<BoxModalProps> = ({
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* 5. SLIDING PUZZLE MODE (3x3, 4x4, 5x5) */}
+                {effectiveType === 'puzzle' && (
+                  <div className="space-y-4 text-center">
+                    <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs">
+                      <p className="font-bold uppercase">🧩 SLIDING TILE PUZZLE ({chest.puzzleGridSize || '3x3'})</p>
+                      <p className="text-[11px] text-cyan-400/80">Click adjacent tiles to move and arrange them in order (0 to {totalTiles - 1})!</p>
+                    </div>
+
+                    <div
+                      className="grid gap-1 mx-auto bg-slate-950 p-2 rounded-2xl border border-cyan-500/30"
+                      style={{
+                        gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                        width: `${gridSize * 64}px`
+                      }}
+                    >
+                      {tiles.map((tileVal, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleTileClick(idx)}
+                          className={`h-14 rounded-xl font-bold font-mono text-sm border flex items-center justify-center transition-all ${
+                            tileVal === totalTiles - 1
+                              ? 'bg-slate-900 border-dashed border-slate-800 text-transparent'
+                              : 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white border-cyan-300 shadow-md hover:scale-105'
+                          }`}
+                        >
+                          {tileVal !== totalTiles - 1 && tileVal}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. QUIZ QUESTION MODE */}
+                {effectiveType === 'quiz' && (
+                  <form onSubmit={handleQuizSubmit} className="space-y-4">
+                    <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-center">
+                      <p className="text-xs font-mono text-amber-400 mb-1">❓ ANSWER QUIZ QUESTION TO UNLOCK:</p>
+                      <p className="font-bold text-base text-slate-100">{chest.quizQuestion || 'What is the capital of India?'}</p>
+                    </div>
+
+                    <div>
+                      <input
+                        type="text"
+                        value={userQuizAnswer}
+                        onChange={(e) => setUserQuizAnswer(e.target.value)}
+                        placeholder="Type your answer here..."
+                        autoFocus
+                        className="w-full px-4 py-3 bg-slate-950 border border-amber-500/30 rounded-xl text-center font-mono text-amber-300 text-base focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    {errorMsg && (
+                      <p className="text-xs text-rose-400 text-center font-mono flex items-center justify-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        {errorMsg}
+                      </p>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="w-full py-3.5 rounded-xl font-bold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 shadow-lg shadow-amber-500/20 transition-all transform active:scale-95"
+                    >
+                      SUBMIT QUIZ ANSWER
+                    </button>
+                  </form>
                 )}
               </div>
             ) : (

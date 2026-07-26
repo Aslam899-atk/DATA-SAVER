@@ -43,10 +43,15 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
   const [newTitle, setNewTitle] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [newFileUrl, setNewFileUrl] = useState('');
-  const [newBoxType, setNewBoxType] = useState<'free' | 'password' | 'timer' | 'task'>('free');
+  const [newBoxType, setNewBoxType] = useState<'free' | 'password' | 'timer' | 'task' | 'puzzle' | 'quiz'>('free');
   const [newPin, setNewPin] = useState('');
   const [newTimerSeconds, setNewTimerSeconds] = useState(15);
   const [newTaskType, setNewTaskType] = useState<'memory' | 'cipher' | 'pattern'>('memory');
+  const [newPuzzleGridSize, setNewPuzzleGridSize] = useState<'3x3' | '4x4' | '5x5'>('3x3');
+  const [newExpiresAtHours, setNewExpiresAtHours] = useState(10);
+  const [newMaxUserOpens, setNewMaxUserOpens] = useState(100);
+  const [newQuizQuestion, setNewQuizQuestion] = useState('');
+  const [newQuizAnswer, setNewQuizAnswer] = useState('');
   const [newCityPreset, setNewCityPreset] = useState('malappuram');
 
   // New Ad Form State
@@ -96,6 +101,11 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
       pin: newPin || '1234',
       timerSeconds: newTimerSeconds,
       taskType: newTaskType,
+      puzzleGridSize: newPuzzleGridSize,
+      expiresAtHours: newExpiresAtHours,
+      maxUserOpens: newMaxUserOpens,
+      quizQuestion: newQuizQuestion || undefined,
+      quizAnswer: newQuizAnswer || undefined,
       lat: targetCoords.lat + (Math.random() * 0.004 - 0.002),
       lng: targetCoords.lng + (Math.random() * 0.004 - 0.002),
       droppedBy: 'HIDDEN_ADMIN'
@@ -350,9 +360,11 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
                           className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
                         >
                           <option value="free">FREE BOX (Instant Open)</option>
-                          <option value="password">PASSWORD BOX (Passcode required)</option>
+                          <option value="password">PASSWORD BOX (Passcode / PIN required)</option>
                           <option value="timer">TIMER BOX (Countdown Lock)</option>
-                          <option value="task">TASK MODE BOX (Mini-game Puzzle)</option>
+                          <option value="task">TASK MODE BOX (Memory / Cipher)</option>
+                          <option value="puzzle">PUZZLE MODE (Sliding Tiles 3x3, 4x4, 5x5)</option>
+                          <option value="quiz">QUIZ QUESTION MODE (Q&A Challenge)</option>
                         </select>
                       </div>
 
@@ -395,13 +407,76 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
                           </select>
                         </div>
                       )}
+
+                      {newBoxType === 'puzzle' && (
+                        <div>
+                          <label className="block text-xs font-mono text-slate-400 mb-1">Puzzle Grid Size</label>
+                          <select
+                            value={newPuzzleGridSize}
+                            onChange={(e) => setNewPuzzleGridSize(e.target.value as any)}
+                            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
+                          >
+                            <option value="3x3">3x3 Grid (Standard)</option>
+                            <option value="4x4">4x4 Grid (Medium)</option>
+                            <option value="5x5">5x5 Grid (Hard)</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {newBoxType === 'quiz' && (
+                        <>
+                          <div className="col-span-2">
+                            <label className="block text-xs font-mono text-slate-400 mb-1">Quiz Question</label>
+                            <input
+                              type="text"
+                              value={newQuizQuestion}
+                              onChange={(e) => setNewQuizQuestion(e.target.value)}
+                              placeholder="e.g. What is the capital of Kerala?"
+                              className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs font-mono text-slate-400 mb-1">Quiz Answer</label>
+                            <input
+                              type="text"
+                              value={newQuizAnswer}
+                              onChange={(e) => setNewQuizAnswer(e.target.value)}
+                              placeholder="e.g. Thiruvananthapuram"
+                              className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-mono text-slate-400 mb-1">Time Limit (Hours before Expiry)</label>
+                        <input
+                          type="number"
+                          value={newExpiresAtHours}
+                          onChange={(e) => setNewExpiresAtHours(parseInt(e.target.value))}
+                          placeholder="e.g. 10 hours, 1 hour"
+                          className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-mono text-slate-400 mb-1">Max Opens Limit (How many people)</label>
+                        <input
+                          type="number"
+                          value={newMaxUserOpens}
+                          onChange={(e) => setNewMaxUserOpens(parseInt(e.target.value))}
+                          placeholder="e.g. 50 users"
+                          className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
+                        />
+                      </div>
                     </div>
 
                     <button
                       type="submit"
                       className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold rounded-xl shadow-lg"
                     >
-                      CREATE DROP ON INDIA MAP
+                      CREATE DROP ON MAP
                     </button>
                   </form>
                 )}

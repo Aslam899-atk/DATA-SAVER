@@ -19,9 +19,16 @@ export interface Chest {
   droppedBy: string;
   hasPin?: boolean;
   pin?: string;
-  boxType?: 'free' | 'password' | 'timer' | 'task';
+  boxType?: 'free' | 'password' | 'timer' | 'task' | 'puzzle' | 'quiz';
   taskType?: 'memory' | 'cipher' | 'pattern';
   timerSeconds?: number;
+  expiresAtHours?: number;
+  maxUserOpens?: number;
+  currentOpens?: number;
+  puzzleGridSize?: '3x3' | '4x4' | '5x5';
+  puzzleImage?: string;
+  quizQuestion?: string;
+  quizAnswer?: string;
 }
 
 interface IndiaGameMapProps {

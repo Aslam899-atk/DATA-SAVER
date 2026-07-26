@@ -33,11 +33,17 @@ export interface Chest {
   droppedBy: string;
   hasPin?: boolean;
   pin?: string;
-  boxType?: 'free' | 'password' | 'timer' | 'task';
+  boxType?: 'free' | 'password' | 'timer' | 'task' | 'puzzle' | 'quiz';
   taskType?: 'memory' | 'cipher' | 'pattern';
   timerSeconds?: number;
+  expiresAtHours?: number;
+  maxUserOpens?: number;
   currentOpens?: number;
   requiresRequest?: boolean;
+  puzzleGridSize?: '3x3' | '4x4' | '5x5';
+  puzzleImage?: string;
+  quizQuestion?: string;
+  quizAnswer?: string;
 }
 
 export interface Ad {
@@ -173,9 +179,15 @@ export function App() {
   const [activeBoxModal, setActiveBoxModal] = useState<Chest | null>(null);
   const [activeAd, setActiveAd] = useState<Ad | null>(null);
 
-  // Hidden Admin Panel state
+  // Hidden Admin Panel & Auth state
   const [isHiddenAdminOpen, setIsHiddenAdminOpen] = useState(false);
   const [logoTapCount, setLogoTapCount] = useState(0);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => localStorage.getItem('hiddenAdminAuth') === 'true');
+
+  const handleOpenAdmin = () => {
+    setIsAdminLoggedIn(localStorage.getItem('hiddenAdminAuth') === 'true');
+    setIsHiddenAdminOpen(true);
+  };
 
   // Fetch drops from server API if available
   useEffect(() => {
@@ -321,19 +333,56 @@ export function App() {
   const handleMapClickDrop = async (lat: number, lng: number) => {
     const title = prompt('Enter Title for New Box Drop:', 'Secret Map Drop Box');
     if (!title) return;
+
     const message = prompt('Enter Message / Intel text for this Box:', 'Secret message hidden inside!');
-    const pin = prompt('Enter Password / PIN (or leave blank for Free Box):', '');
-    const fileUrlInput = prompt('Enter File URL or Image Link (optional):', '');
     
+    const modeChoice = prompt(
+      'Select Box Mode:\n1 = FREE (Instant Open)\n2 = PASSWORD (PIN / Passcode)\n3 = QUIZ QUESTION (Q&A Answer)\n4 = PUZZLE 3x3 (Sliding Tiles)\n5 = PUZZLE 4x4\n6 = PUZZLE 5x5',
+      '1'
+    );
+
+    let boxType: 'free' | 'password' | 'quiz' | 'puzzle' = 'free';
+    let pin: string | undefined = undefined;
+    let quizQuestion: string | undefined = undefined;
+    let quizAnswer: string | undefined = undefined;
+    let puzzleGridSize: '3x3' | '4x4' | '5x5' | undefined = undefined;
+
+    if (modeChoice === '2') {
+      boxType = 'password';
+      pin = prompt('Enter Password / PIN code:', '7860') || '1234';
+    } else if (modeChoice === '3') {
+      boxType = 'quiz';
+      quizQuestion = prompt('Enter Quiz Question:', 'What is the capital of India?') || 'What is the capital of India?';
+      quizAnswer = prompt('Enter Quiz Answer:', 'New Delhi') || 'New Delhi';
+    } else if (modeChoice === '4') {
+      boxType = 'puzzle';
+      puzzleGridSize = '3x3';
+    } else if (modeChoice === '5') {
+      boxType = 'puzzle';
+      puzzleGridSize = '4x4';
+    } else if (modeChoice === '6') {
+      boxType = 'puzzle';
+      puzzleGridSize = '5x5';
+    }
+
+    const hoursInput = prompt('Enter Expiry Time Limit in Hours (e.g. 1, 10, 24):', '10');
+    const maxOpensInput = prompt('Enter Max People / Opens Limit (e.g. 50, 100):', '50');
+    const fileUrlInput = prompt('Enter File URL or Image Link (optional):', '');
+
     const newChestData: Partial<Chest> = {
       title,
       message: message || '',
       lat,
       lng,
       hasPin: !!pin,
-      pin: pin || undefined,
-      boxType: pin ? 'password' : 'free',
-      tier: pin ? 'gold' : 'bronze',
+      pin,
+      boxType,
+      quizQuestion,
+      quizAnswer,
+      puzzleGridSize,
+      expiresAtHours: hoursInput ? parseInt(hoursInput) : 10,
+      maxUserOpens: maxOpensInput ? parseInt(maxOpensInput) : 50,
+      tier: boxType === 'password' ? 'gold' : boxType === 'puzzle' ? 'silver' : 'bronze',
       fileUrl: fileUrlInput || undefined,
       fileName: fileUrlInput ? (fileUrlInput.split('/').pop() || 'attached_intel.dat') : 'intel_drop.dat',
       fileSize: fileUrlInput ? '1.5 MB' : '0.5 MB',
@@ -342,7 +391,7 @@ export function App() {
 
     handleAddChest(newChestData);
     soundFx.playSuccess();
-    alert('✅ NEW DROP PLACED ON MAP WITH YOUR MESSAGE & FILE!');
+    alert('✅ NEW CUSTOM DROP PLACED ON MAP WITH YOUR SETTINGS!');
   };
 
   return (
@@ -413,7 +462,7 @@ export function App() {
 
           {/* Hidden Admin Secret Launcher Button */}
           <button
-            onClick={() => setIsHiddenAdminOpen(true)}
+            onClick={handleOpenAdmin}
             className="p-2 rounded-xl bg-slate-900/80 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold flex items-center gap-1.5"
             title="Secret Admin Panel (Ctrl+Shift+A)"
           >
@@ -442,6 +491,7 @@ export function App() {
         onClose={() => setActiveBoxModal(null)}
         onSuccessUnlock={handleSuccessUnlock}
         forceDownload={forceDownload}
+        isAdmin={isAdminLoggedIn}
       />
 
       {/* PERIODIC AD OVERLAY */}
