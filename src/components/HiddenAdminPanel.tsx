@@ -46,6 +46,9 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
   const [newFile, setNewFile] = useState<File | null>(null);
   const [newFileDataUrl, setNewFileDataUrl] = useState('');
   const [newFileUrl, setNewFileUrl] = useState('');
+  const [newPuzzleImageFile, setNewPuzzleImageFile] = useState<File | null>(null);
+  const [newPuzzleImageDataUrl, setNewPuzzleImageDataUrl] = useState('');
+  const [newPuzzleImageUrl, setNewPuzzleImageUrl] = useState('');
   const [newBoxType, setNewBoxType] = useState<'free' | 'password' | 'timer' | 'task' | 'puzzle' | 'quiz'>('free');
   const [newPin, setNewPin] = useState('');
   const [newTimerSeconds, setNewTimerSeconds] = useState(15);
@@ -59,6 +62,8 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
   // New Ad Form State
   const [newAdTitle, setNewAdTitle] = useState('');
   const [newAdImageUrl, setNewAdImageUrl] = useState('');
+  const [newAdImageFile, setNewAdImageFile] = useState<File | null>(null);
+  const [newAdImageDataUrl, setNewAdImageDataUrl] = useState('');
   const [newAdLink, setNewAdLink] = useState('');
 
   const cityCoordinates: Record<string, { lat: number; lng: number; name: string }> = {
@@ -101,6 +106,11 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
         mimeType: newFile.type,
       }];
     }
+    // Prepare puzzle image if uploaded
+    let puzzleImageUrl: string | undefined = undefined;
+    if (newPuzzleImageFile && newPuzzleImageDataUrl) {
+      puzzleImageUrl = newPuzzleImageDataUrl;
+    }
 
     const chestObj: Partial<Chest> = {
       title: newTitle,
@@ -110,6 +120,7 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
       fileName: newFileUrl ? (newFileUrl.split('/').pop() || 'admin_file.dat') : (filesArray ? filesArray[0].fileName : 'admin_intel_pack.dat'),
       fileSize: newFileUrl ? '2.5 MB' : (filesArray ? filesArray[0].fileSize || '' : '1.2 MB'),
       files: filesArray,
+      puzzleImage: puzzleImageUrl || newPuzzleImageUrl,
       boxType: newBoxType,
       tier: newBoxType === 'password' ? 'gold' : newBoxType === 'timer' ? 'silver' : 'bronze',
       hasPin: newBoxType === 'password',
@@ -134,6 +145,9 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
     setNewFileUrl('');
     setNewFile(null);
     setNewFileDataUrl('');
+    setNewPuzzleImageFile(null);
+    setNewPuzzleImageDataUrl('');
+    setNewPuzzleImageUrl('');
     alert('SUCCESS: NEW DROP CREATED ON MAP!');
   };
 
@@ -141,14 +155,19 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
     e.preventDefault();
     if (!newAdTitle.trim()) return;
 
+    // Resolve image URL: manual URL or uploaded file data URL
+    const finalImageUrl = newAdImageUrl || newAdImageDataUrl;
+
     onAddAd({
       title: newAdTitle,
-      imageUrl: newAdImageUrl,
+      imageUrl: finalImageUrl,
       link: newAdLink
     });
     soundFx.playSuccess();
     setNewAdTitle('');
     setNewAdImageUrl('');
+    setNewAdImageFile(null);
+    setNewAdImageDataUrl('');
     setNewAdLink('');
   };
 
@@ -455,10 +474,35 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
                             onChange={(e) => setNewPuzzleGridSize(e.target.value as any)}
                             className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
                           >
+                            <option value="2x2">2x2 Grid (Easy)</option>
                             <option value="3x3">3x3 Grid (Standard)</option>
                             <option value="4x4">4x4 Grid (Medium)</option>
                             <option value="5x5">5x5 Grid (Hard)</option>
                           </select>
+                          <label className="block text-xs font-mono text-slate-400 mb-1 mt-2">Puzzle Image (optional)</label>
+                          <input
+                            type="text"
+                            value={newPuzzleImageUrl || ''}
+                            onChange={(e) => setNewPuzzleImageUrl(e.target.value)}
+                            placeholder="Image URL"
+                            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 mb-2"
+                          />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              setNewPuzzleImageFile(file);
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = () => setNewPuzzleImageDataUrl(reader.result as string);
+                                reader.readAsDataURL(file);
+                              } else {
+                                setNewPuzzleImageDataUrl('');
+                              }
+                            }}
+                            className="w-full text-xs text-slate-200"
+                          />
                         </div>
                       )}
 
@@ -539,6 +583,22 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
                           onChange={(e) => setNewAdImageUrl(e.target.value)}
                           placeholder="Image URL"
                           className="px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200"
+                        />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            setNewAdImageFile(file);
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = () => setNewAdImageDataUrl(reader.result as string);
+                              reader.readAsDataURL(file);
+                            } else {
+                              setNewAdImageDataUrl('');
+                            }
+                          }}
+                          className="w-full text-xs text-slate-200"
                         />
                         <input
                           type="text"
