@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
 import { IndiaGameMap } from './components/IndiaGameMap';
 import { BoxModal } from './components/BoxModal';
 import { AdsOverlay } from './components/AdsOverlay';
@@ -675,64 +677,64 @@ export function App() {
   };
 
   if (!user) {
+    const handleGoogleSuccess = async (credentialResponse: any) => {
+      if (credentialResponse.credential) {
+        try {
+          const decoded: any = jwtDecode(credentialResponse.credential);
+          const response = await axios.post(`${API_URL}/users/login`, {
+            googleId: decoded.sub,
+            name: decoded.name,
+            email: decoded.email,
+            picture: decoded.picture
+          });
+          const userData = response.data;
+          setUser(userData);
+          localStorage.setItem('userSession', JSON.stringify(userData));
+          if (userData.lastLat && userData.lastLng) {
+            setPlayerPos({ lat: userData.lastLat, lng: userData.lastLng });
+            setIsFirstSpawn(false);
+          } else {
+            setIsFirstSpawn(true);
+          }
+          soundFx.playSuccess();
+        } catch (error) {
+          alert("Database login failed!");
+        }
+      }
+    };
+
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "1028751543781-n0o0k541r79qhlshb61j41v830m0p1d5.apps.googleusercontent.com";
+
     return (
-      <div className="relative w-screen h-screen flex flex-col items-center justify-center bg-slate-950 font-mono text-slate-100 select-none overflow-hidden" style={{
-        background: 'linear-gradient(135deg, #1e1b4b 0%, #31102f 50%, #030712 100%)'
-      }}>
-        <div className="absolute inset-0 pointer-events-none opacity-30 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
-        <div className="relative z-10 text-center space-y-6 max-w-md w-full p-8 rounded-3xl bg-slate-900/80 border border-[#ff007f]/30 shadow-[0_0_50px_rgba(255,0,127,0.15)] backdrop-blur-md">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#ff007f] via-[#ec4899] to-[#00f0ff] animate-pulse filter drop-shadow-[0_0_15px_rgba(255,0,127,0.5)]">
-              VICE CITY
-            </h1>
-            <h2 className="text-sm font-bold tracking-widest text-[#00f0ff]">
-              DATA DROPPERS MAP
-            </h2>
-          </div>
-          <form onSubmit={async (e) => {
-            e.preventDefault();
-            const nickname = (e.currentTarget.elements.namedItem('nickname') as HTMLInputElement).value.trim();
-            if (!nickname) return;
-            try {
-              const response = await axios.post(`${API_URL}/users/login`, {
-                googleId: `user-${nickname.toLowerCase().replace(/[^a-z0-9]/g, '')}-${Date.now()}`,
-                name: nickname,
-                email: `${nickname.toLowerCase()}@datadropper.local`,
-                picture: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${nickname}`
-              });
-              const userData = response.data;
-              setUser(userData);
-              localStorage.setItem('userSession', JSON.stringify(userData));
-              if (userData.lastLat && userData.lastLng) {
-                setPlayerPos({ lat: userData.lastLat, lng: userData.lastLng });
-                setIsFirstSpawn(false);
-              } else {
-                setIsFirstSpawn(true);
-              }
-              soundFx.playSuccess();
-            } catch (error) {
-              alert("Login failed!");
-            }
-          }} className="space-y-4">
-            <div>
-              <label className="block text-[10px] text-left text-pink-400 font-bold mb-1 tracking-wider uppercase">ENTER DRIVER NICKNAME</label>
-              <input
-                name="nickname"
-                type="text"
-                placeholder="Tommy Vercetti"
-                required
-                className="w-full px-4 py-3 bg-slate-950 border border-cyan-500/40 rounded-xl text-center text-sm font-bold text-cyan-300 focus:outline-none focus:border-pink-500 transition-all font-mono placeholder-cyan-800"
+      <GoogleOAuthProvider clientId={clientId}>
+        <div className="relative w-screen h-screen flex flex-col items-center justify-center bg-slate-950 font-mono text-slate-100 select-none overflow-hidden" style={{
+          background: 'linear-gradient(135deg, #1e1b4b 0%, #31102f 50%, #030712 100%)'
+        }}>
+          <div className="absolute inset-0 pointer-events-none opacity-30 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
+          <div className="relative z-10 text-center space-y-6 max-w-md w-full p-8 rounded-3xl bg-slate-900/80 border border-[#ff007f]/30 shadow-[0_0_50px_rgba(255,0,127,0.15)] backdrop-blur-md flex flex-col items-center">
+            <div className="space-y-2">
+              <h1 className="text-4xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#ff007f] via-[#ec4899] to-[#00f0ff] animate-pulse filter drop-shadow-[0_0_15px_rgba(255,0,127,0.5)]">
+                VICE CITY
+              </h1>
+              <h2 className="text-sm font-bold tracking-widest text-[#00f0ff]">
+                DATA DROPPERS MAP
+              </h2>
+            </div>
+            
+            <div className="py-4 w-full flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => alert('Google Sign-In failed!')}
+                useOneTap
               />
             </div>
-            <button
-              type="submit"
-              className="w-full py-3.5 bg-gradient-to-r from-[#ff007f] to-[#ec4899] hover:from-[#f43f5e] hover:to-[#db2777] text-white font-extrabold text-xs tracking-widest rounded-xl shadow-lg shadow-pink-500/25 transition-all transform active:scale-95"
-            >
-              ENTER THE GAME
-            </button>
-          </form>
+
+            <p className="text-[10px] text-slate-500 font-mono">
+              Sign in with Google to spawn and sync location.
+            </p>
+          </div>
         </div>
-      </div>
+      </GoogleOAuthProvider>
     );
   }
 
