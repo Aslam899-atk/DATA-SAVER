@@ -51,6 +51,15 @@ app.post('/api/users/login', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+app.post('/api/users/:id/location', async (req, res) => {
+  try {
+    const { lat, lng } = req.body;
+    const user = await db.saveUserLocation(req.params.id, Number(lat), Number(lng));
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 app.get('/api/users', async (req, res) => {
   try {
     const users = await db.getUsers();
@@ -86,7 +95,7 @@ app.post('/api/admin/chests/:id/open', async (req, res) => {
 
 app.post('/api/chests', upload.array('files', 50), async (req, res) => {
   try {
-    const { lat, lng, title, message, tier, droppedBy, pin, maxOpens, expiresAt, silverTimer } = req.body;
+    const { lat, lng, title, message, tier, droppedBy, pin, maxOpens, expiresAt, silverTimer, coinCost, puzzleImage } = req.body;
     
     let uploadedFiles = [];
     if (req.files && req.files.length > 0) {
@@ -114,6 +123,8 @@ app.post('/api/chests', upload.array('files', 50), async (req, res) => {
       maxOpens: maxOpens ? Number(maxOpens) : undefined,
       silverTimer: silverTimer ? Number(silverTimer) : 15,
       expiresAt: expiresAt ? Number(expiresAt) : undefined,
+      coinCost: coinCost ? Number(coinCost) : 0,
+      puzzleImage: puzzleImage || '',
       currentOpens: 0,
       createdAt: new Date().toISOString()
     };
@@ -167,6 +178,35 @@ app.patch('/api/chests/:id', async (req, res) => {
   } catch (error) { 
     res.status(500).json({ error: error.message }); 
   }
+});
+
+app.post('/api/chests/:id/unlock', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { googleId } = req.body;
+    const chest = await db.Chest.findById(id);
+    if (!chest) return res.status(404).json({ message: "NOT FOUND" });
+
+    const coinCost = chest.coinCost || 0;
+    if (coinCost > 0) {
+      const user = await db.User.findOne({ googleId });
+      if (!user) return res.status(404).json({ message: "USER NOT FOUND" });
+      if (user.coins < coinCost) return res.status(400).json({ message: "INSUFFICIENT COINS" });
+
+      // Deduct coins from user
+      await db.updateUserCoins(googleId, -coinCost);
+
+      // Add coins to dropper
+      if (chest.droppedBy && chest.droppedBy !== 'HIDDEN_ADMIN') {
+        const dropper = await db.User.findOne({ $or: [{ googleId: chest.droppedBy }, { name: chest.droppedBy }] });
+        if (dropper) {
+          await db.updateUserCoins(dropper.googleId, coinCost);
+        }
+      }
+    }
+
+    res.json({ message: "UNLOCK SUCCESSFUL" });
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/chests/:id/open', async (req, res) => {
@@ -286,8 +326,54 @@ app.delete('/api/ads/:id', async (req, res) => {
   }
 });
 
+const http = require('http');
+const { Server } = require('socket.io');
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+const players = {};
+
+io.on('connection', (socket) => {
+  console.log(`🔌 Socket connected: ${socket.id}`);
+
+  socket.on('join-game', ({ googleId, name, lat, lng }) => {
+    players[socket.id] = { socketId: socket.id, googleId, name, lat, lng };
+    console.log(`🎮 Player joined: ${name} (${googleId}) at [${lat}, ${lng}]`);
+    // Broadcast to other players
+    socket.broadcast.emit('player-joined', players[socket.id]);
+    // Send current players list to the new player
+    socket.emit('players-list', Object.values(players));
+  });
+
+  socket.on('update-position', ({ lat, lng }) => {
+    if (players[socket.id]) {
+      players[socket.id].lat = lat;
+      players[socket.id].lng = lng;
+      socket.broadcast.emit('player-moved', { socketId: socket.id, lat, lng });
+    }
+  });
+
+  socket.on('webrtc-signal', ({ to, signal }) => {
+    io.to(to).emit('webrtc-signal', { from: socket.id, signal });
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`🔌 Socket disconnected: ${socket.id}`);
+    if (players[socket.id]) {
+      socket.broadcast.emit('player-left', socket.id);
+      delete players[socket.id];
+    }
+  });
+});
+
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  server.listen(PORT, () => console.log(`Server running with Socket.io on port ${PORT}`));
 }
-module.exports = app;
+module.exports = server;

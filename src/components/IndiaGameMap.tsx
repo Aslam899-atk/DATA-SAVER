@@ -39,6 +39,9 @@ interface IndiaGameMapProps {
   setEnergy: React.Dispatch<React.SetStateAction<number>>;
   currentCityName: string;
   onMapClickDrop?: (lat: number, lng: number) => void;
+  onlinePlayers?: { socketId: string; googleId: string; name: string; lat: number; lng: number }[];
+  isFirstSpawn?: boolean;
+  onFirstSpawnSet?: (lat: number, lng: number) => void;
 }
 
 // Custom Leaflet DivIcon for the Avatar Character
@@ -90,23 +93,25 @@ const createAvatarDivIcon = (
 };
 
 // Custom Chest Icon Generator
-const createChestDivIcon = (tier: string, boxType?: string) => {
-  const isGold = tier === 'gold' || boxType === 'password';
-  const isSilver = tier === 'silver' || boxType === 'timer';
-  const isTask = boxType === 'task';
-
-  const colorClass = isTask ? 'from-emerald-500 to-teal-600 border-emerald-300 shadow-emerald-500/50' :
-    isGold ? 'from-amber-400 to-yellow-600 border-amber-200 shadow-amber-500/50' :
-    isSilver ? 'from-purple-400 to-indigo-600 border-purple-200 shadow-purple-500/50' :
-    'from-cyan-400 to-blue-600 border-cyan-200 shadow-cyan-500/50';
+const createChestDivIcon = (tier: string, boxType?: string, coinCost?: number) => {
+  const costColor = coinCost && coinCost > 0 
+    ? 'from-amber-400 to-orange-600 border-pink-400 shadow-pink-500/50' 
+    : 'from-[#eab308] to-[#b45309] border-[#fef08a] shadow-yellow-800/50';
 
   return L.divIcon({
     className: 'custom-chest-marker-icon',
     html: `
       <div class="relative flex flex-col items-center group cursor-pointer" style="transform: translate(-50%, -50%);">
-        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br ${colorClass} border-2 flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-115 animate-bounce">
-          <svg class="w-5 h-5 text-white drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+        ${coinCost && coinCost > 0 ? `
+          <div class="absolute -top-6 px-1.5 py-0.5 rounded bg-amber-500 text-[8px] text-slate-950 font-bold font-mono shadow-md z-30">
+            🪙${coinCost}
+          </div>
+        ` : ''}
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${costColor} border-2 flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-115 animate-bounce">
+          <svg class="w-6 h-6 text-slate-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+            <line x1="12" y1="22.08" x2="12" y2="12" />
           </svg>
         </div>
         <div class="absolute -bottom-1 w-6 h-1.5 bg-black/60 rounded-full blur-[1px]"></div>
@@ -114,6 +119,25 @@ const createChestDivIcon = (tier: string, boxType?: string) => {
     `,
     iconSize: [40, 40],
     iconAnchor: [20, 20]
+  });
+};
+
+const createOnlinePlayerDivIcon = (name: string) => {
+  return L.divIcon({
+    className: 'custom-online-player-marker-icon',
+    html: `
+      <div class="relative flex flex-col items-center justify-center" style="transform: translate(-50%, -50%);">
+        <div class="absolute -top-7 px-2 py-0.5 rounded-full bg-slate-900 border border-[#ff007f] text-[9px] text-[#ff007f] font-mono font-bold whitespace-nowrap shadow-lg flex items-center gap-1 backdrop-blur-md">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#ff007f] animate-ping"></span>
+          ${name}
+        </div>
+        <div class="w-8 h-8 rounded-full border-2 border-[#ff007f] bg-slate-800 flex items-center justify-center text-xs shadow-[0_0_10px_rgba(255,0,127,0.8)]">
+          🧍
+        </div>
+      </div>
+    `,
+    iconSize: [30, 40],
+    iconAnchor: [15, 35]
   });
 };
 
@@ -127,10 +151,16 @@ const MapController: React.FC<{ center: { lat: number; lng: number } }> = ({ cen
 };
 
 // Map Click Listener Component for dropping boxes anywhere
-const MapClickHandler: React.FC<{ onMapClick?: (lat: number, lng: number) => void }> = ({ onMapClick }) => {
+const MapClickHandler: React.FC<{
+  onMapClick?: (lat: number, lng: number) => void;
+  isFirstSpawn?: boolean;
+  onFirstSpawnSet?: (lat: number, lng: number) => void;
+}> = ({ onMapClick, isFirstSpawn, onFirstSpawnSet }) => {
   useMapEvents({
     click(e) {
-      if (onMapClick) {
+      if (isFirstSpawn && onFirstSpawnSet) {
+        onFirstSpawnSet(e.latlng.lat, e.latlng.lng);
+      } else if (onMapClick) {
         onMapClick(e.latlng.lat, e.latlng.lng);
       }
     }
@@ -145,7 +175,10 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   onOpenBox,
   setEnergy,
   currentCityName,
-  onMapClickDrop
+  onMapClickDrop,
+  onlinePlayers = [],
+  isFirstSpawn = false,
+  onFirstSpawnSet
 }) => {
   // Tile layer style & Character skins
   const [tileStyle] = useState<'SATELLITE'>('SATELLITE');
@@ -434,6 +467,20 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
       ) : (
         /* REAL STREET MAP CANVAS VIEW */
         <div className="relative w-full h-full">
+          {isFirstSpawn && (
+            <div className="absolute inset-0 z-40 bg-slate-950/80 backdrop-blur-md flex items-center justify-center pointer-events-auto">
+              <div className="text-center p-8 rounded-3xl bg-slate-900 border border-[#00f0ff]/30 max-w-sm w-full space-y-4 shadow-[0_0_50px_rgba(0,240,255,0.1)]">
+                <div className="text-4xl animate-bounce">📍</div>
+                <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-[#ff007f]">
+                  CHOOSE SPAWN POINT
+                </h3>
+                <p className="text-xs text-slate-400 font-mono">
+                  Click anywhere on the map grid layout to land your character!
+                </p>
+              </div>
+            </div>
+          )}
+
           <MapContainer
             center={[playerPos.lat, playerPos.lng]}
             zoom={17}
@@ -442,20 +489,35 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
           >
             <TileLayer url={tileUrls[tileStyle]} />
             <MapController center={playerPos} />
-            <MapClickHandler onMapClick={handleMapClick} />
+            <MapClickHandler 
+              onMapClick={handleMapClick} 
+              isFirstSpawn={isFirstSpawn}
+              onFirstSpawnSet={onFirstSpawnSet}
+            />
 
             {/* AVATAR CHARACTER MARKER ON REAL STREETS */}
-            <Marker
-              position={[playerPos.lat, playerPos.lng]}
-              icon={createAvatarDivIcon(direction, isMoving, isRunning, characterSkin)}
-            />
+            {!isFirstSpawn && (
+              <Marker
+                position={[playerPos.lat, playerPos.lng]}
+                icon={createAvatarDivIcon(direction, isMoving, isRunning, characterSkin)}
+              />
+            )}
+
+            {/* ONLINE PLAYERS CHARACTER MARKERS */}
+            {onlinePlayers.map((player) => (
+              <Marker
+                key={player.socketId}
+                position={[player.lat, player.lng]}
+                icon={createOnlinePlayerDivIcon(player.name)}
+              />
+            ))}
 
             {/* REAL MAP CHEST DROPS */}
             {chests.map((chest) => (
               <Marker
                 key={chest.id || chest._id || `${chest.lat}-${chest.lng}`}
                 position={[chest.lat, chest.lng]}
-                icon={createChestDivIcon(chest.tier, chest.boxType)}
+                icon={createChestDivIcon(chest.tier, chest.boxType, chest.coinCost)}
                 eventHandlers={{
                   click: () => onOpenBox(chest)
                 }}

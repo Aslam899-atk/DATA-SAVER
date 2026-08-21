@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import { IndiaGameMap } from './components/IndiaGameMap';
 import { BoxModal } from './components/BoxModal';
 import { AdsOverlay } from './components/AdsOverlay';
@@ -17,6 +18,16 @@ import {
   X
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
+
+export interface User {
+  googleId: string;
+  email: string;
+  name: string;
+  picture: string;
+  coins: number;
+  lastLat?: number;
+  lastLng?: number;
+}
 
 export interface Chest {
   id?: string;
@@ -40,10 +51,11 @@ export interface Chest {
   maxUserOpens?: number;
   currentOpens?: number;
   requiresRequest?: boolean;
-  puzzleGridSize?: '3x3' | '4x4' | '5x5';
+  puzzleGridSize?: '2x2' | '3x3' | '4x4' | '5x5';
   puzzleImage?: string;
   quizQuestion?: string;
   quizAnswer?: string;
+  coinCost?: number;
 }
 
 export interface Ad {
@@ -165,6 +177,18 @@ const INITIAL_ADS: Ad[] = [
 
 export function App() {
   // Player state
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('userSession');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [isFirstSpawn, setIsFirstSpawn] = useState(false);
+  const [onlinePlayers, setOnlinePlayers] = useState<{ socketId: string; googleId: string; name: string; lat: number; lng: number }[]>([]);
+
+  const socketRef = useRef<any>(null);
+  const peersRef = useRef<{ [socketId: string]: RTCPeerConnection }>({});
+  const remoteStreamsRef = useRef<{ [socketId: string]: HTMLAudioElement }>({});
+  const localStreamRef = useRef<MediaStream | null>(null);
+
   const [playerPos, setPlayerPos] = useState({ lat: 11.0723, lng: 76.0740 }); // Default: Malappuram
   const [currentCityName, setCurrentCityName] = useState('Malappuram, Kerala');
   const [score, setScore] = useState(150);
@@ -207,6 +231,227 @@ export function App() {
       })
       .catch(() => {});
   }, []);
+
+  // 1. Sync User / Location on reload
+  useEffect(() => {
+    if (user) {
+      axios.post(`${API_URL}/users/login`, {
+        googleId: user.googleId,
+        name: user.name,
+        email: user.email,
+        picture: user.picture
+      }).then(res => {
+        setUser(res.data);
+        localStorage.setItem('userSession', JSON.stringify(res.data));
+        if (res.data.lastLat && res.data.lastLng) {
+          setPlayerPos({ lat: res.data.lastLat, lng: res.data.lastLng });
+          setIsFirstSpawn(false);
+        } else {
+          setIsFirstSpawn(true);
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
+  // 2. Debounce coordinates saving to database
+  useEffect(() => {
+    if (!user || isFirstSpawn) return;
+    const timer = setTimeout(() => {
+      axios.post(`${API_URL}/users/${user.googleId}/location`, {
+        lat: playerPos.lat,
+        lng: playerPos.lng
+      }).catch(() => {});
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [playerPos, user, isFirstSpawn]);
+
+  // 3. User Microphone Access
+  useEffect(() => {
+    if (user && !isFirstSpawn) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          localStreamRef.current = stream;
+        })
+        .catch(err => console.log("Microphone access denied: ", err));
+    }
+    return () => {
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(t => t.stop());
+        localStreamRef.current = null;
+      }
+    };
+  }, [user, isFirstSpawn]);
+
+  // 4. Socket.io and WebRTC setup
+  useEffect(() => {
+    if (!user || isFirstSpawn) return;
+
+    const socketUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin;
+    const socket = io(socketUrl);
+    socketRef.current = socket;
+
+    socket.emit('join-game', {
+      googleId: user.googleId,
+      name: user.name,
+      lat: playerPos.lat,
+      lng: playerPos.lng
+    });
+
+    socket.on('player-joined', (newPlayer) => {
+      setOnlinePlayers(prev => {
+        if (prev.some(p => p.socketId === newPlayer.socketId)) return prev;
+        return [...prev, newPlayer];
+      });
+    });
+
+    socket.on('player-moved', ({ socketId, lat, lng }) => {
+      setOnlinePlayers(prev => prev.map(p => p.socketId === socketId ? { ...p, lat, lng } : p));
+    });
+
+    socket.on('player-left', (socketId) => {
+      setOnlinePlayers(prev => prev.filter(p => p.socketId !== socketId));
+      closePeerConnection(socketId);
+    });
+
+    socket.on('players-list', (list) => {
+      setOnlinePlayers(list.filter((p: any) => p.socketId !== socket.id));
+    });
+
+    socket.on('webrtc-signal', async ({ from, signal }) => {
+      let pc = peersRef.current[from];
+      if (!pc) {
+        pc = new RTCPeerConnection({
+          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+        peersRef.current[from] = pc;
+
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach(track => {
+            pc.addTrack(track, localStreamRef.current!);
+          });
+        }
+
+        pc.onicecandidate = (e) => {
+          if (e.candidate) {
+            socketRef.current?.emit('webrtc-signal', {
+              to: from,
+              signal: { type: 'candidate', candidate: e.candidate }
+            });
+          }
+        };
+
+        pc.ontrack = (e) => {
+          const audio = new Audio();
+          audio.srcObject = e.streams[0];
+          audio.autoplay = true;
+          remoteStreamsRef.current[from] = audio;
+        };
+      }
+
+      if (signal.type === 'offer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socketRef.current?.emit('webrtc-signal', {
+          to: from,
+          signal: { type: 'answer', answer }
+        });
+      } else if (signal.type === 'answer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
+      } else if (signal.type === 'candidate') {
+        await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+      // Close all peers
+      Object.keys(peersRef.current).forEach(closePeerConnection);
+    };
+  }, [user, isFirstSpawn]);
+
+  // 5. Emit position changes via socket
+  useEffect(() => {
+    if (socketRef.current && !isFirstSpawn) {
+      socketRef.current.emit('update-position', { lat: playerPos.lat, lng: playerPos.lng });
+    }
+  }, [playerPos, isFirstSpawn]);
+
+  // 6. Proximity audio handler (10 meters check)
+  const getDistanceInMeters = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371e3;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const initiatePeerConnection = async (targetSocketId: string) => {
+    if (peersRef.current[targetSocketId]) return;
+
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+    peersRef.current[targetSocketId] = pc;
+
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => {
+        pc.addTrack(track, localStreamRef.current!);
+      });
+    }
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        socketRef.current?.emit('webrtc-signal', {
+          to: targetSocketId,
+          signal: { type: 'candidate', candidate: e.candidate }
+        });
+      }
+    };
+
+    pc.ontrack = (e) => {
+      const audio = new Audio();
+      audio.srcObject = e.streams[0];
+      audio.autoplay = true;
+      remoteStreamsRef.current[targetSocketId] = audio;
+    };
+
+    if (socketRef.current && socketRef.current.id < targetSocketId) {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socketRef.current.emit('webrtc-signal', {
+        to: targetSocketId,
+        signal: { type: 'offer', offer }
+      });
+    }
+  };
+
+  const closePeerConnection = (targetSocketId: string) => {
+    if (peersRef.current[targetSocketId]) {
+      peersRef.current[targetSocketId].close();
+      delete peersRef.current[targetSocketId];
+    }
+    if (remoteStreamsRef.current[targetSocketId]) {
+      remoteStreamsRef.current[targetSocketId].pause();
+      delete remoteStreamsRef.current[targetSocketId];
+    }
+  };
+
+  useEffect(() => {
+    if (!socketRef.current || isFirstSpawn) return;
+    onlinePlayers.forEach(player => {
+      const dist = getDistanceInMeters(playerPos.lat, playerPos.lng, player.lat, player.lng);
+      if (dist <= 10) {
+        initiatePeerConnection(player.socketId);
+      } else {
+        closePeerConnection(player.socketId);
+      }
+    });
+  }, [onlinePlayers, playerPos, isFirstSpawn]);
 
   // Secret Shortcut Listener (`Ctrl + Shift + A`) for Hidden Admin Panel
   useEffect(() => {
@@ -257,6 +502,24 @@ export function App() {
     }
   };
 
+  const handleUnlockWithCoins = async (chest: Chest) => {
+    if (!user) return false;
+    try {
+      const response = await axios.post(`${API_URL}/chests/${chest.id || chest._id}/unlock`, {
+        googleId: user.googleId
+      });
+      if (response.status === 200) {
+        const updatedUser = { ...user, coins: user.coins - (chest.coinCost || 0) };
+        setUser(updatedUser);
+        localStorage.setItem('userSession', JSON.stringify(updatedUser));
+        return true;
+      }
+    } catch (e) {
+      console.log("Unlock transaction failed", e);
+    }
+    return false;
+  };
+
   const handleAdReward = () => {
     setScore(prev => prev + 50);
     setEnergy(prev => Math.min(100, prev + 50));
@@ -292,6 +555,7 @@ export function App() {
       files: newChest.files,
       droppedBy: newChest.droppedBy || 'Explorer',
       hasPin: !!newChest.pin,
+      coinCost: newChest.coinCost || 0,
       currentOpens: 0
     };
 
@@ -368,6 +632,7 @@ export function App() {
     const hoursInput = prompt('Enter Expiry Time Limit in Hours (e.g. 1, 10, 24):', '10');
     const maxOpensInput = prompt('Enter Max People / Opens Limit (e.g. 50, 100):', '50');
     const fileUrlInput = prompt('Enter File URL or Image Link (optional):', '');
+    const coinCostInput = prompt('Enter Coin Unlock Cost (0 for Free):', '0');
 
     const newChestData: Partial<Chest> = {
       title,
@@ -386,13 +651,88 @@ export function App() {
       fileUrl: fileUrlInput || undefined,
       fileName: fileUrlInput ? (fileUrlInput.split('/').pop() || 'attached_intel.dat') : 'intel_drop.dat',
       fileSize: fileUrlInput ? '1.5 MB' : '0.5 MB',
-      droppedBy: 'Map Explorer'
+      coinCost: coinCostInput ? parseInt(coinCostInput) : 0,
+      droppedBy: user ? user.name : 'Map Explorer'
     };
 
     handleAddChest(newChestData);
     soundFx.playSuccess();
-    alert('✅ NEW CUSTOM DROP PLACED ON MAP WITH YOUR SETTINGS!');
+  const handleFirstSpawnSet = async (lat: number, lng: number) => {
+    if (!user) return;
+    try {
+      await axios.post(`${API_URL}/users/${user.googleId}/location`, { lat, lng });
+      const updatedUser = { ...user, lastLat: lat, lastLng: lng };
+      setUser(updatedUser);
+      localStorage.setItem('userSession', JSON.stringify(updatedUser));
+      setPlayerPos({ lat, lng });
+      setIsFirstSpawn(false);
+      soundFx.playSuccess();
+    } catch (e) {
+      console.log("Failed to set spawn", e);
+    }
   };
+
+  if (!user) {
+    return (
+      <div className="relative w-screen h-screen flex flex-col items-center justify-center bg-slate-950 font-mono text-slate-100 select-none overflow-hidden" style={{
+        background: 'linear-gradient(135deg, #1e1b4b 0%, #31102f 50%, #030712 100%)'
+      }}>
+        <div className="absolute inset-0 pointer-events-none opacity-30 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
+        <div className="relative z-10 text-center space-y-6 max-w-md w-full p-8 rounded-3xl bg-slate-900/80 border border-[#ff007f]/30 shadow-[0_0_50px_rgba(255,0,127,0.15)] backdrop-blur-md">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#ff007f] via-[#ec4899] to-[#00f0ff] animate-pulse filter drop-shadow-[0_0_15px_rgba(255,0,127,0.5)]">
+              VICE CITY
+            </h1>
+            <h2 className="text-sm font-bold tracking-widest text-[#00f0ff]">
+              DATA DROPPERS MAP
+            </h2>
+          </div>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const nickname = (e.currentTarget.elements.namedItem('nickname') as HTMLInputElement).value.trim();
+            if (!nickname) return;
+            try {
+              const response = await axios.post(`${API_URL}/users/login`, {
+                googleId: `user-${nickname.toLowerCase().replace(/[^a-z0-9]/g, '')}-${Date.now()}`,
+                name: nickname,
+                email: `${nickname.toLowerCase()}@datadropper.local`,
+                picture: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${nickname}`
+              });
+              const userData = response.data;
+              setUser(userData);
+              localStorage.setItem('userSession', JSON.stringify(userData));
+              if (userData.lastLat && userData.lastLng) {
+                setPlayerPos({ lat: userData.lastLat, lng: userData.lastLng });
+                setIsFirstSpawn(false);
+              } else {
+                setIsFirstSpawn(true);
+              }
+              soundFx.playSuccess();
+            } catch (error) {
+              alert("Login failed!");
+            }
+          }} className="space-y-4">
+            <div>
+              <label className="block text-[10px] text-left text-pink-400 font-bold mb-1 tracking-wider uppercase">ENTER DRIVER NICKNAME</label>
+              <input
+                name="nickname"
+                type="text"
+                placeholder="Tommy Vercetti"
+                required
+                className="w-full px-4 py-3 bg-slate-950 border border-cyan-500/40 rounded-xl text-center text-sm font-bold text-cyan-300 focus:outline-none focus:border-pink-500 transition-all font-mono placeholder-cyan-800"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full py-3.5 bg-gradient-to-r from-[#ff007f] to-[#ec4899] hover:from-[#f43f5e] hover:to-[#db2777] text-white font-extrabold text-xs tracking-widest rounded-xl shadow-lg shadow-pink-500/25 transition-all transform active:scale-95"
+            >
+              ENTER THE GAME
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 font-sans select-none flex flex-col">
@@ -435,6 +775,12 @@ export function App() {
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono text-cyan-300">
             <Award className="w-4 h-4 text-cyan-400" />
             <span className="font-bold">{score} XP</span>
+          </div>
+
+          {/* Player Coins */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono text-amber-400">
+            <span className="text-sm">🪙</span>
+            <span className="font-bold">{user?.coins || 0} COINS</span>
           </div>
 
           {/* Inventory Drawer Trigger */}
@@ -482,6 +828,9 @@ export function App() {
           setEnergy={setEnergy}
           currentCityName={currentCityName}
           onMapClickDrop={handleMapClickDrop}
+          onlinePlayers={onlinePlayers}
+          isFirstSpawn={isFirstSpawn}
+          onFirstSpawnSet={handleFirstSpawnSet}
         />
       </main>
 
@@ -492,6 +841,8 @@ export function App() {
         onSuccessUnlock={handleSuccessUnlock}
         forceDownload={forceDownload}
         isAdmin={isAdminLoggedIn}
+        userCoins={user?.coins || 0}
+        onUnlockWithCoins={handleUnlockWithCoins}
       />
 
       {/* PERIODIC AD OVERLAY */}

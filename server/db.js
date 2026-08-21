@@ -25,6 +25,7 @@ const chestSchema = new mongoose.Schema({
   hasPin: Boolean,
   pin: String,
   maxOpens: Number,
+  coinCost: { type: Number, default: 0 },
   silverTimer: { type: Number, default: 15 },
   currentOpens: { type: Number, default: 0 },
   expiresAt: Number,
@@ -41,6 +42,9 @@ const userSchema = new mongoose.Schema({
   email: String,
   name: String,
   picture: String,
+  coins: { type: Number, default: 100 },
+  lastLat: { type: Number },
+  lastLng: { type: Number },
   tier: { type: String, default: 'bronze' },
   lastLogin: { type: Date, default: Date.now }
 });
@@ -107,6 +111,21 @@ module.exports = {
     return await newAd.save();
   },
   deleteAd: async (id) => await Ad.findByIdAndDelete(id),
+
+  saveUserLocation: async (userId, lat, lng) => {
+    return await User.findOneAndUpdate(
+      { googleId: userId },
+      { $set: { lastLat: lat, lastLng: lng } },
+      { new: true }
+    );
+  },
+  updateUserCoins: async (userId, amount) => {
+    return await User.findOneAndUpdate(
+      { googleId: userId },
+      { $inc: { coins: amount } },
+      { new: true }
+    );
+  },
 
   // Export models directly if needed
   Chest,

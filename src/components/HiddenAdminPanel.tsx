@@ -59,6 +59,7 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
   const [newQuizQuestion, setNewQuizQuestion] = useState('');
   const [newQuizAnswer, setNewQuizAnswer] = useState('');
   const [newCityPreset, setNewCityPreset] = useState('malappuram');
+  const [newCoinCost, setNewCoinCost] = useState(0);
   // New Ad Form State
   const [newAdTitle, setNewAdTitle] = useState('');
   const [newAdImageUrl, setNewAdImageUrl] = useState('');
@@ -134,6 +135,7 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
       quizAnswer: newQuizAnswer || undefined,
       lat: targetCoords.lat + (Math.random() * 0.004 - 0.002),
       lng: targetCoords.lng + (Math.random() * 0.004 - 0.002),
+      coinCost: newCoinCost,
       droppedBy: 'HIDDEN_ADMIN'
     };
 
@@ -148,6 +150,7 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
     setNewPuzzleImageFile(null);
     setNewPuzzleImageDataUrl('');
     setNewPuzzleImageUrl('');
+    setNewCoinCost(0);
     alert('SUCCESS: NEW DROP CREATED ON MAP!');
   };
 
@@ -532,7 +535,7 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-mono text-slate-400 mb-1">Time Limit (Hours before Expiry)</label>
                         <input
@@ -550,6 +553,16 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
                           value={newMaxUserOpens}
                           onChange={(e) => setNewMaxUserOpens(parseInt(e.target.value))}
                           placeholder="e.g. 50 users"
+                          className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-mono text-slate-400 mb-1">Coin Unlock Cost (0 for Free)</label>
+                        <input
+                          type="number"
+                          value={newCoinCost}
+                          onChange={(e) => setNewCoinCost(parseInt(e.target.value) || 0)}
+                          placeholder="e.g. 5 coins"
                           className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200"
                         />
                       </div>

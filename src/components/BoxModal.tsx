@@ -24,7 +24,8 @@ export interface Chest {
   expiresAtHours?: number;
   maxUserOpens?: number;
   currentOpens?: number;
-  puzzleGridSize?: '3x3' | '4x4' | '5x5';
+  coinCost?: number;
+  puzzleGridSize?: '2x2' | '3x3' | '4x4' | '5x5';
   puzzleImage?: string;
   quizQuestion?: string;
   quizAnswer?: string;
@@ -36,6 +37,8 @@ interface BoxModalProps {
   onSuccessUnlock: (chest: Chest) => void;
   forceDownload: (url: string, filename: string) => void;
   isAdmin?: boolean;
+  userCoins?: number;
+  onUnlockWithCoins?: (chest: Chest) => Promise<boolean>;
 }
 
 export const BoxModal: React.FC<BoxModalProps> = ({
@@ -43,7 +46,9 @@ export const BoxModal: React.FC<BoxModalProps> = ({
   onClose,
   onSuccessUnlock,
   forceDownload,
-  isAdmin = false
+  isAdmin = false,
+  userCoins = 0,
+  onUnlockWithCoins
 }) => {
   if (!chest) return null;
 
@@ -57,9 +62,11 @@ export const BoxModal: React.FC<BoxModalProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [isUnlocked, setIsUnlocked] = useState(isAdmin);
   const [userQuizAnswer, setUserQuizAnswer] = useState('');
+  const [isCoinPaid, setIsCoinPaid] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
 
   // Sliding Tile Puzzle State (3x3, 4x4, 5x5)
-  const gridSize = chest.puzzleGridSize === '5x5' ? 5 : chest.puzzleGridSize === '4x4' ? 4 : 3;
+  const gridSize = chest.puzzleGridSize === '5x5' ? 5 : chest.puzzleGridSize === '4x4' ? 4 : chest.puzzleGridSize === '2x2' ? 2 : 3;
   const totalTiles = gridSize * gridSize;
   const [tiles, setTiles] = useState<number[]>([]);
 
@@ -87,6 +94,8 @@ export const BoxModal: React.FC<BoxModalProps> = ({
     setErrorMsg('');
     setEnteredPin('');
     setTimeLeft(chest.timerSeconds || 10);
+    setIsCoinPaid(!chest.coinCost || chest.coinCost <= 0 || isAdmin);
+    setIsPaying(false);
 
     // Initialize Memory Game sequence if task mode
     if (effectiveType === 'task') {
@@ -100,7 +109,7 @@ export const BoxModal: React.FC<BoxModalProps> = ({
       setMemoryStep('SHOW');
       playMemoryDemo(seq);
     }
-  }, [chest]);
+  }, [chest, isAdmin]);
 
   // Timer countdown hook
   useEffect(() => {
@@ -297,7 +306,62 @@ export const BoxModal: React.FC<BoxModalProps> = ({
 
           {/* Main Body */}
           <div className="p-6 space-y-6">
-            {!isUnlocked ? (
+            {!isCoinPaid ? (
+              <div className="py-6 text-center space-y-4">
+                <div className="w-20 h-20 mx-auto rounded-full bg-amber-500/10 border-2 border-amber-400/30 flex items-center justify-center animate-bounce">
+                  <span className="text-3xl">🪙</span>
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-base text-amber-300">COIN LOCK ACTIVE</h4>
+                  <p className="text-xs text-slate-300 mt-1">
+                    This cardboard box drop requires <span className="font-bold text-amber-300">{chest.coinCost} coins</span> to unlock.
+                  </p>
+                  <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                    Your Balance: {userCoins} Coins
+                  </p>
+                </div>
+
+                {errorMsg && (
+                  <p className="text-xs text-rose-400 text-center font-mono flex items-center justify-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    {errorMsg}
+                  </p>
+                )}
+
+                <button
+                  onClick={async () => {
+                    if (userCoins < (chest.coinCost || 0)) {
+                      setErrorMsg("INSUFFICIENT COINS! Explore to earn/find more drops.");
+                      soundFx.playError();
+                      return;
+                    }
+                    setIsPaying(true);
+                    setErrorMsg('');
+                    try {
+                      if (onUnlockWithCoins) {
+                        const success = await onUnlockWithCoins(chest);
+                        if (success) {
+                          setIsCoinPaid(true);
+                          soundFx.playSuccess();
+                        } else {
+                          setErrorMsg("Payment transaction failed.");
+                        }
+                      } else {
+                        setIsCoinPaid(true);
+                      }
+                    } catch (e) {
+                      setErrorMsg("Payment error. Try again.");
+                    } finally {
+                      setIsPaying(false);
+                    }
+                  }}
+                  disabled={isPaying}
+                  className="w-full py-3.5 rounded-xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 shadow-lg shadow-amber-500/25 transition-all transform active:scale-95 disabled:opacity-50"
+                >
+                  {isPaying ? "PROCESSING TRANSACTION..." : `PAY ${chest.coinCost} COINS`}
+                </button>
+              </div>
+            ) : !isUnlocked ? (
               <div>
                 {/* 1. FREE BOX MODE */}
                 {effectiveType === 'free' && (
