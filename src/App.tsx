@@ -657,6 +657,8 @@ export function App() {
 
     handleAddChest(newChestData);
     soundFx.playSuccess();
+  };
+
   const handleFirstSpawnSet = async (lat: number, lng: number) => {
     if (!user) return;
     try {
