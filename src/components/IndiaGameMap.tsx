@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-lea
 import L from 'leaflet';
 import { MapPin, Building, Zap, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, PlusCircle } from 'lucide-react';
 import { soundFx } from '../utils/soundEffects';
+import { ThreeDGameScene } from './ThreeDGameScene';
 
 export interface Chest {
   id?: string;
@@ -339,6 +340,20 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
 
     setTimeout(() => setIsMoving(false), 200);
   };
+
+  if (is3DViewMode) {
+    return (
+      <ThreeDGameScene
+        playerPos={playerPos}
+        setPlayerPos={setPlayerPos}
+        chests={chests}
+        onOpenBox={onOpenBox}
+        onlinePlayers={onlinePlayers}
+        characterSkin={characterSkin}
+        onExit3D={() => setIs3DViewMode(false)}
+      />
+    );
+  }
 
   return (
     <div className="relative w-full h-full flex flex-col overflow-hidden select-none bg-slate-950">
