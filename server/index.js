@@ -326,54 +326,54 @@ app.delete('/api/ads/:id', async (req, res) => {
   }
 });
 
-const http = require('http');
-const { Server } = require('socket.io');
-
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
-
-const players = {};
-
-io.on('connection', (socket) => {
-  console.log(`🔌 Socket connected: ${socket.id}`);
-
-  socket.on('join-game', ({ googleId, name, lat, lng }) => {
-    players[socket.id] = { socketId: socket.id, googleId, name, lat, lng };
-    console.log(`🎮 Player joined: ${name} (${googleId}) at [${lat}, ${lng}]`);
-    // Broadcast to other players
-    socket.broadcast.emit('player-joined', players[socket.id]);
-    // Send current players list to the new player
-    socket.emit('players-list', Object.values(players));
-  });
-
-  socket.on('update-position', ({ lat, lng }) => {
-    if (players[socket.id]) {
-      players[socket.id].lat = lat;
-      players[socket.id].lng = lng;
-      socket.broadcast.emit('player-moved', { socketId: socket.id, lat, lng });
-    }
-  });
-
-  socket.on('webrtc-signal', ({ to, signal }) => {
-    io.to(to).emit('webrtc-signal', { from: socket.id, signal });
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`🔌 Socket disconnected: ${socket.id}`);
-    if (players[socket.id]) {
-      socket.broadcast.emit('player-left', socket.id);
-      delete players[socket.id];
-    }
-  });
-});
-
 if (process.env.NODE_ENV !== 'production') {
+  const http = require('http');
+  const { Server } = require('socket.io');
+
+  const server = http.createServer(app);
+  const io = new Server(server, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"]
+    }
+  });
+
+  const players = {};
+
+  io.on('connection', (socket) => {
+    console.log(`🔌 Socket connected: ${socket.id}`);
+
+    socket.on('join-game', ({ googleId, name, lat, lng }) => {
+      players[socket.id] = { socketId: socket.id, googleId, name, lat, lng };
+      console.log(`🎮 Player joined: ${name} (${googleId}) at [${lat}, ${lng}]`);
+      // Broadcast to other players
+      socket.broadcast.emit('player-joined', players[socket.id]);
+      // Send current players list to the new player
+      socket.emit('players-list', Object.values(players));
+    });
+
+    socket.on('update-position', ({ lat, lng }) => {
+      if (players[socket.id]) {
+        players[socket.id].lat = lat;
+        players[socket.id].lng = lng;
+        socket.broadcast.emit('player-moved', { socketId: socket.id, lat, lng });
+      }
+    });
+
+    socket.on('webrtc-signal', ({ to, signal }) => {
+      io.to(to).emit('webrtc-signal', { from: socket.id, signal });
+    });
+
+    socket.on('disconnect', () => {
+      console.log(`🔌 Socket disconnected: ${socket.id}`);
+      if (players[socket.id]) {
+        socket.broadcast.emit('player-left', socket.id);
+        delete players[socket.id];
+      }
+    });
+  });
+
   const PORT = process.env.PORT || 5000;
   server.listen(PORT, () => console.log(`Server running with Socket.io on port ${PORT}`));
 }
-module.exports = server;
+module.exports = app;
