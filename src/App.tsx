@@ -9,13 +9,10 @@ import { AdsOverlay } from './components/AdsOverlay';
 import { HiddenAdminPanel } from './components/HiddenAdminPanel';
 import { soundFx } from './utils/soundEffects';
 import {
-  ShieldCheck,
-  Volume2,
+    Volume2,
   VolumeX,
   Package,
-  Zap,
-  Award,
-  Compass,
+      Compass,
   Download,
   X,
   HelpCircle
@@ -194,8 +191,8 @@ export function App() {
 
   const [playerPos, setPlayerPos] = useState({ lat: 11.0723, lng: 76.0740 }); // Default: Malappuram
   const [currentCityName, setCurrentCityName] = useState('Malappuram, Kerala');
-  const [score, setScore] = useState(150);
-  const [energy, setEnergy] = useState(100);
+
+
   const [unlockedItems, setUnlockedItems] = useState<Chest[]>([]);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -212,12 +209,9 @@ export function App() {
   // Hidden Admin Panel & Auth state
   const [isHiddenAdminOpen, setIsHiddenAdminOpen] = useState(false);
   const [logoTapCount, setLogoTapCount] = useState(0);
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => localStorage.getItem('hiddenAdminAuth') === 'true');
+  const [isAdminLoggedIn] = useState(() => localStorage.getItem('hiddenAdminAuth') === 'true');
 
-  const handleOpenAdmin = () => {
-    setIsAdminLoggedIn(localStorage.getItem('hiddenAdminAuth') === 'true');
-    setIsHiddenAdminOpen(true);
-  };
+
 
   const [allUsers, setAllUsers] = useState<User[]>([]);
 
@@ -519,8 +513,8 @@ export function App() {
   };
 
   const handleSuccessUnlock = (chest: Chest) => {
-    setScore(prev => prev + 100);
-    setEnergy(prev => Math.min(100, prev + 25));
+
+
     if (!unlockedItems.some(item => (item.id || item._id) === (chest.id || chest._id))) {
       setUnlockedItems(prev => [chest, ...prev]);
     }
@@ -545,8 +539,8 @@ export function App() {
   };
 
   const handleAdReward = () => {
-    setScore(prev => prev + 50);
-    setEnergy(prev => Math.min(100, prev + 50));
+
+
   };
 
   const handleTeleportPlayer = (lat: number, lng: number, cityName: string) => {
@@ -871,7 +865,7 @@ export function App() {
           playerPos={playerPos}
           setPlayerPos={setPlayerPos}
           onOpenBox={(chest) => setActiveBoxModal(chest)}
-          setEnergy={setEnergy}
+
           currentCityName={currentCityName}
           onMapClickDrop={handleMapClickDrop}
           onlinePlayers={onlinePlayers}

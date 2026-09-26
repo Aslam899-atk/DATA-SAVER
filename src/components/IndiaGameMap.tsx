@@ -11,7 +11,7 @@ interface IndiaGameMapProps {
   playerPos: { lat: number; lng: number };
   setPlayerPos: React.Dispatch<React.SetStateAction<{ lat: number; lng: number }>>;
   onOpenBox: (chest: Chest) => void;
-  setEnergy: React.Dispatch<React.SetStateAction<number>>;
+  
   currentCityName: string;
   onMapClickDrop?: (lat: number, lng: number) => void;
   onlinePlayers?: { socketId: string; googleId: string; name: string; lat: number; lng: number }[];
@@ -19,6 +19,7 @@ interface IndiaGameMapProps {
   isFirstSpawn?: boolean;
   onFirstSpawnSet?: (lat: number, lng: number) => void;
   user?: any;
+  onCoinTransfer?: (targetId: string, amount: number) => Promise<void>;
 }
 
 // Custom Leaflet DivIcon for the Avatar Character
@@ -150,14 +151,15 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   playerPos,
   setPlayerPos,
   onOpenBox,
-  setEnergy,
+  
   currentCityName,
   onMapClickDrop,
   onlinePlayers = [],
   allUsers = [],
   isFirstSpawn = false,
   onFirstSpawnSet,
-  user
+  user,
+  onCoinTransfer
 }) => {
   // Tile layer style & Character skins
   const [tileStyle] = useState<'SATELLITE'>('SATELLITE');
@@ -265,7 +267,7 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
           lastStepTime = timestamp;
           
           if (isShift) {
-            setEnergy((prev) => Math.max(0, prev - 0.2));
+            
           }
         }
       } else {
@@ -277,7 +279,7 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
 
     animationFrameId = requestAnimationFrame(gameLoop);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [direction, setPlayerPos, setEnergy]);
+  }, [direction, setPlayerPos]);
 
   // Check Proximity to Chests
   useEffect(() => {
@@ -338,6 +340,7 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
         user={user}
         characterSkin={characterSkin}
         onExit3D={() => setIs3DViewMode(false)}
+        onCoinTransfer={onCoinTransfer}
       />
     );
   }
