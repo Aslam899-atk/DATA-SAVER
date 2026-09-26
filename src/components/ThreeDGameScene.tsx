@@ -48,8 +48,8 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
 
     // 1. Scene & Render Engine Setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x050410); // Vice City dark indigo/magenta night sky
-    scene.fog = new THREE.FogExp2(0x050410, 0.015); // Neon fog effect
+    scene.background = new THREE.Color(0x87ceeb); // Bright daytime sky blue
+    scene.fog = new THREE.Fog(0x87ceeb, 50, 400); // Distance fog
 
     const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -63,12 +63,13 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
     const initialLng = posRef.current.lng;
 
     // 2. Lights
-    const ambientLight = new THREE.AmbientLight(0x2d1b4e, 1.2); // Warm purple sky light
+    const ambientLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0); // Bright day light
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xff007f, 1.5); // Neon pink moon directional light
-    dirLight.position.set(50, 100, 50);
-    scene.add(dirLight);
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.5); // Sun light
+    sunLight.position.set(100, 200, 50);
+    sunLight.castShadow = true;
+    scene.add(sunLight);
 
     // 3. Grid-based City Environment
     const roadWidth = 14;
