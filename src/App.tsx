@@ -619,6 +619,24 @@ export function App() {
     setAds(prev => prev.filter(a => a.id !== id && a._id !== id));
   };
 
+  const handleCoinTransfer = async (targetId: string, amount: number) => {
+    if (!user) return;
+    try {
+      await axios.post(`${API_URL}/users/${user.googleId}/coins/transfer`, { targetId, amount });
+      setUser(prev => prev ? { ...prev, coins: (prev.coins || 0) - amount } : null);
+      alert(`Successfully shared ${amount} coins!`);
+      // Update allUsers locally to reflect new balances
+      setAllUsers(prev => prev.map(u => {
+        if (u.googleId === user.googleId) return { ...u, coins: (u.coins || 0) - amount };
+        if (u.googleId === targetId) return { ...u, coins: (u.coins || 0) + amount };
+        return u;
+      }));
+    } catch (e: any) {
+      alert(e.response?.data?.message || "Failed to share coins");
+      throw e;
+    }
+  };
+
   const forceDownload = async (url: string, filename: string) => {
     try {
       const response = await axios.get(url, { responseType: 'blob' });
@@ -783,42 +801,16 @@ export function App() {
         {/* Game Title & Secret Admin Logo Trigger */}
         <div
           onClick={handleLogoClick}
-          className="flex items-center gap-3 cursor-pointer group"
+          className="flex items-center cursor-pointer group"
           title="Click 5 times for Hidden Admin Panel"
         >
           <div className="p-2 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 group-hover:scale-105 transition-transform shadow-[0_0_15px_rgba(6,182,212,0.4)]">
             <Compass className="w-6 h-6 animate-spin-slow" />
           </div>
-          <div>
-            <h1 className="text-base font-extrabold tracking-wider bg-gradient-to-r from-cyan-300 via-blue-200 to-indigo-300 bg-clip-text text-transparent">
-              INDIA STREET GAME EXPLORER
-            </h1>
-            <p className="text-[10px] font-mono text-cyan-400/70">
-              REAL MAP STREETS • MULTI-MODE BOXES • PAVA RUNNER
-            </p>
-          </div>
         </div>
 
-        {/* Player Stats & Controls */}
+        {/* Essential Navigation Controls */}
         <div className="flex items-center gap-3">
-          {/* Energy Bar */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono">
-            <Zap className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse" />
-            <div className="w-20 bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
-              <div
-                className="bg-gradient-to-r from-amber-400 to-orange-500 h-full transition-all duration-300"
-                style={{ width: `${energy}%` }}
-              />
-            </div>
-            <span className="text-amber-300 font-bold">{Math.round(energy)}%</span>
-          </div>
-
-          {/* Player Score */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono text-cyan-300">
-            <Award className="w-4 h-4 text-cyan-400" />
-            <span className="font-bold">{score} XP</span>
-          </div>
-
           {/* Player Coins */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-amber-500/30 text-xs font-mono">
             <span className="text-amber-400 text-base">🪙</span>
@@ -830,20 +822,12 @@ export function App() {
               +
             </button>
           </div>
-            <span className="font-bold">{score} XP</span>
-          </div>
-
-          {/* Player Coins */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono text-amber-400">
-            <span className="text-sm">🪙</span>
-            <span className="font-bold">{user?.coins || 0} COINS</span>
-          </div>
 
           {/* Inventory Drawer Trigger */}
           <button
             onClick={() => setIsInventoryOpen(true)}
             className="relative p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-cyan-500/30 text-cyan-300 transition-all shadow-md"
-            title="Open Inventory Bag"
+            title="Open Dashboard & Drops"
           >
             <Package className="w-5 h-5" />
             {unlockedItems.length > 0 && (
@@ -856,21 +840,16 @@ export function App() {
           {/* Audio Sound FX Toggle */}
           <button
             onClick={handleAudioToggle}
-            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-colors"
+            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-colors hidden sm:block"
             title="Toggle Game Sound"
           >
             {isMuted ? <VolumeX className="w-5 h-5 text-rose-400" /> : <Volume2 className="w-5 h-5 text-emerald-400" />}
           </button>
 
-          {/* Hidden Admin Secret Launcher Button */}
-          <button
-            onClick={handleOpenAdmin}
-            className="p-2 rounded-xl bg-slate-900/80 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold flex items-center gap-1.5"
-            title="Secret Admin Panel (Ctrl+Shift+A)"
-          >
-            <ShieldCheck className="w-4 h-4 text-cyan-400" />
-            <span className="hidden md:inline">ADMIN</span>
-          </button>
+          {/* User Profile */}
+          {user.picture && (
+            <img src={user.picture} alt="Profile" className="w-9 h-9 rounded-full border-2 border-cyan-500/50" />
+          )}
         </div>
       </header>
 
@@ -888,6 +867,8 @@ export function App() {
           allUsers={allUsers}
           isFirstSpawn={isFirstSpawn}
           onFirstSpawnSet={handleFirstSpawnSet}
+          onCoinTransfer={handleCoinTransfer}
+          user={user}
         />
       </main>
 

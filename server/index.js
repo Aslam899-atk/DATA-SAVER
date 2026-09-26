@@ -89,6 +89,22 @@ app.post('/api/users/:id/coins/reward', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+app.post('/api/users/:id/coins/transfer', async (req, res) => {
+  try {
+    const { amount, targetId } = req.body;
+    const sender = await db.User.findOne({ googleId: req.params.id });
+    const receiver = await db.User.findOne({ googleId: targetId });
+    if (!sender || !receiver) return res.status(404).json({ message: "User not found" });
+    if (sender.coins < amount) return res.status(400).json({ message: "Insufficient coins" });
+    
+    sender.coins -= amount;
+    receiver.coins += amount;
+    await sender.save();
+    await receiver.save();
+    res.json({ sender, receiver });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 app.get('/api/chests', async (req, res) => {
   try {
     const chests = await db.getChests();

@@ -14,6 +14,7 @@ interface ThreeDGameSceneProps {
   user?: any;
   characterSkin: string;
   onExit3D: () => void;
+  onCoinTransfer?: (targetId: string, amount: number) => Promise<void>;
 }
 
 export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
@@ -25,10 +26,12 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
   allUsers = [],
   user,
   characterSkin,
-  onExit3D
+  onExit3D,
+  onCoinTransfer
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const [nearbyChest, setNearbyChest] = useState<Chest | null>(null);
+  const [nearbyPlayer, setNearbyPlayer] = useState<any | null>(null);
   const posRef = useRef(playerPos);
 
   // Red dot icon for minimap
@@ -250,7 +253,9 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
     scene.add(playerGroup);
 
     // 4.5 Render Other Players (Online & Offline)
-    const renderOtherPlayer = (pLat: number, pLng: number, isOffline: boolean, name: string) => {
+    const otherPlayerGroups = new Map<string, { mesh: THREE.Group; user: any }>();
+    
+    const renderOtherPlayer = (pUser: any, isOffline: boolean) => {
       const pGroup = new THREE.Group();
       
       const pBody = new THREE.Mesh(bodyGeo, new THREE.MeshStandardMaterial({ color: isOffline ? 0x475569 : 0xef4444, roughness: 0.3 }));
@@ -275,6 +280,8 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       pGroup.add(tagMesh);
 
       // Position relative to local player
+      const pLng = pUser.lng || pUser.lastLng;
+      const pLat = pUser.lat || pUser.lastLat;
       const px = (pLng - initialLng) * scale;
       const pz = -(pLat - initialLat) * scale;
       pGroup.position.set(px, 0, pz);
@@ -291,12 +298,13 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       }
 
       scene.add(pGroup);
+      otherPlayerGroups.set(pUser.googleId, { mesh: pGroup, user: pUser });
     };
 
     // Render online players
     onlinePlayers.forEach(p => {
       if (user && p.googleId === user.googleId) return; // Skip self
-      renderOtherPlayer(p.lat, p.lng, false, p.name);
+      renderOtherPlayer(p, false);
     });
 
     // Render offline players
@@ -304,7 +312,7 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       if (!u.lastLat || !u.lastLng) return;
       if (user && u.googleId === user.googleId) return; // Skip self
       if (onlinePlayers.find(op => op.googleId === u.googleId)) return; // Skip if online
-      renderOtherPlayer(u.lastLat, u.lastLng, true, u.name);
+      renderOtherPlayer(u, true);
     });
 
     // 5. Render Cardboard Boxes (Chests) in 3D
@@ -562,6 +570,18 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       });
       setNearbyChest(closestChest);
 
+      // Proximity Player Checks for Coin Sharing
+      let closestPlayerUser: any | null = null;
+      let minPlayerDist = 8.0; // 8 units sharing distance
+      otherPlayerGroups.forEach(({ mesh, user }) => {
+        const dist = playerGroup.position.distanceTo(mesh.position);
+        if (dist < minPlayerDist) {
+          minPlayerDist = dist;
+          closestPlayerUser = user;
+        }
+      });
+      setNearbyPlayer(closestPlayerUser);
+
       // Camera follow logic (3rd person)
       camera.position.set(
         playerGroup.position.x,
@@ -662,6 +682,25 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
             className="px-6 py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500 text-slate-950 font-extrabold text-sm shadow-[0_0_35px_rgba(245,158,11,0.7)] animate-bounce border-2 border-white flex items-center gap-2 transform hover:scale-105 active:scale-95 transition-all"
           >
             🪙 <span>APPROACHED BOX! CLICK TO OPEN ({nearbyChest.coinCost ? `${nearbyChest.coinCost} Coins` : 'Free'})</span>
+          </button>
+        </div>
+      )}
+
+      {/* 3D Proximity Player Share Coins Button Trigger */}
+      {nearbyPlayer && !nearbyChest && (
+        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
+          <button
+            onClick={() => {
+              if (user && user.coins >= 5) {
+                if (onCoinTransfer) onCoinTransfer(nearbyPlayer.googleId, 5);
+              } else {
+                 alert("You don't have enough coins to share!");
+              }
+            }}
+            className="px-6 py-4 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 text-white font-extrabold text-sm shadow-[0_0_35px_rgba(6,182,212,0.7)] animate-pulse border-2 border-white flex items-center gap-2 transform hover:scale-105 active:scale-95 transition-all"
+          >
+            <span>🤝</span>
+            <span>SHARE 5 COINS WITH {nearbyPlayer.name?.split(' ')[0]}</span>
           </button>
         </div>
       )}
