@@ -703,7 +703,7 @@ export function App() {
       }
     };
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "1028751543781-n0o0k541r79qhlshb61j41v830m0p1d5.apps.googleusercontent.com";
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "666413173667-fohrcm0rhp8smrdfengbh7joue1401sj.apps.googleusercontent.com";
 
     return (
       <GoogleOAuthProvider clientId={clientId}>
