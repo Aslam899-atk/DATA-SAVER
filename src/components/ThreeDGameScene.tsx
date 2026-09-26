@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import L from 'leaflet';
 import type { Chest } from '../App';
 
 interface ThreeDGameSceneProps {
@@ -24,6 +26,14 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
   const mountRef = useRef<HTMLDivElement>(null);
   const [nearbyChest, setNearbyChest] = useState<Chest | null>(null);
   const posRef = useRef(playerPos);
+
+  // Red dot icon for minimap
+  const minimapIcon = L.divIcon({
+    html: `<div class="w-3 h-3 bg-red-500 rounded-full border-2 border-white shadow-lg animate-pulse"></div>`,
+    className: 'bg-transparent',
+    iconSize: [12, 12],
+    iconAnchor: [6, 6]
+  });
   
   // Keep position ref updated
   useEffect(() => {
@@ -117,19 +127,57 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       }
     }
 
-    // Streetlights (neon glowing point lights)
+    // Streetlights, Trees and Cars
     const streetlightGeo = new THREE.CylinderGeometry(0.1, 0.15, 6);
     const streetlightMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
-    for (let x = -150; x <= 150; x += 60) {
-      for (let z = -150; z <= 150; z += 60) {
-        if (Math.abs(x) < 20 && Math.abs(z) < 20) continue;
-        const pole = new THREE.Mesh(streetlightGeo, streetlightMat);
-        pole.position.set(x, 3, z);
-        scene.add(pole);
+    
+    const treeTrunkGeo = new THREE.CylinderGeometry(0.2, 0.4, 2, 8);
+    const treeTrunkMat = new THREE.MeshStandardMaterial({ color: 0x3e2723 });
+    const treeLeavesGeo = new THREE.ConeGeometry(1.5, 4, 8);
+    const treeLeavesMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32 });
 
-        const bulb = new THREE.PointLight(x % 120 === 0 ? 0x00f0ff : 0xff007f, 3, 25);
-        bulb.position.set(x, 6, z);
-        scene.add(bulb);
+    const carGeo = new THREE.BoxGeometry(2, 1, 4);
+    const carColors = [0xb91c1c, 0x1d4ed8, 0x047857, 0xeab308, 0xfafafa, 0x0f172a];
+
+    for (let x = -150; x <= 150; x += 30) {
+      for (let z = -150; z <= 150; z += 30) {
+        if (Math.abs(x) < 20 && Math.abs(z) < 20) continue;
+        
+        // Add streetlights every 60m
+        if (x % 60 === 0 && z % 60 === 0) {
+          const pole = new THREE.Mesh(streetlightGeo, streetlightMat);
+          pole.position.set(x, 3, z);
+          scene.add(pole);
+
+          const bulb = new THREE.PointLight(x % 120 === 0 ? 0x00f0ff : 0xff007f, 3, 25);
+          bulb.position.set(x, 6, z);
+          scene.add(bulb);
+        }
+
+        // Add Trees along the sidewalks
+        if ((x % 30 === 0 && z % 60 !== 0) || Math.random() > 0.7) {
+          const treeGroup = new THREE.Group();
+          const trunk = new THREE.Mesh(treeTrunkGeo, treeTrunkMat);
+          trunk.position.y = 1;
+          const leaves = new THREE.Mesh(treeLeavesGeo, treeLeavesMat);
+          leaves.position.y = 3;
+          treeGroup.add(trunk);
+          treeGroup.add(leaves);
+          // Place tree on edge of block
+          treeGroup.position.set(x + 2, 0, z + 2);
+          scene.add(treeGroup);
+        }
+
+        // Add parked cars randomly
+        if (Math.random() > 0.85) {
+          const carMat = new THREE.MeshStandardMaterial({ color: carColors[Math.floor(Math.random() * carColors.length)] });
+          const car = new THREE.Mesh(carGeo, carMat);
+          car.position.set(x - 4, 0.5, z - 4);
+          if (Math.random() > 0.5) car.rotation.y = Math.PI / 2;
+          scene.add(car);
+          // Add car collision bbox
+          buildings.push(new THREE.Box3().setFromObject(car));
+        }
       }
     }
 
@@ -162,14 +210,37 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
     headMesh.position.y = 2.7;
     playerGroup.add(headMesh);
 
-    // Simple glasses / visor for GTA heister / Ninja
+    // Simple glasses / visor
     const visorGeo = new THREE.BoxGeometry(0.9, 0.25, 0.6);
     const visorMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
     const visorMesh = new THREE.Mesh(visorGeo, visorMat);
     visorMesh.position.set(0, 2.8, 0.4);
     playerGroup.add(visorMesh);
 
-    // Initial position inside 3D space is center (0,0)
+    // Arms
+    const armGeo = new THREE.CylinderGeometry(0.25, 0.25, 1.4, 8);
+    const armMat = new THREE.MeshStandardMaterial({ color: skinHeadColor });
+    const leftArm = new THREE.Mesh(armGeo, armMat);
+    leftArm.position.set(-1.1, 1.4, 0);
+    playerGroup.add(leftArm);
+    const rightArm = new THREE.Mesh(armGeo, armMat);
+    rightArm.position.set(1.1, 1.4, 0);
+    playerGroup.add(rightArm);
+
+    // Legs
+    const legGeo = new THREE.CylinderGeometry(0.3, 0.3, 1.4, 8);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x1e293b }); // Dark pants
+    const leftLeg = new THREE.Mesh(legGeo, legMat);
+    leftLeg.position.set(-0.4, 0.7, 0);
+    playerGroup.add(leftLeg);
+    const rightLeg = new THREE.Mesh(legGeo, legMat);
+    rightLeg.position.set(0.4, 0.7, 0);
+    playerGroup.add(rightLeg);
+
+    // Store references to limbs for animation
+    playerGroup.userData = { leftArm, rightArm, leftLeg, rightLeg };
+
+    // Initial position inside 3D space
     playerGroup.position.set(0, 0, 0);
     scene.add(playerGroup);
 
@@ -341,8 +412,12 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       if (keys.a) moveX -= 1;
       if (keys.d) moveX += 1;
 
+      let isMoving = false;
+      let walkCycle = clock.getElapsedTime() * (keys.Shift ? 15 : 8);
+
       // Apply vector normalization
       if (moveX !== 0 || moveZ !== 0) {
+        isMoving = true;
         const length = Math.sqrt(moveX * moveX + moveZ * moveZ);
         const speed = keys.Shift ? 24 : 12; // Speed multiplier (Sprint vs Walk)
         const dx = (moveX / length) * speed * delta;
@@ -366,6 +441,21 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
           const newLng = initialLng + (playerGroup.position.x / scale);
           setPlayerPos({ lat: newLat, lng: newLng });
           locationUpdateTimer = 0;
+        }
+      }
+
+      // Animate Limbs
+      if (playerGroup.userData.leftArm) {
+        if (isMoving) {
+          playerGroup.userData.leftArm.rotation.x = Math.sin(walkCycle) * 0.8;
+          playerGroup.userData.rightArm.rotation.x = Math.sin(walkCycle + Math.PI) * 0.8;
+          playerGroup.userData.leftLeg.rotation.x = Math.sin(walkCycle + Math.PI) * 0.8;
+          playerGroup.userData.rightLeg.rotation.x = Math.sin(walkCycle) * 0.8;
+        } else {
+          playerGroup.userData.leftArm.rotation.x = 0;
+          playerGroup.userData.rightArm.rotation.x = 0;
+          playerGroup.userData.leftLeg.rotation.x = 0;
+          playerGroup.userData.rightLeg.rotation.x = 0;
         }
       }
 
@@ -432,16 +522,31 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       <div ref={mountRef} className="w-full h-full absolute inset-0 z-0" />
 
       {/* 3D Hud Overlay Controls */}
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
-        <button
-          onClick={onExit3D}
-          className="px-4 py-2 rounded-xl bg-slate-900/90 border border-pink-500/30 text-pink-400 font-bold font-mono text-xs hover:bg-pink-500/20 shadow-lg"
-        >
-          ⬅️ RETURN TO 2D MAP
-        </button>
-        <div className="px-4 py-2 rounded-xl bg-slate-900/90 border border-cyan-500/30 text-cyan-300 font-bold font-mono text-[10px] shadow-lg flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-          <span>GTA VICE CITY 3D CITY MAP MODE</span>
+      <div className="absolute top-4 left-4 z-10 flex flex-col gap-3 pointer-events-auto">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onExit3D}
+            className="px-4 py-2 rounded-xl bg-slate-900/90 border border-pink-500/30 text-pink-400 font-bold font-mono text-xs hover:bg-pink-500/20 shadow-lg"
+          >
+            ⬅️ RETURN TO 2D MAP
+          </button>
+          <div className="px-4 py-2 rounded-xl bg-slate-900/90 border border-cyan-500/30 text-cyan-300 font-bold font-mono text-[10px] shadow-lg flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+            <span>GTA VICE CITY 3D CITY MAP MODE</span>
+          </div>
+        </div>
+
+        {/* Minimap View */}
+        <div className="w-48 h-48 rounded-2xl border-2 border-slate-700 shadow-2xl overflow-hidden pointer-events-none mt-2">
+          <MapContainer 
+            center={[playerPos.lat, playerPos.lng]} 
+            zoom={17} 
+            zoomControl={false} 
+            className="w-full h-full"
+          >
+            <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+            <Marker position={[playerPos.lat, playerPos.lng]} icon={minimapIcon} />
+          </MapContainer>
         </div>
       </div>
 
