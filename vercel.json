@@ -23,6 +23,26 @@
       "dest": "/assets/$1"
     },
     {
+      "src": "/google13f432a0a5262fa0.html",
+      "dest": "/google13f432a0a5262fa0.html"
+    },
+    {
+      "src": "/sitemap.xml",
+      "dest": "/sitemap.xml"
+    },
+    {
+      "src": "/robots.txt",
+      "dest": "/robots.txt"
+    },
+    {
+      "src": "/pwa-icon-512.png",
+      "dest": "/pwa-icon-512.png"
+    },
+    {
+      "src": "/manifest.json",
+      "dest": "/manifest.json"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
