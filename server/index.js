@@ -67,6 +67,28 @@ app.get('/api/users', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+app.post('/api/users/:id/coins/spend', async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const user = await db.User.findOne({ googleId: req.params.id });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.coins < amount) return res.status(400).json({ message: "Not enough coins" });
+    user.coins -= amount;
+    await user.save();
+    res.json(user);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/users/:id/coins/reward', async (req, res) => {
+  try {
+    const user = await db.User.findOne({ googleId: req.params.id });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    user.coins += 2;
+    await user.save();
+    res.json(user);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 app.get('/api/chests', async (req, res) => {
   try {
     const chests = await db.getChests();

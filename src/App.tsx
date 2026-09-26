@@ -198,6 +198,8 @@ export function App() {
   const [unlockedItems, setUnlockedItems] = useState<Chest[]>([]);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [showAdModal, setShowAdModal] = useState(false);
+  const [hasSeenStartupAd, setHasSeenStartupAd] = useState(false);
 
   // Boxes & Ads state
   const [chests, setChests] = useState<Chest[]>(INITIAL_DEMO_CHESTS);
@@ -215,6 +217,8 @@ export function App() {
     setIsHiddenAdminOpen(true);
   };
 
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+
   // Fetch drops from server API if available
   useEffect(() => {
     axios.get(`${API_URL}/chests`)
@@ -229,6 +233,14 @@ export function App() {
       .then(res => {
         if (Array.isArray(res.data) && res.data.length > 0) {
           setAds(res.data);
+        }
+      })
+      .catch(() => {});
+
+    axios.get(`${API_URL}/users`)
+      .then(res => {
+        if (Array.isArray(res.data)) {
+          setAllUsers(res.data);
         }
       })
       .catch(() => {});
@@ -254,6 +266,14 @@ export function App() {
       }).catch(() => {});
     }
   }, []);
+
+  // Show ad on startup when user logs in for the first time
+  useEffect(() => {
+    if (user && !hasSeenStartupAd) {
+      setHasSeenStartupAd(true);
+      setShowAdModal(true);
+    }
+  }, [user, hasSeenStartupAd]);
 
   // 2. Debounce coordinates saving to database
   useEffect(() => {
@@ -540,6 +560,18 @@ export function App() {
   };
 
   const handleAddChest = async (newChest: Partial<Chest>) => {
+    if (!user) {
+      alert("Please login first to drop a box.");
+      return;
+    }
+    
+    // Check if user has enough coins (10 coins required)
+    if ((user.coins || 0) < 10) {
+      alert("You need 10 coins to drop a box! Watch an AD to earn coins.");
+      setShowAdModal(true);
+      return;
+    }
+
     const created: Chest = {
       id: `chest-custom-${Date.now()}`,
       lat: newChest.lat || playerPos.lat,
@@ -561,10 +593,16 @@ export function App() {
       currentOpens: 0
     };
 
-    setChests(prev => [created, ...prev]);
     try {
+      // Deduct coins via API
+      await axios.post(`${API_URL}/users/${user.googleId}/coins/spend`, { amount: 10 });
+      setUser(prev => prev ? { ...prev, coins: (prev.coins || 0) - 10 } : null);
+      
+      setChests(prev => [created, ...prev]);
       await axios.post(`${API_URL}/chests`, created);
-    } catch (e) {}
+    } catch (e: any) {
+      alert(e.response?.data?.message || "Error dropping box");
+    }
   };
 
   const handleAddAd = (newAd: Partial<Ad>) => {
@@ -782,6 +820,20 @@ export function App() {
           </div>
 
           {/* Player Coins */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-amber-500/30 text-xs font-mono">
+            <span className="text-amber-400 text-base">🪙</span>
+            <span className="font-bold text-amber-300">{user.coins || 0}</span>
+            <button 
+              onClick={() => setShowAdModal(true)}
+              className="ml-1 w-5 h-5 rounded-md bg-amber-500/20 hover:bg-amber-500/40 border border-amber-500/50 flex items-center justify-center text-amber-300 font-bold transition-colors"
+            >
+              +
+            </button>
+          </div>
+            <span className="font-bold">{score} XP</span>
+          </div>
+
+          {/* Player Coins */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono text-amber-400">
             <span className="text-sm">🪙</span>
             <span className="font-bold">{user?.coins || 0} COINS</span>
@@ -833,6 +885,7 @@ export function App() {
           currentCityName={currentCityName}
           onMapClickDrop={handleMapClickDrop}
           onlinePlayers={onlinePlayers}
+          allUsers={allUsers}
           isFirstSpawn={isFirstSpawn}
           onFirstSpawnSet={handleFirstSpawnSet}
         />
@@ -909,6 +962,72 @@ export function App() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Ad Modal */}
+      {showAdModal && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-amber-500/50 rounded-3xl w-full max-w-md overflow-hidden shadow-[0_0_50px_rgba(245,158,11,0.2)]">
+            <div className="bg-slate-950 p-3 flex justify-between items-center border-b border-slate-800">
+              <span className="text-amber-400 font-bold font-mono text-xs animate-pulse">
+                SPONSORED INTEL
+              </span>
+              <button 
+                onClick={() => setShowAdModal(false)}
+                className="text-slate-400 hover:text-white px-3 py-1 rounded-lg border border-slate-700 text-xs font-bold"
+              >
+                SKIP AD
+              </button>
+            </div>
+            
+            <div className="p-4 flex flex-col items-center text-center space-y-4">
+              <div className="w-full aspect-video bg-slate-800 rounded-xl overflow-hidden relative">
+                {ads.length > 0 ? (
+                  <img src={ads[0].imageUrl} alt="Ad" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-500 font-mono text-sm">
+                    VIDEO AD PLACEHOLDER
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent flex items-end p-4">
+                  <h3 className="text-white font-bold text-left">{ads[0]?.title || 'Watch this Ad for 2 Coins!'}</h3>
+                </div>
+              </div>
+              
+              <p className="text-sm text-slate-300 font-mono">
+                Watch the full ad or click below to receive <span className="text-amber-400 font-bold">2 COINS</span>.
+              </p>
+
+              <button
+                onClick={async () => {
+                  if (user) {
+                    try {
+                      await axios.post(`${API_URL}/users/${user.googleId}/coins/reward`);
+                      setUser({ ...user, coins: (user.coins || 0) + 2 });
+                      alert('You earned 2 coins!');
+                    } catch (e) {
+                      console.error("Ad reward failed", e);
+                    }
+                  }
+                  setShowAdModal(false);
+                }}
+                className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold rounded-2xl shadow-lg transition-transform active:scale-95"
+              >
+                I WATCHED IT - CLAIM 2 COINS
+              </button>
+              
+              <button
+                onClick={() => {
+                  alert("Request sent to Admin! They will review and grant you coins soon.");
+                  setShowAdModal(false);
+                }}
+                className="w-full py-2 bg-transparent text-slate-400 hover:text-white border border-slate-700 rounded-xl text-xs font-bold transition-colors"
+              >
+                REQUEST ADMIN FOR COINS
+              </button>
+            </div>
           </div>
         </div>
       )}

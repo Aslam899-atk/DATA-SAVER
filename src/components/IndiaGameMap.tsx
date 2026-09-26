@@ -15,8 +15,10 @@ interface IndiaGameMapProps {
   currentCityName: string;
   onMapClickDrop?: (lat: number, lng: number) => void;
   onlinePlayers?: { socketId: string; googleId: string; name: string; lat: number; lng: number }[];
+  allUsers?: any[];
   isFirstSpawn?: boolean;
   onFirstSpawnSet?: (lat: number, lng: number) => void;
+  user?: any;
 }
 
 // Custom Leaflet DivIcon for the Avatar Character
@@ -152,8 +154,10 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   currentCityName,
   onMapClickDrop,
   onlinePlayers = [],
+  allUsers = [],
   isFirstSpawn = false,
-  onFirstSpawnSet
+  onFirstSpawnSet,
+  user
 }) => {
   // Tile layer style & Character skins
   const [tileStyle] = useState<'SATELLITE'>('SATELLITE');
@@ -330,6 +334,8 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
         chests={chests}
         onOpenBox={onOpenBox}
         onlinePlayers={onlinePlayers}
+        allUsers={allUsers}
+        user={user}
         characterSkin={characterSkin}
         onExit3D={() => setIs3DViewMode(false)}
       />

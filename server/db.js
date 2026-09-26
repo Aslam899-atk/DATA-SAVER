@@ -42,7 +42,7 @@ const userSchema = new mongoose.Schema({
   email: String,
   name: String,
   picture: String,
-  coins: { type: Number, default: 100 },
+  coins: { type: Number, default: 30 },
   lastLat: { type: Number },
   lastLng: { type: Number },
   tier: { type: String, default: 'bronze' },

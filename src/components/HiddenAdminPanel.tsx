@@ -4,11 +4,14 @@ import { ShieldCheck, Lock, Trash2, PlusCircle, Megaphone, Eye, MapPin, X } from
 import { soundFx } from '../utils/soundEffects';
 import type { Chest, Ad } from '../App';
 
+import type { User } from '../App';
+
 interface HiddenAdminPanelProps {
   isOpen: boolean;
   onClose: () => void;
   chests: Chest[];
   ads: Ad[];
+  allUsers?: User[];
   onDeleteChest: (id: string) => void;
   onAddChest: (newChest: Partial<Chest>) => void;
   onAddAd: (newAd: Partial<Ad>) => void;
@@ -21,6 +24,7 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
   onClose,
   chests,
   ads,
+  allUsers = [],
   onDeleteChest,
   onAddChest,
   onAddAd,
@@ -34,7 +38,7 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
   });
   const [adminUser, setAdminUser] = useState('');
   const [adminPass, setAdminPass] = useState('');
-  const [activeTab, setActiveTab] = useState<'BOXES' | 'NEW_DROP' | 'ADS' | 'GODMODE'>('BOXES');
+  const [activeTab, setActiveTab] = useState<'BOXES' | 'NEW_DROP' | 'ADS' | 'USERS' | 'GODMODE'>('BOXES');
 
   // Filter boxes state
   const [searchTerm, setSearchTerm] = useState('');
@@ -254,11 +258,12 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
             /* AUTHENTICATED ADMIN DASHBOARD */
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               {/* Navigation Tabs */}
-              <div className="flex border-b border-cyan-500/20 bg-slate-950/40 px-4 pt-2 gap-2">
+              <div className="flex border-b border-cyan-500/20 bg-slate-950/40 px-4 pt-2 gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide">
                 {[
                   { id: 'BOXES', label: `BOX INSPECTOR (${chests.length})`, icon: Eye },
                   { id: 'NEW_DROP', label: 'CREATE CUSTOM DROP', icon: PlusCircle },
                   { id: 'ADS', label: `ADS MANAGER (${ads.length})`, icon: Megaphone },
+                  { id: 'USERS', label: `USERS (${allUsers.length})`, icon: ShieldCheck },
                   { id: 'GODMODE', label: 'MAP TELEPORT', icon: MapPin }
                 ].map((tab) => {
                   const Icon = tab.icon;
@@ -645,6 +650,44 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
                           </button>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* USERS MANAGER */}
+                {activeTab === 'USERS' && (
+                  <div className="space-y-4 max-w-2xl mx-auto">
+                    <h3 className="text-sm font-bold font-mono text-cyan-300">USER ACCOUNTS & COINS</h3>
+                    <div className="space-y-3">
+                      {allUsers.map((u) => (
+                        <div key={u.googleId} className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800">
+                          <div className="flex items-center gap-3">
+                            {u.picture && <img src={u.picture} alt="Profile" className="w-10 h-10 rounded-full border border-slate-700" />}
+                            <div>
+                              <p className="font-bold text-xs text-slate-200">{u.name}</p>
+                              <p className="text-[10px] text-slate-400 font-mono">{u.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <p className="text-[10px] text-slate-500 font-mono uppercase">BALANCE</p>
+                              <p className="font-bold text-amber-400 font-mono">{u.coins || 0} COINS</p>
+                            </div>
+                            {/* In a real app we would call a backend endpoint to grant coins. Since we don't have an admin grant endpoint, we just show a button that could do it */}
+                            <button
+                              onClick={async () => {
+                                alert(`Granting coins to ${u.name}... (Implement backend endpoint /api/admin/grant_coins)`);
+                              }}
+                              className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-lg text-[10px] font-bold transition-colors"
+                            >
+                              GRANT +50 COINS
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {allUsers.length === 0 && (
+                        <p className="text-center text-slate-500 text-xs py-8">No users found.</p>
+                      )}
                     </div>
                   </div>
                 )}

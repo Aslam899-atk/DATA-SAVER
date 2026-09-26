@@ -10,6 +10,8 @@ interface ThreeDGameSceneProps {
   chests: Chest[];
   onOpenBox: (chest: Chest) => void;
   onlinePlayers: any[];
+  allUsers?: any[];
+  user?: any;
   characterSkin: string;
   onExit3D: () => void;
 }
@@ -20,6 +22,8 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
   chests,
   onOpenBox,
   onlinePlayers,
+  allUsers = [],
+  user,
   characterSkin,
   onExit3D
 }) => {
@@ -245,6 +249,64 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
     playerGroup.position.set(0, 0, 0);
     scene.add(playerGroup);
 
+    // 4.5 Render Other Players (Online & Offline)
+    const renderOtherPlayer = (pLat: number, pLng: number, isOffline: boolean, name: string) => {
+      const pGroup = new THREE.Group();
+      
+      const pBody = new THREE.Mesh(bodyGeo, new THREE.MeshStandardMaterial({ color: isOffline ? 0x475569 : 0xef4444, roughness: 0.3 }));
+      pBody.position.y = 1.2;
+      pGroup.add(pBody);
+
+      const pHead = new THREE.Mesh(headGeo, new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+      pHead.position.y = 2.7;
+      pGroup.add(pHead);
+
+      // Limbs
+      const pLArm = new THREE.Mesh(armGeo, armMat); pLArm.position.set(-1.1, 1.4, 0); pGroup.add(pLArm);
+      const pRArm = new THREE.Mesh(armGeo, armMat); pRArm.position.set(1.1, 1.4, 0); pGroup.add(pRArm);
+      const pLLeg = new THREE.Mesh(legGeo, legMat); pLLeg.position.set(-0.4, 0.7, 0); pGroup.add(pLLeg);
+      const pRLeg = new THREE.Mesh(legGeo, legMat); pRLeg.position.set(0.4, 0.7, 0); pGroup.add(pRLeg);
+
+      // Name tag (Simple box above head for now, colored red if offline)
+      const tagGeo = new THREE.BoxGeometry(2, 0.4, 0.1);
+      const tagMat = new THREE.MeshBasicMaterial({ color: isOffline ? 0xef4444 : 0x0ea5e9 });
+      const tagMesh = new THREE.Mesh(tagGeo, tagMat);
+      tagMesh.position.y = 4;
+      pGroup.add(tagMesh);
+
+      // Position relative to local player
+      const px = (pLng - initialLng) * scale;
+      const pz = -(pLat - initialLat) * scale;
+      pGroup.position.set(px, 0, pz);
+
+      if (isOffline) {
+        // Sitting pose
+        pBody.position.y = 0.5;
+        pHead.position.y = 2.0;
+        pLArm.position.set(-1.1, 0.7, 0.5); pLArm.rotation.x = -Math.PI / 2;
+        pRArm.position.set(1.1, 0.7, 0.5); pRArm.rotation.x = -Math.PI / 2;
+        pLLeg.position.set(-0.4, 0.3, 1.0); pLLeg.rotation.x = -Math.PI / 2;
+        pRLeg.position.set(0.4, 0.3, 1.0); pRLeg.rotation.x = -Math.PI / 2;
+        tagMesh.position.y = 3.3;
+      }
+
+      scene.add(pGroup);
+    };
+
+    // Render online players
+    onlinePlayers.forEach(p => {
+      if (user && p.googleId === user.googleId) return; // Skip self
+      renderOtherPlayer(p.lat, p.lng, false, p.name);
+    });
+
+    // Render offline players
+    allUsers.forEach(u => {
+      if (!u.lastLat || !u.lastLng) return;
+      if (user && u.googleId === user.googleId) return; // Skip self
+      if (onlinePlayers.find(op => op.googleId === u.googleId)) return; // Skip if online
+      renderOtherPlayer(u.lastLat, u.lastLng, true, u.name);
+    });
+
     // 5. Render Cardboard Boxes (Chests) in 3D
     const chestGroupMap = new Map<string, { mesh: THREE.Group; chest: Chest }>();
 
@@ -378,6 +440,25 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+
+    // Mobile touch controls bindings
+    const bindBtn = (id: string, key: keyof typeof keys) => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.ontouchstart = (e) => { e.preventDefault(); keys[key] = true; };
+        btn.ontouchend = (e) => { e.preventDefault(); keys[key] = false; };
+        btn.onmousedown = () => keys[key] = true;
+        btn.onmouseup = () => keys[key] = false;
+        btn.onmouseleave = () => keys[key] = false;
+      }
+    };
+
+    bindBtn('btn-up', 'w');
+    bindBtn('btn-down', 's');
+    bindBtn('btn-left', 'a');
+    bindBtn('btn-right', 'd');
+    bindBtn('btn-jump', 'Space');
+    bindBtn('btn-sprint', 'Shift');
 
     // 9. Animation Game Loop
     let clock = new THREE.Clock();
@@ -552,11 +633,25 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       </div>
 
       {/* Movement Guides */}
-      <div className="absolute top-4 right-4 z-10 px-4 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-[10px] font-mono text-slate-400 max-w-xs text-right shadow-lg">
+      <div className="absolute top-4 right-4 z-10 px-4 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-[10px] font-mono text-slate-400 max-w-xs text-right shadow-lg hidden sm:block">
         <p className="font-bold text-slate-200">KEYBOARD CONTROLS:</p>
         <p>WASD / Arrow - Walk</p>
         <p>SHIFT - Sprint/Run</p>
         <p>SPACE - Jump</p>
+      </div>
+
+      {/* MOBILE CONTROLS */}
+      <div className="absolute bottom-6 left-6 z-20 pointer-events-auto flex flex-col items-center gap-2 sm:hidden">
+        <button id="btn-up" className="w-14 h-14 rounded-2xl bg-slate-900/80 border-2 border-cyan-500/50 text-cyan-300 font-bold text-xl active:bg-cyan-500/50 shadow-[0_0_15px_rgba(0,240,255,0.3)]">⬆</button>
+        <div className="flex gap-2">
+          <button id="btn-left" className="w-14 h-14 rounded-2xl bg-slate-900/80 border-2 border-cyan-500/50 text-cyan-300 font-bold text-xl active:bg-cyan-500/50 shadow-[0_0_15px_rgba(0,240,255,0.3)]">⬅</button>
+          <button id="btn-down" className="w-14 h-14 rounded-2xl bg-slate-900/80 border-2 border-cyan-500/50 text-cyan-300 font-bold text-xl active:bg-cyan-500/50 shadow-[0_0_15px_rgba(0,240,255,0.3)]">⬇</button>
+          <button id="btn-right" className="w-14 h-14 rounded-2xl bg-slate-900/80 border-2 border-cyan-500/50 text-cyan-300 font-bold text-xl active:bg-cyan-500/50 shadow-[0_0_15px_rgba(0,240,255,0.3)]">➡</button>
+        </div>
+      </div>
+      <div className="absolute bottom-6 right-6 z-20 pointer-events-auto flex flex-col items-center gap-4 sm:hidden">
+        <button id="btn-jump" className="w-16 h-16 rounded-full bg-slate-900/80 border-2 border-pink-500/50 text-pink-400 font-bold text-xs active:bg-pink-500/50 shadow-[0_0_15px_rgba(255,0,127,0.3)]">JUMP</button>
+        <button id="btn-sprint" className="w-16 h-16 rounded-full bg-slate-900/80 border-2 border-amber-500/50 text-amber-400 font-bold text-xs active:bg-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.3)]">SPRINT</button>
       </div>
 
       {/* 3D Proximity Chest Unlocking Button Trigger */}
