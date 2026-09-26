@@ -17,7 +17,8 @@ import {
   Award,
   Compass,
   Download,
-  X
+  X,
+  HelpCircle
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
@@ -197,6 +198,7 @@ export function App() {
   const [energy, setEnergy] = useState(100);
   const [unlockedItems, setUnlockedItems] = useState<Chest[]>([]);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showAdModal, setShowAdModal] = useState(false);
   const [hasSeenStartupAd, setHasSeenStartupAd] = useState(false);
@@ -846,6 +848,15 @@ export function App() {
             {isMuted ? <VolumeX className="w-5 h-5 text-rose-400" /> : <Volume2 className="w-5 h-5 text-emerald-400" />}
           </button>
 
+          {/* Help Guide Trigger */}
+          <button
+            onClick={() => setShowHelpModal(true)}
+            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-cyan-400 transition-colors"
+            title="How to Play"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
+
           {/* User Profile */}
           {user.picture && (
             <img src={user.picture} alt="Profile" className="w-9 h-9 rounded-full border-2 border-cyan-500/50" />
@@ -1009,6 +1020,47 @@ export function App() {
                 REQUEST ADMIN FOR COINS
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* HELP / HOW TO PLAY MODAL */}
+      {showHelpModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-lg rounded-3xl bg-slate-900 border border-cyan-500/30 p-6 space-y-4 text-slate-100">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+              <div className="flex items-center gap-2 text-cyan-300 font-bold">
+                <HelpCircle className="w-5 h-5" />
+                <span>HOW TO PLAY & DROP BOXES</span>
+              </div>
+              <button onClick={() => setShowHelpModal(false)} className="p-1 text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4 text-sm text-slate-300 h-80 overflow-y-auto pr-2">
+              <div>
+                <h3 className="font-bold text-amber-400 mb-1">🌍 2D Map & Dropping Boxes</h3>
+                <p>In the main map, click anywhere to create a new Drop Box. It costs <b>10 Coins</b>. Fill in the details, attach files/images, and lock it with a PIN, Puzzle, or Task if you want!</p>
+              </div>
+              <div>
+                <h3 className="font-bold text-emerald-400 mb-1">🎮 3D Pro Mode</h3>
+                <p>Click on the "Enter 3D City" button to walk around like GTA! Use <b>WASD or the joystick</b> to move, and <b>Swipe/Drag</b> the screen to look around freely. Jump on buildings using the Jump button!</p>
+              </div>
+              <div>
+                <h3 className="font-bold text-cyan-400 mb-1">🪙 Earning & Sharing Coins</h3>
+                <p>Click the <b>[+]</b> button next to your coins to watch an Ad and earn +2 Coins. If you find another player in the 3D world, walk up to them to Share 5 Coins!</p>
+              </div>
+              <div>
+                <h3 className="font-bold text-pink-400 mb-1">📦 Opening Drops</h3>
+                <p>Walk near a box in 3D, or click it in 2D. Some drops are free, others require solving puzzles or paying coins.</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowHelpModal(false)}
+              className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition-colors"
+            >
+              GOT IT, LET'S PLAY!
+            </button>
           </div>
         </div>
       )}

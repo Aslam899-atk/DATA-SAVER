@@ -404,18 +404,31 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       });
     };
 
-    // 7. Physics Collision Detection
+    // 7. Physics Collision Detection & Camera Setup
+    const getFloorHeight = (x: number, z: number) => {
+      let maxFloor = 0;
+      for (const bbox of buildings) {
+        if (x >= bbox.min.x - 1 && x <= bbox.max.x + 1 && z >= bbox.min.z - 1 && z <= bbox.max.z + 1) {
+          maxFloor = Math.max(maxFloor, bbox.max.y);
+        }
+      }
+      return maxFloor;
+    };
+
     const checkCollision = (targetPos: THREE.Vector3) => {
-      // Create small bounding box around candidate position
+      // Create bounding box for player at target position
       const pBox = new THREE.Box3(
-        new THREE.Vector3(targetPos.x - 1, 0, targetPos.z - 1),
-        new THREE.Vector3(targetPos.x + 1, 3, targetPos.z + 1)
+        new THREE.Vector3(targetPos.x - 1, targetPos.y, targetPos.z - 1),
+        new THREE.Vector3(targetPos.x + 1, targetPos.y + 3, targetPos.z + 1)
       );
 
-      // Check collision with buildings
+      // Check collision with buildings (Walls only, not roofs)
       for (const bbox of buildings) {
         if (pBox.intersectsBox(bbox)) {
-          return true;
+          // If we are high enough to stand on it, it's not a wall collision
+          if (targetPos.y < bbox.max.y - 0.5) {
+            return true;
+          }
         }
       }
 
@@ -426,6 +439,42 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
 
       return false;
     };
+
+    // Camera free-look state
+    let cameraTheta = 0; // Horizontal rotation
+    let cameraPhi = Math.PI / 6; // Vertical rotation (30 degrees down)
+    const cameraRadius = 15;
+    
+    let isDragging = false;
+    let prevMouseX = 0;
+    let prevMouseY = 0;
+
+    const handlePointerDown = (e: PointerEvent) => {
+      isDragging = true;
+      prevMouseX = e.clientX;
+      prevMouseY = e.clientY;
+    };
+    
+    const handlePointerMove = (e: PointerEvent) => {
+      if (isDragging) {
+        const deltaX = e.clientX - prevMouseX;
+        const deltaY = e.clientY - prevMouseY;
+        cameraTheta -= deltaX * 0.005;
+        cameraPhi -= deltaY * 0.005;
+        // Clamp vertical angle so we don't flip upside down
+        cameraPhi = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraPhi));
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+      }
+    };
+    
+    const handlePointerUp = () => {
+      isDragging = false;
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
 
     // 8. Keyboard inputs
     const keys = { w: false, a: false, s: false, d: false, Shift: false, Space: false };
@@ -481,19 +530,20 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       animId = requestAnimationFrame(animate);
       const delta = clock.getDelta();
 
-      // Jump Physics
-      if (keys.Space && playerGroup.position.y <= 0) {
+      // Jump Physics & Floor Detection
+      const floorHeight = getFloorHeight(playerGroup.position.x, playerGroup.position.z);
+      if (keys.Space && playerGroup.position.y <= floorHeight + 0.1) {
         velocityY = jumpStrength;
       }
       velocityY -= gravity * delta;
       playerGroup.position.y += velocityY * delta;
 
-      if (playerGroup.position.y < 0) {
-        playerGroup.position.y = 0;
+      if (playerGroup.position.y < floorHeight) {
+        playerGroup.position.y = floorHeight;
         velocityY = 0;
       }
 
-      // Keyboard movement calculations
+      // Keyboard movement calculations based on Camera Angle
       let moveX = 0;
       let moveZ = 0;
 
@@ -510,14 +560,22 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
         isMoving = true;
         const length = Math.sqrt(moveX * moveX + moveZ * moveZ);
         const speed = keys.Shift ? 24 : 12; // Speed multiplier (Sprint vs Walk)
-        const dx = (moveX / length) * speed * delta;
-        const dz = (moveZ / length) * speed * delta;
+        
+        // Calculate movement relative to camera facing direction (cameraTheta)
+        const forwardX = -Math.sin(cameraTheta);
+        const forwardZ = -Math.cos(cameraTheta);
+        const rightX = Math.cos(cameraTheta);
+        const rightZ = -Math.sin(cameraTheta);
+
+        const dx = ((moveZ / length) * forwardX + (moveX / length) * rightX) * speed * delta;
+        const dz = ((moveZ / length) * forwardZ + (moveX / length) * rightZ) * speed * delta;
 
         const candidatePos = playerGroup.position.clone().add(new THREE.Vector3(dx, 0, dz));
         
         // Physics bounding check
         if (!checkCollision(candidatePos)) {
-          playerGroup.position.copy(candidatePos);
+          playerGroup.position.x = candidatePos.x;
+          playerGroup.position.z = candidatePos.z;
           
           // Rotate player model to face travel direction
           const angle = Math.atan2(dx, dz);
@@ -582,13 +640,13 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       });
       setNearbyPlayer(closestPlayerUser);
 
-      // Camera follow logic (3rd person)
-      camera.position.set(
-        playerGroup.position.x,
-        playerGroup.position.y + 11,
-        playerGroup.position.z + 16
-      );
-      camera.lookAt(playerGroup.position.x, playerGroup.position.y + 1, playerGroup.position.z);
+      // Camera Free-Look Orbital positioning
+      const camX = playerGroup.position.x + cameraRadius * Math.sin(cameraPhi) * Math.sin(cameraTheta);
+      const camY = playerGroup.position.y + 2 + cameraRadius * Math.cos(cameraPhi);
+      const camZ = playerGroup.position.z + cameraRadius * Math.sin(cameraPhi) * Math.cos(cameraTheta);
+      
+      camera.position.set(camX, camY, camZ);
+      camera.lookAt(playerGroup.position.x, playerGroup.position.y + 1.5, playerGroup.position.z);
 
       renderer.render(scene, camera);
     };
@@ -612,6 +670,9 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
       if (mountRef.current && renderer.domElement) {
         mountRef.current.removeChild(renderer.domElement);
       }
@@ -639,12 +700,19 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
         </div>
 
         {/* Minimap View */}
-        <div className="w-48 h-48 rounded-2xl border-2 border-slate-700 shadow-2xl overflow-hidden pointer-events-none mt-2">
+        <div 
+          onClick={onExit3D}
+          className="w-48 h-48 rounded-2xl border-2 border-slate-700 shadow-2xl overflow-hidden pointer-events-auto mt-2 cursor-pointer relative group"
+          title="Click to open Full Map"
+        >
+          <div className="absolute inset-0 bg-slate-900/50 flex items-center justify-center opacity-0 group-hover:opacity-100 z-50 transition-opacity">
+            <span className="text-white font-bold text-xs bg-slate-900/80 px-3 py-1 rounded-full">OPEN FULL MAP</span>
+          </div>
           <MapContainer 
             center={[playerPos.lat, playerPos.lng]} 
             zoom={17} 
             zoomControl={false} 
-            className="w-full h-full"
+            className="w-full h-full pointer-events-none"
           >
             <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
             <Marker position={[playerPos.lat, playerPos.lng]} icon={minimapIcon} />
