@@ -464,14 +464,14 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
         /* REAL STREET MAP CANVAS VIEW */
         <div className="relative w-full h-full">
           {isFirstSpawn && (
-            <div className="absolute inset-0 z-40 bg-slate-950/80 backdrop-blur-md flex items-center justify-center pointer-events-auto">
-              <div className="text-center p-8 rounded-3xl bg-slate-900 border border-[#00f0ff]/30 max-w-sm w-full space-y-4 shadow-[0_0_50px_rgba(0,240,255,0.1)]">
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
+              <div className="text-center p-6 rounded-3xl bg-slate-900/90 border border-[#00f0ff]/50 max-w-sm w-full space-y-2 shadow-[0_0_50px_rgba(0,240,255,0.3)] backdrop-blur-md animate-pulse">
                 <div className="text-4xl animate-bounce">📍</div>
                 <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-[#ff007f]">
                   CHOOSE SPAWN POINT
                 </h3>
-                <p className="text-xs text-slate-400 font-mono">
-                  Click anywhere on the map grid layout to land your character!
+                <p className="text-xs text-slate-300 font-mono font-bold">
+                  Click anywhere on the map to land your character & enter 3D World!
                 </p>
               </div>
             </div>
