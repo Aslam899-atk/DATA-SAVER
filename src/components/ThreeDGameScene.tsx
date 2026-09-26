@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { Chest } from './IndiaGameMap';
+import type { Chest } from '../App';
 
 interface ThreeDGameSceneProps {
   playerPos: { lat: number; lng: number };
@@ -286,13 +286,14 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
     };
 
     // 8. Keyboard inputs
-    const keys = { w: false, a: false, s: false, d: false, Shift: false };
+    const keys = { w: false, a: false, s: false, d: false, Shift: false, Space: false };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.w = true;
       if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') keys.s = true;
       if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.a = true;
       if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.d = true;
       if (e.key === 'Shift') keys.Shift = true;
+      if (e.code === 'Space') keys.Space = true;
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.w = false;
@@ -300,6 +301,7 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.a = false;
       if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.d = false;
       if (e.key === 'Shift') keys.Shift = false;
+      if (e.code === 'Space') keys.Space = false;
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -309,10 +311,26 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
     let clock = new THREE.Clock();
     let animId: number;
     let locationUpdateTimer = 0;
+    
+    let velocityY = 0;
+    const gravity = 50;
+    const jumpStrength = 20;
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
       const delta = clock.getDelta();
+
+      // Jump Physics
+      if (keys.Space && playerGroup.position.y <= 0) {
+        velocityY = jumpStrength;
+      }
+      velocityY -= gravity * delta;
+      playerGroup.position.y += velocityY * delta;
+
+      if (playerGroup.position.y < 0) {
+        playerGroup.position.y = 0;
+        velocityY = 0;
+      }
 
       // Keyboard movement calculations
       let moveX = 0;
@@ -430,8 +448,9 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       {/* Movement Guides */}
       <div className="absolute top-4 right-4 z-10 px-4 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-[10px] font-mono text-slate-400 max-w-xs text-right shadow-lg">
         <p className="font-bold text-slate-200">KEYBOARD CONTROLS:</p>
-        <p>WASD / Arrow Keys - Walk</p>
-        <p>SHIFT Key - Sprint/Run</p>
+        <p>WASD / Arrow - Walk</p>
+        <p>SHIFT - Sprint/Run</p>
+        <p>SPACE - Jump</p>
       </div>
 
       {/* 3D Proximity Chest Unlocking Button Trigger */}

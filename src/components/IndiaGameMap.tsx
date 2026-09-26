@@ -5,33 +5,7 @@ import { MapPin, Building, Zap, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, PlusC
 import { soundFx } from '../utils/soundEffects';
 import { ThreeDGameScene } from './ThreeDGameScene';
 
-export interface Chest {
-  id?: string;
-  _id?: string;
-  lat: number;
-  lng: number;
-  title: string;
-  message?: string;
-  tier: 'gold' | 'silver' | 'bronze' | 'platinum';
-  fileName: string;
-  fileSize: string;
-  fileUrl?: string;
-  files?: { fileUrl: string; fileName: string; fileSize?: string; mimeType?: string }[];
-  droppedBy: string;
-  hasPin?: boolean;
-  pin?: string;
-  boxType?: 'free' | 'password' | 'timer' | 'task' | 'puzzle' | 'quiz';
-  taskType?: 'memory' | 'cipher' | 'pattern';
-  timerSeconds?: number;
-  expiresAtHours?: number;
-  maxUserOpens?: number;
-  currentOpens?: number;
-  puzzleGridSize?: '3x3' | '4x4' | '5x5';
-  puzzleImage?: string;
-  quizQuestion?: string;
-  quizAnswer?: string;
-}
-
+import type { Chest } from '../App';
 interface IndiaGameMapProps {
   chests: Chest[];
   playerPos: { lat: number; lng: number };
@@ -94,7 +68,7 @@ const createAvatarDivIcon = (
 };
 
 // Custom Chest Icon Generator
-const createChestDivIcon = (tier: string, boxType?: string, coinCost?: number) => {
+const createChestDivIcon = (_tier: string, _boxType?: string, coinCost?: number) => {
   const costColor = coinCost && coinCost > 0 
     ? 'from-amber-400 to-orange-600 border-pink-400 shadow-pink-500/50' 
     : 'from-[#eab308] to-[#b45309] border-[#fef08a] shadow-yellow-800/50';
@@ -193,8 +167,15 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   const [isDropModeActive, setIsDropModeActive] = useState(false);
 
   // 3D Sketchfab Map View & Interior Building View toggles
-  const [is3DViewMode, setIs3DViewMode] = useState(false);
+  const [is3DViewMode, setIs3DViewMode] = useState(!isFirstSpawn);
   const [isInsideBuilding, setIsInsideBuilding] = useState(false);
+
+  // Auto-enter 3D mode after first spawn is set
+  useEffect(() => {
+    if (!isFirstSpawn) {
+      setIs3DViewMode(true);
+    }
+  }, [isFirstSpawn]);
 
   // Key state tracking
   const keysPressed = useRef<{ [key: string]: boolean }>({});

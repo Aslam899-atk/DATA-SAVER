@@ -63,7 +63,7 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
   // New Ad Form State
   const [newAdTitle, setNewAdTitle] = useState('');
   const [newAdImageUrl, setNewAdImageUrl] = useState('');
-  const [newAdImageFile, setNewAdImageFile] = useState<File | null>(null);
+  const [, setNewAdImageFile] = useState<File | null>(null);
   const [newAdImageDataUrl, setNewAdImageDataUrl] = useState('');
   const [newAdLink, setNewAdLink] = useState('');
 
