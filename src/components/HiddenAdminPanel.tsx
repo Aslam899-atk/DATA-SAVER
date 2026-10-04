@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Lock, Trash2, PlusCircle, Megaphone, Eye, MapPin, X } from 'lucide-react';
+import { ShieldCheck, Lock, Trash2, PlusCircle, Megaphone, Eye, MapPin, X, Edit2, Save, XCircle } from 'lucide-react';
 import { soundFx } from '../utils/soundEffects';
 import type { Chest, Ad } from '../App';
 
@@ -14,6 +14,7 @@ interface HiddenAdminPanelProps {
   allUsers?: User[];
   onDeleteChest: (id: string) => void;
   onAddChest: (newChest: Partial<Chest>) => void;
+  onEditChest: (updatedChest: Chest) => void;
   onAddAd: (newAd: Partial<Ad>) => void;
   onDeleteAd: (id: string) => void;
   onTeleportPlayer: (lat: number, lng: number, cityName: string) => void;
@@ -27,6 +28,7 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
   allUsers = [],
   onDeleteChest,
   onAddChest,
+  onEditChest,
   onAddAd,
   onDeleteAd,
   onTeleportPlayer
@@ -42,6 +44,11 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
 
   // Filter boxes state
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Editing state
+  const [editingChestId, setEditingChestId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editMessage, setEditMessage] = useState('');
 
   // New Drop Form State
   const [newTitle, setNewTitle] = useState('');
@@ -69,6 +76,8 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
   const [newAdImageUrl, setNewAdImageUrl] = useState('');
   const [, setNewAdImageFile] = useState<File | null>(null);
   const [newAdImageDataUrl, setNewAdImageDataUrl] = useState('');
+  const [newAdVideoUrl, setNewAdVideoUrl] = useState('');
+  const [newAdCoinReward, setNewAdCoinReward] = useState(10);
   const [newAdLink, setNewAdLink] = useState('');
 
   const cityCoordinates: Record<string, { lat: number; lng: number; name: string }> = {
@@ -168,6 +177,8 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
     onAddAd({
       title: newAdTitle,
       imageUrl: finalImageUrl,
+      videoUrl: newAdVideoUrl,
+      coinReward: newAdCoinReward,
       link: newAdLink
     });
     soundFx.playSuccess();
@@ -175,6 +186,8 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
     setNewAdImageUrl('');
     setNewAdImageFile(null);
     setNewAdImageDataUrl('');
+    setNewAdVideoUrl('');
+    setNewAdCoinReward(10);
     setNewAdLink('');
   };
 
@@ -308,34 +321,86 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
                           key={chest.id || chest._id}
                           className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-cyan-500/40 transition-all flex flex-col justify-between space-y-3"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <h4 className="font-bold text-sm text-cyan-200">{chest.title}</h4>
-                              <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                                Mode: <span className="text-amber-400 font-bold uppercase">{chest.boxType || chest.tier}</span> • By: {chest.droppedBy}
-                              </p>
+                          {editingChestId === (chest.id || chest._id) ? (
+                            <div className="space-y-3">
+                              <input
+                                type="text"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200"
+                                placeholder="Box Title"
+                              />
+                              <textarea
+                                value={editMessage}
+                                onChange={(e) => setEditMessage(e.target.value)}
+                                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200"
+                                placeholder="Box Message"
+                                rows={2}
+                              />
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={() => setEditingChestId(null)}
+                                  className="p-1.5 text-slate-400 hover:bg-slate-800 rounded-lg transition-colors"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    onEditChest({ ...chest, title: editTitle, message: editMessage });
+                                    setEditingChestId(null);
+                                    soundFx.playSuccess();
+                                  }}
+                                  className="p-1.5 text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition-colors"
+                                >
+                                  <Save className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
-                            <button
-                              onClick={() => onDeleteChest(chest.id || chest._id || '')}
-                              className="p-2 text-rose-400 hover:bg-rose-500/20 rounded-xl transition-colors shrink-0"
-                              title="Delete Bad Box"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          ) : (
+                            <>
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <h4 className="font-bold text-sm text-cyan-200">{chest.title}</h4>
+                                  <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                                    Mode: <span className="text-amber-400 font-bold uppercase">{chest.boxType || chest.tier}</span> • By: {chest.droppedBy}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    onClick={() => {
+                                      setEditingChestId(chest.id || chest._id || null);
+                                      setEditTitle(chest.title);
+                                      setEditMessage(chest.message || '');
+                                    }}
+                                    className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-xl transition-colors"
+                                    title="Edit Box"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => onDeleteChest(chest.id || chest._id || '')}
+                                    className="p-2 text-rose-400 hover:bg-rose-500/20 rounded-xl transition-colors"
+                                    title="Delete Bad Box"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
 
-                          {chest.message && (
-                            <p className="text-xs text-slate-300 bg-slate-900 p-2.5 rounded-xl border border-slate-800/80">
-                              "{chest.message}"
-                            </p>
+                              {chest.message && (
+                                <p className="text-xs text-slate-300 bg-slate-900 p-2.5 rounded-xl border border-slate-800/80">
+                                  "{chest.message}"
+                                </p>
+                              )}
+
+                              <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 border-t border-slate-800 pt-2">
+                                <span>Lat: {chest.lat.toFixed(4)}, Lng: {chest.lng.toFixed(4)}</span>
+                                {chest.pin && (
+                                  <span className="text-amber-300 font-bold">PIN: {chest.pin}</span>
+                                )}
+                              </div>
+                            </>
                           )}
-
-                          <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 border-t border-slate-800 pt-2">
-                            <span>Lat: {chest.lat.toFixed(4)}, Lng: {chest.lng.toFixed(4)}</span>
-                            {chest.pin && (
-                              <span className="text-amber-300 font-bold">PIN: {chest.pin}</span>
-                            )}
-                          </div>
                         </div>
                       ))}
                     </div>
@@ -623,6 +688,20 @@ export const HiddenAdminPanel: React.FC<HiddenAdminPanelProps> = ({
                           value={newAdLink}
                           onChange={(e) => setNewAdLink(e.target.value)}
                           placeholder="Promo Link URL"
+                          className="px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200"
+                        />
+                        <input
+                          type="text"
+                          value={newAdVideoUrl}
+                          onChange={(e) => setNewAdVideoUrl(e.target.value)}
+                          placeholder="Video URL (optional, for video ads)"
+                          className="px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200"
+                        />
+                        <input
+                          type="number"
+                          value={newAdCoinReward}
+                          onChange={(e) => setNewAdCoinReward(parseInt(e.target.value) || 0)}
+                          placeholder="Coin Reward (default 10)"
                           className="px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200"
                         />
                       </div>

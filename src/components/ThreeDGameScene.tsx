@@ -97,28 +97,63 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
     const buildings: THREE.Box3[] = [];
     const buildingMeshes: THREE.Mesh[] = [];
 
+    const movingCars: { mesh: THREE.Mesh; speed: number; axis: 'x' | 'z'; dir: number; bounds: number }[] = [];
+
     const createCityBuilding = (bx: number, bz: number, sizeX: number, sizeZ: number) => {
       const bHeight = 15 + Math.random() * 35;
       const bGeo = new THREE.BoxGeometry(sizeX, bHeight, sizeZ);
       
-      // Neon styled building faces
-      const wireframeMat = new THREE.MeshBasicMaterial({
-        color: Math.random() > 0.5 ? 0x00f0ff : 0xff007f, // Neon cyan or pink
-        wireframe: true
-      });
+      const buildingColors = [0x94a3b8, 0xc2410c, 0xfcd34d, 0x0f172a, 0xf8fafc];
+      const bColor = buildingColors[Math.floor(Math.random() * buildingColors.length)];
       const solidMat = new THREE.MeshStandardMaterial({
-        color: 0x0c0b1e,
-        roughness: 0.5,
-        metalness: 0.1
+        color: bColor,
+        roughness: 0.8,
       });
 
       const building = new THREE.Mesh(bGeo, solidMat);
       building.position.set(bx, bHeight / 2, bz);
       scene.add(building);
 
-      const wireframe = new THREE.Mesh(bGeo, wireframeMat);
-      wireframe.position.copy(building.position);
-      scene.add(wireframe);
+      // Glass windows on the sides
+      const hasWindows = Math.random() > 0.3;
+      if (hasWindows) {
+        const windowGeo = new THREE.PlaneGeometry(sizeX - 2, bHeight - 4);
+        const windowMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1, metalness: 0.8 }); // Glass
+        const windowMeshFront = new THREE.Mesh(windowGeo, windowMat);
+        windowMeshFront.position.set(bx, bHeight / 2, bz + sizeZ / 2 + 0.01);
+        scene.add(windowMeshFront);
+        
+        const windowMeshBack = new THREE.Mesh(windowGeo, windowMat);
+        windowMeshBack.rotation.y = Math.PI;
+        windowMeshBack.position.set(bx, bHeight / 2, bz - sizeZ / 2 - 0.01);
+        scene.add(windowMeshBack);
+      }
+
+      // Add Door
+      const doorGeo = new THREE.PlaneGeometry(3, 4);
+      const doorMat = new THREE.MeshStandardMaterial({ color: 0x451a03 }); // Dark wood
+      const door = new THREE.Mesh(doorGeo, doorMat);
+      door.position.set(bx, 2, bz + sizeZ / 2 + 0.02);
+      scene.add(door);
+
+      // Roof: Oodu (Slanted) or Vaarp (Flat)
+      const isSlantedRoof = Math.random() > 0.5;
+      if (isSlantedRoof) {
+        const roofGeo = new THREE.ConeGeometry(sizeX * 0.7, 5, 4);
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.9 }); // Red Oodu
+        const roof = new THREE.Mesh(roofGeo, roofMat);
+        roof.rotation.y = Math.PI / 4;
+        roof.position.set(bx, bHeight + 2.5, bz);
+        scene.add(roof);
+      } else {
+        // Flat roof with small parapet wall
+        const roofGeo = new THREE.PlaneGeometry(sizeX, sizeZ);
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0x475569 }); // Gray concrete
+        const roof = new THREE.Mesh(roofGeo, roofMat);
+        roof.rotation.x = -Math.PI / 2;
+        roof.position.set(bx, bHeight + 0.01, bz);
+        scene.add(roof);
+      }
 
       // Save bounding box for physics collision
       const bbox = new THREE.Box3().setFromObject(building);
@@ -129,7 +164,6 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
     // Spawn Buildings in grid layout
     for (let x = -worldSize / 2; x < worldSize / 2; x += blockSize + roadWidth) {
       for (let z = -worldSize / 2; z < worldSize / 2; z += blockSize + roadWidth) {
-        // Skip central roads
         if (Math.abs(x) < roadWidth / 2 || Math.abs(z) < roadWidth / 2) continue;
         createCityBuilding(x + blockSize / 2, z + blockSize / 2, blockSize, blockSize);
       }
@@ -151,18 +185,15 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       for (let z = -150; z <= 150; z += 30) {
         if (Math.abs(x) < 20 && Math.abs(z) < 20) continue;
         
-        // Add streetlights every 60m
         if (x % 60 === 0 && z % 60 === 0) {
           const pole = new THREE.Mesh(streetlightGeo, streetlightMat);
           pole.position.set(x, 3, z);
           scene.add(pole);
-
-          const bulb = new THREE.PointLight(x % 120 === 0 ? 0x00f0ff : 0xff007f, 3, 25);
+          const bulb = new THREE.PointLight(0xffddaa, 3, 25);
           bulb.position.set(x, 6, z);
           scene.add(bulb);
         }
 
-        // Add Trees along the sidewalks
         if ((x % 30 === 0 && z % 60 !== 0) || Math.random() > 0.7) {
           const treeGroup = new THREE.Group();
           const trunk = new THREE.Mesh(treeTrunkGeo, treeTrunkMat);
@@ -171,20 +202,21 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
           leaves.position.y = 3;
           treeGroup.add(trunk);
           treeGroup.add(leaves);
-          // Place tree on edge of block
           treeGroup.position.set(x + 2, 0, z + 2);
           scene.add(treeGroup);
         }
 
-        // Add parked cars randomly
-        if (Math.random() > 0.85) {
+        // Add moving cars
+        if (Math.random() > 0.8) {
           const carMat = new THREE.MeshStandardMaterial({ color: carColors[Math.floor(Math.random() * carColors.length)] });
           const car = new THREE.Mesh(carGeo, carMat);
-          car.position.set(x - 4, 0.5, z - 4);
-          if (Math.random() > 0.5) car.rotation.y = Math.PI / 2;
+          const axis = Math.random() > 0.5 ? 'x' : 'z';
+          const dir = Math.random() > 0.5 ? 1 : -1;
+          const speed = 0.2 + Math.random() * 0.3;
+          car.position.set(x + (axis === 'z' ? -3 : 0), 0.5, z + (axis === 'x' ? -3 : 0));
+          if (axis === 'x') car.rotation.y = Math.PI / 2;
           scene.add(car);
-          // Add car collision bbox
-          buildings.push(new THREE.Box3().setFromObject(car));
+          movingCars.push({ mesh: car, speed, axis, dir, bounds: worldSize / 2 });
         }
       }
     }
@@ -607,6 +639,17 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
         }
       }
 
+      // Animate cars
+      movingCars.forEach(car => {
+        if (car.axis === 'x') {
+          car.mesh.position.x += car.speed * car.dir;
+          if (Math.abs(car.mesh.position.x) > car.bounds) car.mesh.position.x *= -1;
+        } else {
+          car.mesh.position.z += car.speed * car.dir;
+          if (Math.abs(car.mesh.position.z) > car.bounds) car.mesh.position.z *= -1;
+        }
+      });
+
       // Rotate cardboard boxes slowly for visuals
       chestGroupMap.forEach(({ mesh }) => {
         mesh.rotation.y += 0.015;
@@ -687,27 +730,16 @@ export const ThreeDGameScene: React.FC<ThreeDGameSceneProps> = ({
       {/* 3D Hud Overlay Controls */}
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-3 pointer-events-auto">
         <div className="flex items-center gap-3">
-          <button
-            onClick={onExit3D}
-            className="px-4 py-2 rounded-xl bg-slate-900/90 border border-pink-500/30 text-pink-400 font-bold font-mono text-xs hover:bg-pink-500/20 shadow-lg"
-          >
-            ⬅️ RETURN TO 2D MAP
-          </button>
           <div className="px-4 py-2 rounded-xl bg-slate-900/90 border border-cyan-500/30 text-cyan-300 font-bold font-mono text-[10px] shadow-lg flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-            <span>GTA VICE CITY 3D CITY MAP MODE</span>
+            <span>PRO CITY MAP MODE</span>
           </div>
         </div>
 
         {/* Minimap View */}
         <div 
-          onClick={onExit3D}
-          className="w-48 h-48 rounded-2xl border-2 border-slate-700 shadow-2xl overflow-hidden pointer-events-auto mt-2 cursor-pointer relative group"
-          title="Click to open Full Map"
+          className="w-48 h-48 rounded-2xl border-2 border-slate-700 shadow-2xl overflow-hidden mt-2 relative group"
         >
-          <div className="absolute inset-0 bg-slate-900/50 flex items-center justify-center opacity-0 group-hover:opacity-100 z-50 transition-opacity">
-            <span className="text-white font-bold text-xs bg-slate-900/80 px-3 py-1 rounded-full">OPEN FULL MAP</span>
-          </div>
           <MapContainer 
             center={[playerPos.lat, playerPos.lng]} 
             zoom={17} 

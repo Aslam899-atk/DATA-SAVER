@@ -7,6 +7,7 @@ import { IndiaGameMap } from './components/IndiaGameMap';
 import { BoxModal } from './components/BoxModal';
 import { AdsOverlay } from './components/AdsOverlay';
 import { HiddenAdminPanel } from './components/HiddenAdminPanel';
+import { AdModal } from './components/AdModal';
 import { soundFx } from './utils/soundEffects';
 import {
     Volume2,
@@ -42,6 +43,7 @@ export interface Chest {
   fileUrl?: string;
   files?: { fileUrl: string; fileName: string; fileSize?: string; mimeType?: string }[];
   droppedBy: string;
+  creatorId?: string;
   hasPin?: boolean;
   pin?: string;
   boxType?: 'free' | 'password' | 'timer' | 'task' | 'puzzle' | 'quiz';
@@ -65,6 +67,7 @@ export interface Ad {
   imageUrl?: string;
   videoUrl?: string;
   link?: string;
+  coinReward?: number;
 }
 
 const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
@@ -195,6 +198,7 @@ export function App() {
 
   const [unlockedItems, setUnlockedItems] = useState<Chest[]>([]);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  const [inventoryTab, setInventoryTab] = useState<'unlocked' | 'my_drops'>('unlocked');
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showAdModal, setShowAdModal] = useState(false);
@@ -539,8 +543,15 @@ export function App() {
   };
 
   const handleAdReward = () => {
-
-
+    if (user && activeAd) {
+      const rewardAmount = activeAd.coinReward || 10;
+      axios.post(`${API_URL}/users/${user.googleId}/coins/reward`, { amount: rewardAmount })
+        .then((res) => {
+          setUser(res.data);
+          setActiveAd(null);
+        })
+        .catch(console.error);
+    }
   };
 
   const handleTeleportPlayer = (lat: number, lng: number, cityName: string) => {
@@ -553,6 +564,15 @@ export function App() {
     try {
       await axios.delete(`${API_URL}/chests/${id}`);
     } catch (e) {}
+  };
+
+  const handleEditChest = async (updatedChest: Chest) => {
+    setChests(prev => prev.map(c => (c.id === updatedChest.id || c._id === updatedChest._id) ? updatedChest : c));
+    try {
+      await axios.put(`${API_URL}/chests/${updatedChest._id || updatedChest.id}`, updatedChest);
+    } catch (e) {
+      console.error("Failed to edit chest", e);
+    }
   };
 
   const handleAddChest = async (newChest: Partial<Chest>) => {
@@ -706,7 +726,8 @@ export function App() {
       fileName: fileUrlInput ? (fileUrlInput.split('/').pop() || 'attached_intel.dat') : 'intel_drop.dat',
       fileSize: fileUrlInput ? '1.5 MB' : '0.5 MB',
       coinCost: coinCostInput ? parseInt(coinCostInput) : 0,
-      droppedBy: user ? user.name : 'Map Explorer'
+      droppedBy: user ? user.name : 'Map Explorer',
+      creatorId: user ? user.googleId : undefined
     };
 
     handleAddChest(newChestData);
@@ -789,6 +810,17 @@ export function App() {
       </GoogleOAuthProvider>
     );
   }
+
+  const handleDeleteMyDrop = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this drop?")) return;
+    try {
+      await axios.delete(`${API_URL}/chests/${id}`);
+      setChests(chests.filter(c => c.id !== id && c._id !== id));
+    } catch (e) {
+      console.error(e);
+      alert("Failed to delete drop");
+    }
+  };
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 font-sans select-none flex flex-col">
@@ -903,6 +935,7 @@ export function App() {
         ads={ads}
         onDeleteChest={handleDeleteChest}
         onAddChest={handleAddChest}
+        onEditChest={handleEditChest}
         onAddAd={handleAddAd}
         onDeleteAd={handleDeleteAd}
         onTeleportPlayer={handleTeleportPlayer}
@@ -911,111 +944,100 @@ export function App() {
       {/* INVENTORY DRAWER MODAL */}
       {isInventoryOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-lg rounded-3xl bg-slate-900 border border-cyan-500/30 p-6 space-y-4 text-slate-100">
-            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+          <div className="w-full max-w-lg rounded-3xl bg-slate-900 border border-cyan-500/30 p-6 space-y-4 text-slate-100 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3 shrink-0">
               <div className="flex items-center gap-2 text-cyan-300 font-bold">
                 <Package className="w-5 h-5" />
-                <span>UNLOCKED INTEL INVENTORY ({unlockedItems.length})</span>
+                <span>INVENTORY & DROPS</span>
               </div>
               <button onClick={() => setIsInventoryOpen(false)} className="p-1 text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {unlockedItems.length === 0 ? (
-              <div className="py-8 text-center text-slate-400 text-xs font-mono space-y-2">
-                <Package className="w-10 h-10 mx-auto text-slate-600" />
-                <p>No boxes unlocked yet! Explore real street map & open boxes.</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-                {unlockedItems.map((item, idx) => (
-                  <div key={idx} className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bold text-xs text-cyan-300">{item.title}</h4>
-                      <p className="text-[10px] text-slate-400 font-mono">Type: {item.boxType || item.tier}</p>
-                    </div>
-                    {item.fileUrl && (
-                      <button
-                        onClick={() => forceDownload(item.fileUrl!, item.fileName || 'intel.dat')}
-                        className="px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-bold flex items-center gap-1"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        DOWNLOAD
-                      </button>
-                    )}
+            <div className="flex gap-2 bg-slate-950 p-1 rounded-xl shrink-0">
+              <button 
+                onClick={() => setInventoryTab('unlocked')}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${inventoryTab === 'unlocked' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+              >
+                UNLOCKED ({unlockedItems.length})
+              </button>
+              <button 
+                onClick={() => setInventoryTab('my_drops')}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${inventoryTab === 'my_drops' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+              >
+                MY DROPS ({chests.filter(c => c.creatorId === user?.googleId).length})
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-2 space-y-3 min-h-[50vh]">
+              {inventoryTab === 'unlocked' ? (
+                unlockedItems.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 text-xs font-mono space-y-2">
+                    <Package className="w-10 h-10 mx-auto text-slate-600" />
+                    <p>No boxes unlocked yet! Explore the map & open boxes.</p>
                   </div>
-                ))}
-              </div>
-            )}
+                ) : (
+                  unlockedItems.map((item, idx) => (
+                    <div key={idx} className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-xs text-cyan-300">{item.title}</h4>
+                        <p className="text-[10px] text-slate-400 font-mono">Type: {item.boxType || item.tier}</p>
+                      </div>
+                      {item.fileUrl && (
+                        <button
+                          onClick={() => forceDownload(item.fileUrl!, item.fileName || 'intel.dat')}
+                          className="px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-bold flex items-center gap-1"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          DOWNLOAD
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )
+              ) : (
+                chests.filter(c => c.creatorId === user?.googleId).length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 text-xs font-mono space-y-2">
+                    <Compass className="w-10 h-10 mx-auto text-slate-600" />
+                    <p>You haven't dropped any boxes yet.</p>
+                  </div>
+                ) : (
+                  chests.filter(c => c.creatorId === user?.googleId).map((item, idx) => (
+                    <div key={idx} className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-xs text-amber-300">{item.title}</h4>
+                        <p className="text-[10px] text-slate-400 font-mono">Type: {item.boxType || item.tier}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleDeleteMyDrop(item._id || item.id || '')}
+                          className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 rounded-xl text-xs font-bold transition-colors"
+                        >
+                          DELETE
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Ad Modal */}
       {showAdModal && (
-        <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-amber-500/50 rounded-3xl w-full max-w-md overflow-hidden shadow-[0_0_50px_rgba(245,158,11,0.2)]">
-            <div className="bg-slate-950 p-3 flex justify-between items-center border-b border-slate-800">
-              <span className="text-amber-400 font-bold font-mono text-xs animate-pulse">
-                SPONSORED INTEL
-              </span>
-              <button 
-                onClick={() => setShowAdModal(false)}
-                className="text-slate-400 hover:text-white px-3 py-1 rounded-lg border border-slate-700 text-xs font-bold"
-              >
-                SKIP AD
-              </button>
-            </div>
-            
-            <div className="p-4 flex flex-col items-center text-center space-y-4">
-              <div className="w-full aspect-video bg-slate-800 rounded-xl overflow-hidden relative">
-                {ads.length > 0 ? (
-                  <img src={ads[0].imageUrl} alt="Ad" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-500 font-mono text-sm">
-                    VIDEO AD PLACEHOLDER
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent flex items-end p-4">
-                  <h3 className="text-white font-bold text-left">{ads[0]?.title || 'Watch this Ad for 2 Coins!'}</h3>
-                </div>
-              </div>
-              
-              <p className="text-sm text-slate-300 font-mono">
-                Watch the full ad or click below to receive <span className="text-amber-400 font-bold">2 COINS</span>.
-              </p>
-
-              <button
-                onClick={async () => {
-                  if (user) {
-                    try {
-                      await axios.post(`${API_URL}/users/${user.googleId}/coins/reward`);
-                      setUser({ ...user, coins: (user.coins || 0) + 2 });
-                      alert('You earned 2 coins!');
-                    } catch (e) {
-                      console.error("Ad reward failed", e);
-                    }
-                  }
-                  setShowAdModal(false);
-                }}
-                className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold rounded-2xl shadow-lg transition-transform active:scale-95"
-              >
-                I WATCHED IT - CLAIM 2 COINS
-              </button>
-              
-              <button
-                onClick={() => {
-                  alert("Request sent to Admin! They will review and grant you coins soon.");
-                  setShowAdModal(false);
-                }}
-                className="w-full py-2 bg-transparent text-slate-400 hover:text-white border border-slate-700 rounded-xl text-xs font-bold transition-colors"
-              >
-                REQUEST ADMIN FOR COINS
-              </button>
-            </div>
-          </div>
-        </div>
+        <AdModal 
+          ads={ads} 
+          user={user} 
+          onClose={() => setShowAdModal(false)} 
+          onRewardSuccess={() => {
+            if (user) {
+              setUser({ ...user, coins: (user.coins || 0) + 2 });
+            }
+          }}
+        />
       )}
 
       {/* HELP / HOW TO PLAY MODAL */}

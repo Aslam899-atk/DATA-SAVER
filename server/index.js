@@ -81,9 +81,11 @@ app.post('/api/users/:id/coins/spend', async (req, res) => {
 
 app.post('/api/users/:id/coins/reward', async (req, res) => {
   try {
+    const { amount } = req.body || {};
+    const rewardAmount = parseInt(amount) || 2;
     const user = await db.User.findOne({ googleId: req.params.id });
     if (!user) return res.status(404).json({ message: "User not found" });
-    user.coins += 2;
+    user.coins += rewardAmount;
     await user.save();
     res.json(user);
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -133,7 +135,7 @@ app.post('/api/admin/chests/:id/open', async (req, res) => {
 
 app.post('/api/chests', upload.array('files', 50), async (req, res) => {
   try {
-    const { lat, lng, title, message, tier, droppedBy, pin, maxOpens, expiresAt, silverTimer, coinCost, puzzleImage } = req.body;
+    const { lat, lng, title, message, tier, droppedBy, creatorId, pin, maxOpens, expiresAt, silverTimer, coinCost, puzzleImage } = req.body;
     
     let uploadedFiles = [];
     if (req.files && req.files.length > 0) {
@@ -151,7 +153,7 @@ app.post('/api/chests', upload.array('files', 50), async (req, res) => {
       lat: Number(lat), lng: Number(lng), 
       title: title || droppedBy || 'SECURE DROP',
       message: message || '',
-      tier, droppedBy,
+      tier, droppedBy, creatorId,
       fileName: firstFile.fileName, 
       fileSize: firstFile.fileSize, 
       fileUrl: firstFile.fileUrl,
@@ -173,7 +175,7 @@ app.post('/api/chests', upload.array('files', 50), async (req, res) => {
       tier,
       fileName: uploadedFiles.length > 1 ? `${uploadedFiles.length} FILES` : firstFile.fileName,
       fileSize: firstFile.fileSize,
-      droppedBy,
+      droppedBy, creatorId,
       hasPin: pin ? true : false,
       fileUrl: firstFile.fileUrl
     });
@@ -235,7 +237,9 @@ app.post('/api/chests/:id/unlock', async (req, res) => {
       await db.updateUserCoins(googleId, -coinCost);
 
       // Add coins to dropper
-      if (chest.droppedBy && chest.droppedBy !== 'HIDDEN_ADMIN') {
+      if (chest.creatorId) {
+        await db.updateUserCoins(chest.creatorId, coinCost);
+      } else if (chest.droppedBy && chest.droppedBy !== 'HIDDEN_ADMIN') {
         const dropper = await db.User.findOne({ $or: [{ googleId: chest.droppedBy }, { name: chest.droppedBy }] });
         if (dropper) {
           await db.updateUserCoins(dropper.googleId, coinCost);
@@ -275,7 +279,7 @@ app.delete('/api/chests/:id', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.patch('/api/chests/:id', async (req, res) => {
+app.put('/api/chests/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const chest = await db.Chest.findByIdAndUpdate(id, req.body, { new: true });

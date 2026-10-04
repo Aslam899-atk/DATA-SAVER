@@ -187,7 +187,7 @@ export const IndiaGameMap: React.FC<IndiaGameMapProps> = ({
   const keysPressed = useRef<{ [key: string]: boolean }>({});
 
   const tileUrls = {
-    SATELLITE: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+    SATELLITE: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
   };
 
   // Keyboard Movement Listener Hook

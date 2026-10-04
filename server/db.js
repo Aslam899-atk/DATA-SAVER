@@ -18,6 +18,7 @@ const chestSchema = new mongoose.Schema({
   message: { type: String, default: '' },
   tier: String,
   droppedBy: String,
+  creatorId: String,
   fileName: String,
   fileSize: String,
   fileUrl: String,
@@ -54,6 +55,7 @@ const adSchema = new mongoose.Schema({
   imageUrl: String,
   videoUrl: String,
   link: String,
+  coinReward: { type: Number, default: 10 },
   createdAt: { type: Date, default: Date.now }
 });
 

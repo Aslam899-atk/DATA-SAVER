@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Megaphone, ExternalLink, Award, X, Sparkles } from 'lucide-react';
-import { soundFx } from '../utils/soundEffects';
+import { Megaphone, X, Sparkles } from 'lucide-react';
 
 export interface Ad {
   id?: string;
@@ -10,6 +9,7 @@ export interface Ad {
   imageUrl?: string;
   videoUrl?: string;
   link?: string;
+  coinReward?: number;
 }
 
 interface AdsOverlayProps {
@@ -25,33 +25,10 @@ export const AdsOverlay: React.FC<AdsOverlayProps> = ({
 }) => {
   if (!ad) return null;
 
-  const [skipTimer, setSkipTimer] = useState(5);
-  const [canSkip, setCanSkip] = useState(false);
-  const [rewardClaimed, setRewardClaimed] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isVideoAd = !!ad.videoUrl;
 
-  useEffect(() => {
-    soundFx.playAdChime();
-    setSkipTimer(5);
-    setCanSkip(false);
-    setRewardClaimed(false);
-
-    const timer = setInterval(() => {
-      setSkipTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setCanSkip(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [ad]);
-
-  const handleClaimReward = () => {
-    setRewardClaimed(true);
-    soundFx.playSuccess();
+  const handleVideoEnded = () => {
     onReward();
   };
 
@@ -71,34 +48,33 @@ export const AdsOverlay: React.FC<AdsOverlayProps> = ({
               SPONSORED ADVERTISEMENT
             </div>
 
-            {canSkip ? (
-              <button
-                onClick={onClose}
-                className="px-3.5 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md"
-              >
-                <span>SKIP AD</span>
-                <X className="w-4 h-4" />
-              </button>
-            ) : (
-              <div className="px-3 py-1 rounded-full bg-slate-900 border border-slate-700 text-slate-400 text-xs font-mono">
-                Skip in {skipTimer}s
-              </div>
-            )}
+            <button
+              onClick={onClose}
+              className="px-3.5 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md"
+            >
+              <span>SKIP AD</span>
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Ad Media Display */}
           <div className="relative aspect-video w-full bg-slate-950 overflow-hidden flex items-center justify-center">
-            {ad.imageUrl ? (
+            {isVideoAd ? (
+              <video
+                ref={videoRef}
+                src={ad.videoUrl}
+                autoPlay
+                playsInline
+                disablePictureInPicture
+                onEnded={handleVideoEnded}
+                className="w-full h-full object-cover"
+                style={{ pointerEvents: 'none' }}
+              />
+            ) : ad.imageUrl ? (
               <img
                 src={ad.imageUrl}
                 alt={ad.title}
                 className="w-full h-full object-cover"
-              />
-            ) : ad.videoUrl ? (
-              <iframe
-                src={ad.videoUrl}
-                title={ad.title}
-                className="w-full h-full border-0"
               />
             ) : (
               <div className="flex flex-col items-center justify-center p-6 text-center bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 w-full h-full">
@@ -109,39 +85,16 @@ export const AdsOverlay: React.FC<AdsOverlayProps> = ({
             )}
           </div>
 
-          {/* Ad Details & Action */}
-          <div className="p-5 space-y-4 bg-slate-900">
+          {/* Ad Details */}
+          <div className="p-5 space-y-4 bg-slate-900 text-center">
             <div>
               <h4 className="text-lg font-bold text-slate-100">{ad.title || 'Special Promotion'}</h4>
-              <p className="text-xs text-slate-400 mt-1">Explore features and claim free stamina boosts for your avatar.</p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {ad.link && (
-                <a
-                  href={ad.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
-                >
-                  <span>VISIT SPONSOR</span>
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              )}
-
-              {!rewardClaimed ? (
-                <button
-                  onClick={handleClaimReward}
-                  className="flex-1 py-3 px-4 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center justify-center gap-2 transition-all"
-                >
-                  <Award className="w-4 h-4 text-emerald-400" />
-                  <span>CLAIM REWARD (+50 XP)</span>
-                </button>
-              ) : (
-                <div className="flex-1 py-3 px-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs text-center font-bold">
-                  ✓ REWARD CLAIMED!
-                </div>
-              )}
+              <p className="text-sm text-amber-300 mt-2 font-mono">
+                {isVideoAd ? 
+                  `Watch the full video to earn ${ad.coinReward || 10} Coins!` : 
+                  `View this ad to support us.`
+                }
+              </p>
             </div>
           </div>
         </motion.div>
