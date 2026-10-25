@@ -7,6 +7,8 @@ import type {
   OfflinePlayerAvatar,
   BuildingCollisionBox,
   BillboardSlot,
+  CashAirdropItem,
+  NetworkPlayer,
 } from '../types/game';
 import { FAMOUS_CARS } from '../utils/carCatalog';
 import { soundFx } from '../utils/soundEffects';
@@ -21,6 +23,8 @@ import {
   getOfflinePlayers,
   recordUserOffline,
   recordUserOnline,
+  creditUserCash,
+  switchUserAccount,
 } from '../utils/authStorage';
 import {
   loadDroppedFiles,
@@ -28,6 +32,7 @@ import {
   deleteDroppedFile,
   claimFileDownload,
 } from '../utils/fileStorage';
+import { networkSync } from '../utils/networkSync';
 import { GtaHud, type DriveControlAction } from './GtaHud';
 import { Minimap } from './Minimap';
 import { FileModal } from './FileModal';
@@ -35,6 +40,7 @@ import { DropFileModal } from './DropFileModal';
 import { AdminCarModal } from './AdminCarModal';
 import { ShowroomModal } from './ShowroomModal';
 import { ControlsModal } from './ControlsModal';
+import { AccountModal } from './AccountModal';
 
 export const GtaCityMap: React.FC = () => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -60,6 +66,7 @@ export const GtaCityMap: React.FC = () => {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
   const [isShowroomOpen, setIsShowroomOpen] = useState<boolean>(false);
   const [isControlsOpen, setIsControlsOpen] = useState<boolean>(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState<boolean>(false);
 
   // Dynamic Minimap coordinates & entities
   const [playerCoord, setPlayerCoord] = useState<{ x: number; z: number; heading: number }>({
@@ -70,6 +77,7 @@ export const GtaCityMap: React.FC = () => {
   const [carsList, setCarsList] = useState<SpawnedCar[]>([]);
   const [droppedFilesList, setDroppedFilesList] = useState<DroppedFileItem[]>([]);
   const [offlinePlayersList, setOfflinePlayersList] = useState<OfflinePlayerAvatar[]>(getOfflinePlayers());
+  const [cashDropsList, setCashDropsList] = useState<CashAirdropItem[]>([]);
   const [billboardsList, setBillboardsList] = useState<BillboardSlot[]>(getBillboards());
   const [totalVisitors] = useState<number>(trackAndGetTotalVisitors());
 
@@ -90,6 +98,18 @@ export const GtaCityMap: React.FC = () => {
     activeVehicle: SpawnedCar | null;
     cars: SpawnedCar[];
     droppedCrates: { item: DroppedFileItem; group: THREE.Group; parachute?: THREE.Group; tagSprite?: THREE.Sprite }[];
+    cashDropCrates: { item: CashAirdropItem; group: THREE.Group; parachute?: THREE.Group; tagSprite?: THREE.Sprite }[];
+    remotePlayers: {
+      [id: string]: {
+        player: NetworkPlayer;
+        group: THREE.Group;
+        leftLeg?: THREE.Mesh;
+        rightLeg?: THREE.Mesh;
+        tagSprite?: THREE.Sprite;
+        targetPos: THREE.Vector3;
+        targetRot: number;
+      };
+    };
     offlineMeshes: { player: OfflinePlayerAvatar; group: THREE.Group }[];
     billboardMeshes: { [id: string]: THREE.Mesh };
     collisionBoxes: BuildingCollisionBox[];
@@ -97,6 +117,7 @@ export const GtaCityMap: React.FC = () => {
     mouseDown: boolean;
     worldSize: number;
     showcasePodiumCar?: THREE.Group;
+    lastBroadcastMoveTime: number;
   }>({
     scene: null,
     camera: null,
@@ -113,12 +134,15 @@ export const GtaCityMap: React.FC = () => {
     activeVehicle: null,
     cars: [],
     droppedCrates: [],
+    cashDropCrates: [],
+    remotePlayers: {},
     offlineMeshes: [],
     billboardMeshes: {},
     collisionBoxes: [],
     keys: {},
     mouseDown: false,
     worldSize: 400,
+    lastBroadcastMoveTime: 0,
   });
 
   // Interactive Driving State (Keyboard + On-Screen Touch/Mouse Controls)
@@ -188,6 +212,166 @@ export const GtaCityMap: React.FC = () => {
       handleBeforeUnload();
     };
   }, [user]);
+
+  // Real-Time Cross-Account & Multiplayer Synchronization
+  useEffect(() => {
+    networkSync.setUserId(user.id);
+
+    // Broadcast our join
+    networkSync.emitPlayerJoin({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatar: user.avatar,
+      x: user.x || 0,
+      y: 0,
+      z: user.z || 0,
+      rotation: user.rotation || 0,
+      isOnline: true,
+      lastSeen: Date.now(),
+    });
+
+    // 1. Remote Player Move
+    const unsubMove = networkSync.on('PLAYER_MOVE', (p: any) => {
+      createOrUpdateRemotePlayer(p);
+    });
+
+    // 2. Remote Player Join
+    const unsubJoin = networkSync.on('PLAYER_JOIN', (p: any) => {
+      createOrUpdateRemotePlayer(p);
+      // Reply with our position so the new player sees us immediately
+      if (sim.current.playerGroup) {
+        networkSync.emitPlayerMove({
+          id: user.id,
+          name: user.name,
+          avatar: user.avatar,
+          x: sim.current.playerGroup.position.x,
+          z: sim.current.playerGroup.position.z,
+          rotation: sim.current.yaw,
+          isDriving: !!sim.current.activeVehicle,
+          carId: sim.current.activeVehicle?.id,
+          speed: sim.current.activeVehicle ? sim.current.activeVehicle.speed : 0,
+        });
+      }
+    });
+
+    // 3. Remote Player Offline
+    const unsubOffline = networkSync.on('PLAYER_OFFLINE', (p: any) => {
+      createOrUpdateRemotePlayer({ ...p, isOnline: false });
+    });
+
+    // 4. File Dropped
+    const unsubFile = networkSync.on('FILE_DROPPED', (f: DroppedFileItem) => {
+      setDroppedFilesList((prev) => {
+        if (prev.some((item) => item.id === f.id)) return prev;
+        spawnFileCrate(f, true);
+        return [...prev, f];
+      });
+      showNotification(`📦 NEW AIRDROP IN CITY: ${f.name} (${f.isPaid ? `$${f.price}` : 'FREE'})`);
+    });
+
+    // 5. File Purchased (Cash transfer to seller!)
+    const unsubPurchased = networkSync.on('FILE_PURCHASED', (data: any) => {
+      if (data.sellerId === user.id) {
+        setUser((prev) => {
+          const next = { ...prev, cash: prev.cash + data.price };
+          saveCurrentUser(next);
+          return next;
+        });
+        soundFx.playCashRegister();
+        showNotification(`💰 SALE! ${data.buyerName} purchased ${data.fileName}! You earned +$${data.price.toLocaleString()}!`);
+      }
+    });
+
+    // 6. Admin Cash Airdrop
+    const unsubCashDrop = networkSync.on('ADMIN_CASH_DROPPED', (drop: CashAirdropItem) => {
+      setCashDropsList((prev) => {
+        if (prev.some((item) => item.id === drop.id)) return prev;
+        spawnCashDropCrate(drop, true);
+        return [...prev, drop];
+      });
+      soundFx.playCashRegister();
+      showNotification(`🚨 LIVE CASH AIRDROP! $${drop.amount.toLocaleString()} DROPPED IN CITY! FIRST COME, FIRST SERVED! 💸`);
+    });
+
+    // 7. Admin Cash Claimed
+    const unsubCashClaimed = networkSync.on('ADMIN_CASH_CLAIMED', (data: any) => {
+      const s = sim.current;
+      const cObj = s.cashDropCrates.find((c) => c.item.id === data.dropId);
+      if (cObj && s.scene) {
+        s.scene.remove(cObj.group);
+        s.cashDropCrates = s.cashDropCrates.filter((c) => c.item.id !== data.dropId);
+      }
+      setCashDropsList((prev) => prev.filter((d) => d.id !== data.dropId));
+      if (data.claimedBy !== user.id) {
+        showNotification(`🏆 ${data.claimedByName} CLAIMED THE $${data.amount.toLocaleString()} CASH AIRDROP!`);
+      }
+    });
+
+    return () => {
+      unsubMove();
+      unsubJoin();
+      unsubOffline();
+      unsubFile();
+      unsubPurchased();
+      unsubCashDrop();
+      unsubCashClaimed();
+    };
+  }, [user]);
+
+  // Admin Cash Drop Action
+  const handleDeployAdminCashDrop = (drop: CashAirdropItem) => {
+    spawnCashDropCrate(drop, true);
+    networkSync.emitCashDropped(drop);
+    showNotification(`ADMIN CASH AIRDROP ($${drop.amount.toLocaleString()}) DEPLOYED!`);
+  };
+
+  // Switch or Login with Account
+  const handleSwitchAccount = (email: string, name?: string) => {
+    const prevPos = sim.current.playerGroup ? sim.current.playerGroup.position : { x: 0, z: 0 };
+    recordUserOffline({
+      ...user,
+      x: prevPos.x,
+      z: prevPos.z,
+      rotation: sim.current.yaw,
+      lastSeen: Date.now(),
+    });
+
+    networkSync.emitPlayerOffline({
+      id: user.id,
+      name: user.name,
+      avatar: user.avatar,
+      x: prevPos.x,
+      z: prevPos.z,
+      rotation: sim.current.yaw,
+      lastSeen: Date.now(),
+    });
+
+    const nextUser = switchUserAccount(email, name);
+    setUser(nextUser);
+    networkSync.setUserId(nextUser.id);
+    recordUserOnline(nextUser.id);
+
+    if (sim.current.playerGroup) {
+      sim.current.playerGroup.position.set(nextUser.x || 0, 0, nextUser.z || 0);
+      sim.current.yaw = nextUser.rotation || 0;
+    }
+
+    networkSync.emitPlayerJoin({
+      id: nextUser.id,
+      email: nextUser.email,
+      name: nextUser.name,
+      avatar: nextUser.avatar,
+      x: nextUser.x || 0,
+      y: 0,
+      z: nextUser.z || 0,
+      rotation: nextUser.rotation || 0,
+      isOnline: true,
+      lastSeen: Date.now(),
+    });
+
+    showNotification(`SWITCHED TO ACCOUNT: ${nextUser.name} (${nextUser.email})`);
+  };
 
   // Create Detailed 3D Car Mesh based on famous model
   const createDetailedCarMesh = (car: SpawnedCar): THREE.Group => {
@@ -499,6 +683,208 @@ export const GtaCityMap: React.FC = () => {
 
     scene.add(crateGroup);
     sim.current.droppedCrates.push({ item: file, group: crateGroup, parachute: parachuteGroup, tagSprite: tag });
+  };
+
+  // Create or Update 3D Remote Player Avatar (Multiplayer Live & Offline)
+  const createOrUpdateRemotePlayer = (player: NetworkPlayer) => {
+    if (player.id === user.id) return;
+    const s = sim.current;
+    if (!s.scene) return;
+
+    if (s.remotePlayers[player.id]) {
+      const entry = s.remotePlayers[player.id];
+      entry.player = player;
+      entry.targetPos.set(player.x, 0, player.z);
+      entry.targetRot = player.rotation;
+
+      // Update badge if online/offline changed
+      if (entry.tagSprite) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 320;
+        canvas.height = 80;
+        const bCtx = canvas.getContext('2d');
+        if (bCtx) {
+          bCtx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+          bCtx.roundRect(8, 8, 304, 64, 12);
+          bCtx.fill();
+          bCtx.strokeStyle = player.isOnline ? '#22c55e' : '#ef4444';
+          bCtx.lineWidth = 3;
+          bCtx.stroke();
+
+          bCtx.font = 'bold 22px monospace';
+          bCtx.fillStyle = '#f1f5f9';
+          bCtx.textAlign = 'center';
+          bCtx.fillText(player.name.slice(0, 16), 160, 36);
+
+          bCtx.font = 'bold 16px monospace';
+          bCtx.fillStyle = player.isOnline ? '#4ade80' : '#ef4444';
+          bCtx.fillText(player.isOnline ? '[ONLINE LIVE]' : '[OFFLINE]', 160, 58);
+        }
+        entry.tagSprite.material.map = new THREE.CanvasTexture(canvas);
+        entry.tagSprite.material.needsUpdate = true;
+      }
+      return;
+    }
+
+    // Create new 3D remote player
+    const group = new THREE.Group();
+    group.position.set(player.x, 0, player.z);
+    group.rotation.y = player.rotation;
+
+    // Body
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.6 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 0.7), bodyMat);
+    body.position.y = 1.9;
+    body.castShadow = true;
+    group.add(body);
+
+    // Head
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xffedd5, roughness: 0.9 });
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.75, 0.7), headMat);
+    head.position.y = 3.1;
+    head.castShadow = true;
+    group.add(head);
+
+    // Sunglasses
+    const glasses = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.2, 0.2), new THREE.MeshBasicMaterial({ color: 0x09090b }));
+    glasses.position.set(0, 3.15, -0.32);
+    group.add(glasses);
+
+    // Legs
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.4, 0.5), legMat);
+    leftLeg.position.set(-0.35, 0.7, 0);
+    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.4, 0.5), legMat);
+    rightLeg.position.set(0.35, 0.7, 0);
+    group.add(leftLeg, rightLeg);
+
+    // 3D Tag Sprite
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 80;
+    const bCtx = canvas.getContext('2d');
+    if (bCtx) {
+      bCtx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      bCtx.roundRect(8, 8, 304, 64, 12);
+      bCtx.fill();
+      bCtx.strokeStyle = player.isOnline ? '#22c55e' : '#ef4444';
+      bCtx.lineWidth = 3;
+      bCtx.stroke();
+
+      bCtx.font = 'bold 22px monospace';
+      bCtx.fillStyle = '#f1f5f9';
+      bCtx.textAlign = 'center';
+      bCtx.fillText(player.name.slice(0, 16), 160, 36);
+
+      bCtx.font = 'bold 16px monospace';
+      bCtx.fillStyle = player.isOnline ? '#4ade80' : '#ef4444';
+      bCtx.fillText(player.isOnline ? '[ONLINE LIVE]' : '[OFFLINE]', 160, 58);
+    }
+    const badgeTex = new THREE.CanvasTexture(canvas);
+    const badgeSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: badgeTex, depthTest: false }));
+    badgeSprite.scale.set(3, 0.8, 1);
+    badgeSprite.position.set(0, 3.8, 0);
+    group.add(badgeSprite);
+
+    s.scene.add(group);
+    s.remotePlayers[player.id] = {
+      player,
+      group,
+      leftLeg,
+      rightLeg,
+      tagSprite: badgeSprite,
+      targetPos: new THREE.Vector3(player.x, 0, player.z),
+      targetRot: player.rotation,
+    };
+  };
+
+  // Spawn a 3D Golden Cash Airdrop Crate (Admin Money Drop)
+  const spawnCashDropCrate = (drop: CashAirdropItem, dropFromSky: boolean = true) => {
+    const scene = sim.current.scene;
+    if (!scene) return;
+
+    const crateGroup = new THREE.Group();
+    crateGroup.position.set(drop.x, dropFromSky ? 55 : 1, drop.z);
+
+    // Gold Cube Container
+    const crateGeo = new THREE.BoxGeometry(2.4, 2.4, 2.4);
+    const crateMat = new THREE.MeshStandardMaterial({
+      color: 0x854d0e,
+      metalness: 0.9,
+      roughness: 0.15,
+    });
+    const crateMesh = new THREE.Mesh(crateGeo, crateMat);
+    crateMesh.castShadow = true;
+    crateMesh.receiveShadow = true;
+    crateGroup.add(crateMesh);
+
+    // Glowing Neon Yellow Edges
+    const edgeGeo = new THREE.BoxGeometry(2.45, 0.2, 2.45);
+    const neonMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+    const e1 = new THREE.Mesh(edgeGeo, neonMat);
+    e1.position.y = 1.05;
+    const e2 = new THREE.Mesh(edgeGeo, neonMat);
+    e2.position.y = -1.05;
+    crateGroup.add(e1, e2);
+
+    // Golden Beacon Point Light
+    const beaconLight = new THREE.PointLight(0xfacc15, 2.5, 22);
+    beaconLight.position.set(0, 1.5, 0);
+    crateGroup.add(beaconLight);
+
+    // Floating Cash Tag
+    const canvas = document.createElement('canvas');
+    canvas.width = 384;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      ctx.roundRect(8, 8, 368, 112, 16);
+      ctx.fill();
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 5;
+      ctx.stroke();
+
+      ctx.font = 'bold 28px monospace';
+      ctx.fillStyle = '#fde047';
+      ctx.textAlign = 'center';
+      ctx.fillText(`💰 $${drop.amount.toLocaleString()} CASH`, 192, 48);
+
+      ctx.font = 'bold 18px monospace';
+      ctx.fillStyle = '#4ade80';
+      ctx.fillText('[FIRST TO GRAB GETS IT!]', 192, 85);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false }));
+    tag.scale.set(4.2, 1.4, 1);
+    tag.position.set(0, 3.2, 0);
+    crateGroup.add(tag);
+
+    // Parachute
+    let parachuteGroup: THREE.Group | undefined;
+    if (dropFromSky) {
+      parachuteGroup = new THREE.Group();
+      parachuteGroup.position.set(0, 4.5, 0);
+      const canopyGeo = new THREE.SphereGeometry(4, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+      const canopyMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, side: THREE.DoubleSide });
+      const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+      parachuteGroup.add(canopy);
+
+      const cordMat = new THREE.LineBasicMaterial({ color: 0xfef08a });
+      for (let i = 0; i < 4; i++) {
+        const angle = (i / 4) * Math.PI * 2;
+        const cordGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(Math.cos(angle) * 3.5, 0, Math.sin(angle) * 3.5),
+          new THREE.Vector3(0, -4.2, 0),
+        ]);
+        parachuteGroup.add(new THREE.Line(cordGeo, cordMat));
+      }
+      crateGroup.add(parachuteGroup);
+    }
+
+    scene.add(crateGroup);
+    sim.current.cashDropCrates.push({ item: drop, group: crateGroup, parachute: parachuteGroup, tagSprite: tag });
+    setCashDropsList((prev) => [...prev, drop]);
   };
 
   // Main Three.js Scene Setup & Architecture
@@ -1240,14 +1626,39 @@ export const GtaCityMap: React.FC = () => {
     if (!s.playerGroup) return;
     const pPos = s.playerGroup.position;
 
-    // Check ATM near bank (X: 0, Z: -29)
+    // Check Cash Airdrop Crate First (First come, first served!)
+    const nearCash = s.cashDropCrates.find(
+      (c) => !c.item.isClaimed && Math.hypot(c.group.position.x - pPos.x, c.group.position.z - pPos.z) < 4.5
+    );
+    if (nearCash) {
+      nearCash.item.isClaimed = true;
+      const amt = nearCash.item.amount;
+      setUser((prev) => {
+        const next = { ...prev, cash: prev.cash + amt };
+        saveCurrentUser(next);
+        return next;
+      });
+      creditUserCash(user.id, amt);
+      soundFx.playCashRegister();
+      showNotification(`🏆 YOU CLAIMED THE $${amt.toLocaleString()} CASH AIRDROP! 💰`);
+
+      s.scene?.remove(nearCash.group);
+      s.cashDropCrates = s.cashDropCrates.filter((c) => c.item.id !== nearCash.item.id);
+      setCashDropsList((prev) => prev.filter((d) => d.id !== nearCash.item.id));
+
+      networkSync.emitCashClaimed({
+        dropId: nearCash.item.id,
+        amount: amt,
+        claimedBy: user.id,
+        claimedByName: user.name,
+      });
+      return;
+    }
+
+    // Check ATM near bank (X: 0, Z: -29) - Checks Balance, No Free Money!
     if (Math.hypot(pPos.x - 0, pPos.z - (-29)) < 4.0) {
       soundFx.playAtmChime();
-      setUser((prev) => {
-        const nextCash = prev.cash + 5000;
-        showNotification('COLLECTED $5,000 FROM STATE BANK ATM!');
-        return { ...prev, cash: nextCash };
-      });
+      showNotification(`VICE STATE BANK ATM: YOUR CURRENT BALANCE IS $${user.cash.toLocaleString()}. DROP & SELL FILES TO EARN CASH!`);
       return;
     }
 
@@ -1493,6 +1904,9 @@ export const GtaCityMap: React.FC = () => {
 
       // Check context prompts within generous range
       const pPos = s.playerGroup.position;
+      const nearCash = s.cashDropCrates.find(
+        (c) => !c.item.isClaimed && Math.hypot(c.group.position.x - pPos.x, c.group.position.z - pPos.z) < 4.5
+      );
       const nearCar = s.cars.find((c) => Math.hypot(c.x - pPos.x, c.z - pPos.z) < 7.5);
       const nearCrate = s.droppedCrates.find(
         (c) => Math.hypot(c.group.position.x - pPos.x, c.group.position.z - pPos.z) < 4.0
@@ -1501,7 +1915,9 @@ export const GtaCityMap: React.FC = () => {
       const nearShowroom = Math.hypot(pPos.x - 35, pPos.z - (-15)) < 10.0;
       const nearThattukada = Math.hypot(pPos.x - (-30), pPos.z - 20) < 4.5;
 
-      if (nearCar) {
+      if (nearCash) {
+        setInteractPrompt(`[E] CLAIM $${nearCash.item.amount.toLocaleString()} CASH AIRDROP! 💰`);
+      } else if (nearCar) {
         const isOwned = nearCar.ownerId === user.id;
         if (isOwned) {
           setInteractPrompt(`[F] DRIVE YOUR ${nearCar.name} 🚗`);
@@ -1516,7 +1932,7 @@ export const GtaCityMap: React.FC = () => {
           : `[E] OPEN FREE AIRDROP: ${nearCrate.item.name}`;
         setInteractPrompt(label);
       } else if (nearAtm) {
-        setInteractPrompt('[E] WITHDRAW $5,000 BANK ALLOWANCE');
+        setInteractPrompt('[E] STATE BANK ATM (CHECK BALANCE)');
       } else if (nearShowroom) {
         setInteractPrompt('[E] APEX MOTORS SHOWROOM & DEALERSHIP');
       } else if (nearThattukada) {
@@ -1527,6 +1943,43 @@ export const GtaCityMap: React.FC = () => {
 
       setPlayerCoord({ x: pPos.x, z: pPos.z, heading: s.yaw });
     }
+
+    // Real-Time Position Broadcasting across accounts/tabs/clients
+    const currentPos = s.playerGroup.position;
+    const nowTime = performance.now();
+    if (nowTime - s.lastBroadcastMoveTime > 80) {
+      s.lastBroadcastMoveTime = nowTime;
+      networkSync.emitPlayerMove({
+        id: user.id,
+        name: user.name,
+        avatar: user.avatar,
+        x: currentPos.x,
+        z: currentPos.z,
+        rotation: s.yaw,
+        isDriving: !!s.activeVehicle,
+        carId: s.activeVehicle?.id,
+        speed: s.activeVehicle ? s.activeVehicle.speed : 0,
+      });
+    }
+
+    // Smoothly interpolate remote players
+    Object.values(s.remotePlayers).forEach((entry) => {
+      const dist = entry.group.position.distanceTo(entry.targetPos);
+      if (dist > 0.05) {
+        entry.group.position.lerp(entry.targetPos, 0.25);
+        entry.group.rotation.y = entry.targetRot;
+        const walkCycle = performance.now() * 0.012;
+        if (entry.leftLeg && entry.rightLeg) {
+          entry.leftLeg.rotation.x = Math.sin(walkCycle) * 0.6;
+          entry.rightLeg.rotation.x = -Math.sin(walkCycle) * 0.6;
+        }
+      } else {
+        if (entry.leftLeg && entry.rightLeg) {
+          entry.leftLeg.rotation.x = 0;
+          entry.rightLeg.rotation.x = 0;
+        }
+      }
+    });
   };
 
   // Update Crates & Parachutes
@@ -1559,6 +2012,25 @@ export const GtaCityMap: React.FC = () => {
           if (crate.parachute) {
             crate.group.remove(crate.parachute);
             crate.parachute = undefined;
+          }
+        }
+      }
+    }
+
+    // Cash Drops Parachute Descent
+    for (let i = s.cashDropCrates.length - 1; i >= 0; i--) {
+      const drop = s.cashDropCrates[i];
+      if (drop.group.position.y > 1) {
+        drop.group.position.y -= 0.35 * 45 * delta;
+        if (drop.parachute) {
+          drop.parachute.rotation.z = Math.sin(performance.now() * 0.003) * 0.15;
+        }
+        if (drop.group.position.y <= 1) {
+          drop.group.position.y = 1;
+          soundFx.playAirdropTouchdown();
+          if (drop.parachute) {
+            drop.group.remove(drop.parachute);
+            drop.parachute = undefined;
           }
         }
       }
@@ -1680,6 +2152,7 @@ export const GtaCityMap: React.FC = () => {
     await saveDroppedFile(newItem);
     setDroppedFilesList((prev) => [...prev, newItem]);
     spawnFileCrate(newItem, true);
+    networkSync.emitFileDropped(newItem);
     setPendingFileForDrop(null);
     showNotification(`PARACHUTE AIRDROP DEPLOYED: ${newItem.name}`);
   };
@@ -1690,16 +2163,36 @@ export const GtaCityMap: React.FC = () => {
 
     if (file.isPaid && !isCreator) {
       if (user.cash < file.price) {
+        soundFx.playErrorTone();
         showNotification(`INSUFFICIENT FUNDS! REQUIRES $${file.price.toLocaleString()}`);
         return false;
       }
 
       // Deduct cash from downloader
-      setUser((prev) => ({
-        ...prev,
-        cash: prev.cash - file.price,
-      }));
-      showNotification(`PAID $${file.price.toLocaleString()} TO ACCESS INTEL`);
+      setUser((prev) => {
+        const next = {
+          ...prev,
+          cash: prev.cash - file.price,
+        };
+        saveCurrentUser(next);
+        return next;
+      });
+
+      // Transfer cash to the file creator!
+      creditUserCash(file.creatorId, file.price);
+
+      // Broadcast sale so the seller's tab / user updates cash immediately
+      networkSync.emitFilePurchased({
+        fileId: file.id,
+        fileName: file.name,
+        price: file.price,
+        sellerId: file.creatorId,
+        buyerId: user.id,
+        buyerName: user.name,
+      });
+
+      soundFx.playCashRegister();
+      showNotification(`PAID $${file.price.toLocaleString()} TO ACCESS INTEL! CITIZEN SELLER CREDITED.`);
     }
 
     // Process claim count limit in IndexedDB
@@ -1848,11 +2341,8 @@ export const GtaCityMap: React.FC = () => {
         onOpenControls={() => setIsControlsOpen(true)}
         onOpenAdminModal={() => setIsAdminModalOpen(true)}
         onOpenShowroomModal={() => setIsShowroomOpen(true)}
+        onOpenAccountModal={() => setIsAccountModalOpen(true)}
         onDropFileTrigger={() => fileInputRef.current?.click()}
-        onCollectAtmBonus={() => {
-          setUser((prev) => ({ ...prev, cash: prev.cash + 5000 }));
-          showNotification('COLLECTED $5,000 BANK ALLOWANCE!');
-        }}
         isMuted={isMuted}
         onToggleMute={() => {
           const m = soundFx.toggleMute();
@@ -1872,6 +2362,7 @@ export const GtaCityMap: React.FC = () => {
           files={droppedFilesList}
           cars={carsList}
           offlinePlayers={offlinePlayersList}
+          cashDrops={cashDropsList}
           worldSize={sim.current.worldSize}
         />
       </div>
@@ -1906,6 +2397,7 @@ export const GtaCityMap: React.FC = () => {
         totalCarsCount={carsList.length}
         totalAirdropsCount={droppedFilesList.length}
         offlinePlayers={offlinePlayersList}
+        onDeployCashDrop={handleDeployAdminCashDrop}
       />
 
       <ShowroomModal
@@ -1918,6 +2410,13 @@ export const GtaCityMap: React.FC = () => {
       />
 
       <ControlsModal isOpen={isControlsOpen} onClose={() => setIsControlsOpen(false)} />
+
+      <AccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        currentUser={user}
+        onSwitchAccount={handleSwitchAccount}
+      />
     </div>
   );
 };

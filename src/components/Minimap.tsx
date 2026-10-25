@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import type { DroppedFileItem, SpawnedCar, OfflinePlayerAvatar } from '../types/game';
+import type { DroppedFileItem, SpawnedCar, OfflinePlayerAvatar, CashAirdropItem } from '../types/game';
 
 interface MinimapProps {
   playerX: number;
@@ -8,6 +8,7 @@ interface MinimapProps {
   files: DroppedFileItem[];
   cars: SpawnedCar[];
   offlinePlayers: OfflinePlayerAvatar[];
+  cashDrops?: CashAirdropItem[];
   worldSize: number;
 }
 
@@ -18,6 +19,7 @@ export const Minimap: React.FC<MinimapProps> = ({
   files,
   cars,
   offlinePlayers,
+  cashDrops = [],
   worldSize,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -141,6 +143,22 @@ export const Minimap: React.FC<MinimapProps> = ({
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    });
+
+    // Draw Live Cash Airdrops (Glowing Golden Stars)
+    cashDrops.forEach((cd) => {
+      if (cd.isClaimed) return;
+      const cx = (cd.x - playerX) * scale;
+      const cz = (cd.z - playerZ) * scale;
+      if (Math.hypot(cx, cz) < radius - 8) {
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(cx, cz, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
       }
     });

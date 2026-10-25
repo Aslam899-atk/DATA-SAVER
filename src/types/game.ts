@@ -111,3 +111,34 @@ export interface CityAnalytics {
   totalAirdrops: number;
   totalEconomyVolume: number;
 }
+
+export interface CashAirdropItem {
+  id: string;
+  amount: number;
+  x: number;
+  y: number;
+  z: number;
+  note?: string;
+  timestamp: number;
+  isClaimed: boolean;
+  claimedBy?: string;
+  claimedByName?: string;
+  claimedAt?: number;
+}
+
+export interface NetworkPlayer {
+  id: string;
+  email: string;
+  name: string;
+  avatar: string;
+  x: number;
+  y: number;
+  z: number;
+  rotation: number;
+  isOnline: boolean;
+  isDriving?: boolean;
+  carId?: string;
+  speed?: number;
+  lastSeen: number;
+  meshGroup?: any;
+}

@@ -6,7 +6,6 @@ import {
   HelpCircle,
   Upload,
   Car,
-  Landmark,
   ArrowUp,
   ArrowDown,
   ArrowLeft,
@@ -14,6 +13,7 @@ import {
   Flame,
   LogOut,
   Megaphone,
+  User,
 } from 'lucide-react';
 import { soundFx } from '../utils/soundEffects';
 
@@ -36,8 +36,8 @@ interface GtaHudProps {
   onOpenControls: () => void;
   onOpenAdminModal?: () => void;
   onOpenShowroomModal: () => void;
+  onOpenAccountModal?: () => void;
   onDropFileTrigger: () => void;
-  onCollectAtmBonus: () => void;
   isMuted: boolean;
   onToggleMute: () => void;
   onDriveControl?: (action: DriveControlAction, isPressed: boolean) => void;
@@ -53,8 +53,8 @@ export const GtaHud: React.FC<GtaHudProps> = ({
   isDraggingFile,
   onOpenControls,
   onOpenShowroomModal,
+  onOpenAccountModal,
   onDropFileTrigger,
-  onCollectAtmBonus,
   isMuted,
   onToggleMute,
   onDriveControl,
@@ -66,7 +66,14 @@ export const GtaHud: React.FC<GtaHudProps> = ({
       <div className="flex items-start justify-between w-full">
         {/* Top-Left: Player Profile Badge */}
         <div className="pointer-events-auto flex items-center gap-3">
-          <div className="flex items-center gap-3 bg-black/75 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-zinc-800 shadow-xl">
+          <button
+            onClick={() => {
+              soundFx.playClick();
+              onOpenAccountModal?.();
+            }}
+            className="flex items-center gap-3 bg-black/75 hover:bg-zinc-900 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-zinc-800 hover:border-cyan-500/50 shadow-xl transition-all text-left cursor-pointer active:scale-95"
+            title="Click to Switch Account or Login with Email"
+          >
             <div className="relative">
               <img
                 src={user.avatar}
@@ -82,23 +89,23 @@ export const GtaHud: React.FC<GtaHudProps> = ({
                   ONLINE
                 </span>
               </div>
-              <div className="text-[10px] font-mono text-zinc-400">
-                Cars Owned: <span className="text-cyan-300 font-bold">{user.ownedCarIds.length}</span>
+              <div className="text-[10px] font-mono text-zinc-400 truncate max-w-[140px]">
+                {user.email || 'Click to Login'}
               </div>
             </div>
-          </div>
+          </button>
 
-          {/* Quick Shortcuts */}
+          {/* Quick Account Switcher Button */}
           <button
             onClick={() => {
-              soundFx.playAtmChime();
-              onCollectAtmBonus();
+              soundFx.playClick();
+              onOpenAccountModal?.();
             }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-mono font-bold rounded-xl shadow-md border border-emerald-400/40 hover:scale-105 active:scale-95 transition-all"
-            title="Collect Daily $5,000 Bank Allowance"
+            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-cyan-700 to-blue-700 hover:from-cyan-600 hover:to-blue-600 text-white text-xs font-mono font-bold rounded-xl shadow-md border border-cyan-400/40 hover:scale-105 active:scale-95 transition-all"
+            title="Switch Account / Login with Email"
           >
-            <Landmark className="w-3.5 h-3.5" />
-            ATM BONUS
+            <User className="w-3.5 h-3.5" />
+            LOGIN / ACCOUNTS
           </button>
         </div>
 

@@ -385,6 +385,11 @@ if (process.env.NODE_ENV !== 'production') {
   io.on('connection', (socket) => {
     console.log(`🔌 Socket connected: ${socket.id}`);
 
+    // Real-Time Cross-Client Event Relay
+    socket.on('vicedrop_event', (msg) => {
+      socket.broadcast.emit('vicedrop_event', msg);
+    });
+
     socket.on('join-game', ({ googleId, name, lat, lng }) => {
       players[socket.id] = { socketId: socket.id, googleId, name, lat, lng };
       console.log(`🎮 Player joined: ${name} (${googleId}) at [${lat}, ${lng}]`);

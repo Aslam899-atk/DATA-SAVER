@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FAMOUS_CARS } from '../utils/carCatalog';
-import type { CarCatalogItem, SpawnedCar, BillboardSlot, OfflinePlayerAvatar } from '../types/game';
+import type { CarCatalogItem, SpawnedCar, BillboardSlot, OfflinePlayerAvatar, CashAirdropItem } from '../types/game';
 import {
   X,
   ShieldCheck,
@@ -18,6 +18,8 @@ import {
   Lock,
   KeyRound,
   AlertCircle,
+  Coins,
+  Gift,
 } from 'lucide-react';
 import { soundFx } from '../utils/soundEffects';
 
@@ -34,6 +36,7 @@ interface AdminCarModalProps {
   totalCarsCount: number;
   totalAirdropsCount: number;
   offlinePlayers: OfflinePlayerAvatar[];
+  onDeployCashDrop?: (drop: CashAirdropItem) => void;
 }
 
 export const AdminCarModal: React.FC<AdminCarModalProps> = ({
@@ -47,6 +50,7 @@ export const AdminCarModal: React.FC<AdminCarModalProps> = ({
   totalCarsCount,
   totalAirdropsCount,
   offlinePlayers,
+  onDeployCashDrop,
 }) => {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -56,7 +60,7 @@ export const AdminCarModal: React.FC<AdminCarModalProps> = ({
   const [passwordError, setPasswordError] = useState<boolean>(false);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'analytics' | 'billboards' | 'cars'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'billboards' | 'cars' | 'cash_drop'>('analytics');
 
   // Car Tab State
   const [selectedCar, setSelectedCar] = useState<CarCatalogItem>(FAMOUS_CARS[0]);
@@ -68,6 +72,11 @@ export const AdminCarModal: React.FC<AdminCarModalProps> = ({
   const [adImageUrl, setAdImageUrl] = useState<string>(billboards[0]?.imageUrl || '');
   const [adSponsor, setAdSponsor] = useState<string>(billboards[0]?.sponsorName || '');
   const [adHeadline, setAdHeadline] = useState<string>(billboards[0]?.headline || '');
+
+  // Cash Airdrop Tab State
+  const [cashDropAmount, setCashDropAmount] = useState<number>(10000);
+  const [cashDropLoc, setCashDropLoc] = useState<'player' | 'plaza' | 'bank' | 'thattukada'>('player');
+  const [cashDropNote, setCashDropNote] = useState<string>('MAYOR TREASURE AIRDROP');
 
   if (!isOpen) return null;
 
@@ -148,6 +157,36 @@ export const AdminCarModal: React.FC<AdminCarModalProps> = ({
     };
 
     onImportCar(newCar);
+    onClose();
+  };
+
+  const handleDeployCashDrop = () => {
+    let dropX = playerPos.x;
+    let dropZ = playerPos.z + 5;
+    if (cashDropLoc === 'plaza') {
+      dropX = 0;
+      dropZ = 0;
+    } else if (cashDropLoc === 'bank') {
+      dropX = 0;
+      dropZ = -30;
+    } else if (cashDropLoc === 'thattukada') {
+      dropX = -30;
+      dropZ = 20;
+    }
+
+    const item: CashAirdropItem = {
+      id: 'cashdrop_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      amount: cashDropAmount,
+      x: dropX,
+      y: 55,
+      z: dropZ,
+      note: cashDropNote,
+      timestamp: Date.now(),
+      isClaimed: false,
+    };
+
+    soundFx.playCashRegister();
+    onDeployCashDrop?.(item);
     onClose();
   };
 
@@ -295,6 +334,21 @@ export const AdminCarModal: React.FC<AdminCarModalProps> = ({
           >
             <Car className="w-4 h-4" />
             CAR DEALERSHIP IMPORTER (10 MODELS)
+          </button>
+
+          <button
+            onClick={() => {
+              soundFx.playClick();
+              setActiveTab('cash_drop');
+            }}
+            className={`py-3.5 px-3 border-b-2 font-bold flex items-center gap-2 transition-all ${
+              activeTab === 'cash_drop'
+                ? 'border-emerald-400 text-emerald-300'
+                : 'border-transparent text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Coins className="w-4 h-4" />
+            CASH AIRDROP (MONEY DROP 💸)
           </button>
         </div>
 
@@ -676,6 +730,130 @@ export const AdminCarModal: React.FC<AdminCarModalProps> = ({
                   IMPORT TO MAP NOW
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 4: Admin Cash Airdrop (Money Drop) */}
+        {activeTab === 'cash_drop' && (
+          <div className="p-6 overflow-y-auto flex-1 space-y-6 font-mono text-xs bg-zinc-950">
+            {/* Header info */}
+            <div className="p-4 bg-gradient-to-r from-emerald-950/60 via-green-950/40 to-zinc-900 border-2 border-emerald-500/60 rounded-2xl flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-emerald-500/20 border border-emerald-400 rounded-xl text-emerald-300">
+                  <Gift className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    <span>ADMIN LIVE MONEY AIRDROP</span>
+                    <span className="px-2 py-0.5 text-[9px] bg-emerald-500/30 text-emerald-300 border border-emerald-400/50 rounded-full">
+                      FIRST COME, FIRST SERVED
+                    </span>
+                  </h3>
+                  <p className="text-zinc-400 text-xs mt-1">
+                    Deploy a golden money crate from the sky. The first citizen to reach the crate and collect it wins the entire cash reward!
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column: Preset & Custom Amount */}
+              <div className="p-5 bg-zinc-900/80 border border-zinc-800 rounded-2xl space-y-4">
+                <label className="text-xs font-mono text-zinc-300 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                  <span>Select Cash Amount to Drop:</span>
+                </label>
+
+                {/* Preset Amount Badges */}
+                <div className="grid grid-cols-3 gap-2">
+                  {[500, 1000, 5000, 10000, 25000, 50000, 100000].map((amt) => (
+                    <button
+                      key={amt}
+                      onClick={() => {
+                        soundFx.playClick();
+                        setCashDropAmount(amt);
+                      }}
+                      className={`py-2 px-3 rounded-xl border text-center transition-all ${
+                        cashDropAmount === amt
+                          ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 font-black shadow-lg shadow-emerald-500/20'
+                          : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                      }`}
+                    >
+                      ${amt.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Amount Input */}
+                <div className="space-y-1.5 pt-2 border-t border-zinc-800">
+                  <label className="text-zinc-400 text-[11px]">Or Custom Cash Amount ($):</label>
+                  <input
+                    type="number"
+                    value={cashDropAmount}
+                    min={50}
+                    step={500}
+                    onChange={(e) => setCashDropAmount(Math.max(50, parseInt(e.target.value) || 0))}
+                    className="w-full bg-zinc-950 border border-zinc-700 focus:border-emerald-400 rounded-xl px-4 py-2.5 font-mono text-base text-emerald-400 font-black outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Right Column: Drop Location & Note */}
+              <div className="p-5 bg-zinc-900/80 border border-zinc-800 rounded-2xl space-y-4">
+                <label className="text-xs font-mono text-zinc-300 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-emerald-400" />
+                  <span>Choose Drop Location:</span>
+                </label>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {[
+                    { id: 'player', label: `Near Current Position (X:${Math.round(playerPos.x)}, Z:${Math.round(playerPos.z)})` },
+                    { id: 'plaza', label: 'City Central Plaza (X:0, Z:0)' },
+                    { id: 'bank', label: 'Vice Reserve Bank (X:0, Z:-30)' },
+                    { id: 'thattukada', label: 'Thattukada Corner (X:-30, Z:20)' },
+                  ].map((loc) => (
+                    <button
+                      key={loc.id}
+                      onClick={() => setCashDropLoc(loc.id as any)}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        cashDropLoc === loc.id
+                          ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 font-bold'
+                          : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                      }`}
+                    >
+                      {loc.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-1.5 pt-2 border-t border-zinc-800">
+                  <label className="text-zinc-400 text-[11px]">Announcement Broadcast Message:</label>
+                  <input
+                    type="text"
+                    value={cashDropNote}
+                    onChange={(e) => setCashDropNote(e.target.value)}
+                    placeholder="e.g. MAYOR TREASURE AIRDROP"
+                    className="w-full bg-zinc-950 border border-zinc-700 focus:border-emerald-400 rounded-xl px-3 py-2 text-xs text-zinc-200 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Launch Action */}
+            <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-between">
+              <div className="text-xs text-zinc-400">
+                Dropping <strong className="text-emerald-400 font-black">${cashDropAmount.toLocaleString()}</strong> in cash. 
+                First citizen to pick it up keeps it all!
+              </div>
+
+              <button
+                onClick={handleDeployCashDrop}
+                className="flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/30 hover:scale-105 active:scale-95 transition-all"
+              >
+                <Coins className="w-4 h-4" />
+                DEPLOY CASH AIRDROP NOW 💸
+              </button>
             </div>
           </div>
         )}
