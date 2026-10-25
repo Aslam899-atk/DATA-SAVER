@@ -28,7 +28,7 @@ import {
   deleteDroppedFile,
   claimFileDownload,
 } from '../utils/fileStorage';
-import { GtaHud } from './GtaHud';
+import { GtaHud, type DriveControlAction } from './GtaHud';
 import { Minimap } from './Minimap';
 import { FileModal } from './FileModal';
 import { DropFileModal } from './DropFileModal';
@@ -119,6 +119,21 @@ export const GtaCityMap: React.FC = () => {
     keys: {},
     mouseDown: false,
     worldSize: 400,
+  });
+
+  // Interactive Driving State (Keyboard + On-Screen Touch/Mouse Controls)
+  const virtualDriveState = useRef<{
+    gas: boolean;
+    reverse: boolean;
+    steerLeft: boolean;
+    steerRight: boolean;
+    handbrake: boolean;
+  }>({
+    gas: false,
+    reverse: false,
+    steerLeft: false,
+    steerRight: false,
+    handbrake: false,
   });
 
   const showNotification = useCallback((msg: string) => {
@@ -651,12 +666,43 @@ export const GtaCityMap: React.FC = () => {
 
       scene.add(group);
 
-      // Add collision bounds (excluding door opening)
+      // Perimeter wall collisions (leaving door opening and inside free)
+      const wallThick = 0.6;
+      // 1. Back wall
       collisionBoxes.push({
         minX: x - w / 2 - 0.2,
         maxX: x + w / 2 + 0.2,
-        minZ: z - d / 2 - 0.2,
-        maxZ: z + d / 2 + 0.2,
+        minZ: z - d / 2 - wallThick,
+        maxZ: z - d / 2 + wallThick,
+      });
+      // 2. Left wall
+      collisionBoxes.push({
+        minX: x - w / 2 - wallThick,
+        maxX: x - w / 2 + wallThick,
+        minZ: z - d / 2,
+        maxZ: z + d / 2,
+      });
+      // 3. Right wall
+      collisionBoxes.push({
+        minX: x + w / 2 - wallThick,
+        maxX: x + w / 2 + wallThick,
+        minZ: z - d / 2,
+        maxZ: z + d / 2,
+      });
+      // 4. Front wall (left segment)
+      const halfDoor = doorWidth / 2;
+      collisionBoxes.push({
+        minX: x - w / 2,
+        maxX: x - halfDoor,
+        minZ: z + d / 2 - wallThick,
+        maxZ: z + d / 2 + wallThick,
+      });
+      // 5. Front wall (right segment)
+      collisionBoxes.push({
+        minX: x + halfDoor,
+        maxX: x + w / 2,
+        minZ: z + d / 2 - wallThick,
+        maxZ: z + d / 2 + wallThick,
       });
     };
 
@@ -952,6 +998,21 @@ export const GtaCityMap: React.FC = () => {
     // 8. Spawn Initial Showcase & Dealership Cars
     const initialCars: SpawnedCar[] = [
       {
+        id: 'starter_car_player',
+        catalogId: 'ford_mustang',
+        name: 'Ford Mustang GT (Player Starter)',
+        price: 0,
+        x: 6,
+        y: 0,
+        z: 4,
+        rotation: 0.2,
+        speed: 0,
+        color: 0xdc2626,
+        isPlayerInside: false,
+        ownerId: user.id,
+        ownerName: user.name,
+      },
+      {
         id: 'car_initial_porsche',
         catalogId: 'porsche_911_gt3',
         name: 'Porsche 911 GT3 RS',
@@ -1038,25 +1099,29 @@ export const GtaCityMap: React.FC = () => {
 
     // 10. Event Listeners
     const onKeyDown = (e: KeyboardEvent) => {
-      sim.current.keys[e.key.toLowerCase()] = true;
+      const k = e.key.toLowerCase();
+      sim.current.keys[k] = true;
+      if (e.code) {
+        sim.current.keys[e.code.toLowerCase()] = true;
+      }
 
       // Enter / Exit Vehicle [F]
-      if (e.key.toLowerCase() === 'f') {
+      if (k === 'f' || e.code === 'KeyF') {
         toggleVehicleEntry();
       }
 
       // Interact [E] (File Crate, ATM, Showroom)
-      if (e.key.toLowerCase() === 'e') {
+      if (k === 'e' || e.code === 'KeyE') {
         handleContextInteract();
       }
 
       // Car Horn [H]
-      if (e.key.toLowerCase() === 'h' && sim.current.activeVehicle) {
+      if ((k === 'h' || e.code === 'KeyH') && sim.current.activeVehicle) {
         soundFx.playCarHorn();
       }
 
       // Secret Admin Hotkey [Ctrl + Shift + A]
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+      if (e.ctrlKey && e.shiftKey && (k === 'a' || e.code === 'KeyA')) {
         e.preventDefault();
         soundFx.playClick();
         setIsAdminModalOpen(true);
@@ -1078,6 +1143,9 @@ export const GtaCityMap: React.FC = () => {
 
     const onKeyUp = (e: KeyboardEvent) => {
       sim.current.keys[e.key.toLowerCase()] = false;
+      if (e.code) {
+        sim.current.keys[e.code.toLowerCase()] = false;
+      }
     };
 
     const onMouseDown = (e: MouseEvent) => {
@@ -1207,13 +1275,14 @@ export const GtaCityMap: React.FC = () => {
     }
   };
 
-  // Enter / Buy / Exit Vehicle [F]
+  // Enter / Test Drive / Buy / Exit Vehicle [F]
   const toggleVehicleEntry = () => {
     const s = sim.current;
     if (s.activeVehicle) {
       // Exit Car
       const car = s.activeVehicle;
       car.isPlayerInside = false;
+      car.speed = 0;
       soundFx.playCarDoor();
       soundFx.stopCarEngine();
       s.activeVehicle = null;
@@ -1222,37 +1291,34 @@ export const GtaCityMap: React.FC = () => {
 
       if (s.playerGroup) {
         s.playerGroup.visible = true;
-        s.playerGroup.position.set(car.x + 2.5, 0, car.z);
+        // Position player next to car door
+        const sideOffset = new THREE.Vector3(2.5, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), car.rotation);
+        s.playerGroup.position.set(car.x + sideOffset.x, 0, car.z + sideOffset.z);
       }
       showNotification('EXITED VEHICLE');
     } else {
       if (!s.playerGroup) return;
       const pPos = s.playerGroup.position;
 
-      // Find nearest car within 4.5 units
-      const nearest = s.cars.find((c) => Math.hypot(c.x - pPos.x, c.z - pPos.z) < 4.8);
+      // Find nearest car within generous 7.5 units
+      let nearest: SpawnedCar | null = null;
+      let minDist = 7.5;
+      for (const c of s.cars) {
+        const dist = Math.hypot(c.x - pPos.x, c.z - pPos.z);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = c;
+        }
+      }
+
       if (nearest) {
-        // Check if car needs purchase
         const isOwned = nearest.ownerId === user.id;
         if (!isOwned && nearest.ownerId === null) {
-          // Attempt Purchase
-          if (user.cash >= nearest.price) {
-            soundFx.playCashRegister();
-            nearest.ownerId = user.id;
-            nearest.ownerName = user.name;
-            setUser((prev) => ({
-              ...prev,
-              cash: prev.cash - nearest.price,
-              ownedCarIds: [...prev.ownedCarIds, nearest.id],
-            }));
-            showNotification(`PURCHASED & ENTERED ${nearest.name}!`);
-          } else {
-            showNotification(`INSUFFICIENT CASH! REQUIRES $${nearest.price.toLocaleString()}`);
-            return;
-          }
+          showNotification(`TEST DRIVING ${nearest.name}! (Visit Showroom to permanently purchase)`);
         } else if (nearest.ownerId !== null && !isOwned) {
-          showNotification(`THIS VEHICLE BELONGS TO ${nearest.ownerName || 'ANOTHER CITIZEN'}!`);
-          return;
+          showNotification(`BORROWED ${nearest.name} (Citizen Car)`);
+        } else {
+          showNotification(`DRIVING YOUR ${nearest.name}!`);
         }
 
         nearest.isPlayerInside = true;
@@ -1261,6 +1327,8 @@ export const GtaCityMap: React.FC = () => {
         soundFx.playCarDoor();
         soundFx.startCarEngine();
         setInVehicle(true);
+      } else {
+        showNotification('WALK CLOSER TO A CAR AND PRESS [F] OR TAP DRIVE BUTTON');
       }
     }
   };
@@ -1274,30 +1342,64 @@ export const GtaCityMap: React.FC = () => {
       // Driving Physics
       const car = s.activeVehicle;
       const catalogItem = FAMOUS_CARS.find((c) => c.id === car.catalogId) || FAMOUS_CARS[0];
-      const maxSpeed = catalogItem.topSpeed;
-      const accel = catalogItem.acceleration * delta;
-      const turnSpeed = 2.4 * delta;
+      const maxSpeed = catalogItem.topSpeed || 85;
+      const accelRate = (catalogItem.acceleration || 35) * 1.6 * delta;
+      const turnSpeed = 2.6 * delta;
 
-      if (s.keys['w'] || s.keys['arrowup']) {
-        car.speed = Math.min(maxSpeed, car.speed + accel);
-      } else if (s.keys['s'] || s.keys['arrowdown']) {
-        car.speed = Math.max(-15, car.speed - accel * 1.2);
+      const isGas = s.keys['w'] || s.keys['keyw'] || s.keys['arrowup'] || virtualDriveState.current.gas;
+      const isReverse = s.keys['s'] || s.keys['keys'] || s.keys['arrowdown'] || virtualDriveState.current.reverse;
+      const isLeft = s.keys['a'] || s.keys['keya'] || s.keys['arrowleft'] || virtualDriveState.current.steerLeft;
+      const isRight = s.keys['d'] || s.keys['keyd'] || s.keys['arrowright'] || virtualDriveState.current.steerRight;
+      const isHandbrake = s.keys[' '] || s.keys['space'] || virtualDriveState.current.handbrake;
+
+      if (isGas) {
+        const initialBoost = Math.abs(car.speed) < 2 ? 15 * delta : 0;
+        car.speed = Math.min(maxSpeed, car.speed + accelRate + initialBoost);
+      } else if (isReverse) {
+        if (car.speed > 2) {
+          car.speed = Math.max(0, car.speed - accelRate * 2.2);
+        } else {
+          car.speed = Math.max(-28, car.speed - accelRate * 1.3);
+        }
       } else {
-        car.speed *= 0.94; // friction
+        car.speed *= 0.982;
+        if (Math.abs(car.speed) < 0.1) car.speed = 0;
+      }
+
+      let driftFactor = 1.0;
+      if (isHandbrake) {
+        car.speed *= 0.91;
+        driftFactor = 1.8;
       }
 
       // Steering
-      if (Math.abs(car.speed) > 0.5) {
-        const dir = car.speed > 0 ? 1 : -1;
-        if (s.keys['a'] || s.keys['arrowleft']) car.rotation += turnSpeed * dir;
-        if (s.keys['d'] || s.keys['arrowright']) car.rotation -= turnSpeed * dir;
+      if (Math.abs(car.speed) > 0.2) {
+        const dir = car.speed >= 0 ? 1 : -1;
+        if (isLeft) car.rotation += turnSpeed * driftFactor * dir;
+        if (isRight) car.rotation -= turnSpeed * driftFactor * dir;
       }
 
       const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), car.rotation);
-      car.x += forward.x * car.speed * delta;
-      car.z += forward.z * car.speed * delta;
+      let nextCarX = car.x + forward.x * car.speed * delta;
+      let nextCarZ = car.z + forward.z * car.speed * delta;
 
-      // Keep within map bounds
+      // Solid Wall Collision Detection for vehicle
+      let hitWall = false;
+      for (const box of s.collisionBoxes) {
+        if (nextCarX >= box.minX && nextCarX <= box.maxX && nextCarZ >= box.minZ && nextCarZ <= box.maxZ) {
+          hitWall = true;
+          break;
+        }
+      }
+
+      if (hitWall) {
+        car.speed = -car.speed * 0.3;
+      } else {
+        car.x = nextCarX;
+        car.z = nextCarZ;
+      }
+
+      // Map bounds clamping
       car.x = THREE.MathUtils.clamp(car.x, -s.worldSize / 2 + 10, s.worldSize / 2 - 10);
       car.z = THREE.MathUtils.clamp(car.z, -s.worldSize / 2 + 10, s.worldSize / 2 - 10);
 
@@ -1310,16 +1412,16 @@ export const GtaCityMap: React.FC = () => {
       soundFx.updateCarEngine(car.speed / maxSpeed);
       setVehicleSpeed(Math.abs(car.speed / maxSpeed));
       setPlayerCoord({ x: car.x, z: car.z, heading: car.rotation });
-      setInteractPrompt('[F] EXIT VEHICLE | [H] HORN');
+      setInteractPrompt('[F] EXIT VEHICLE | [W/S] DRIVE | [A/D] STEER | [SPACE] DRIFT | [H] HORN');
     } else {
       // Walking / Sprinting
       const speed = (s.keys['shift'] ? 22 : 12) * delta;
       const moveVec = new THREE.Vector3();
 
-      if (s.keys['w'] || s.keys['arrowup']) moveVec.z -= 1;
-      if (s.keys['s'] || s.keys['arrowdown']) moveVec.z += 1;
-      if (s.keys['a'] || s.keys['arrowleft']) moveVec.x -= 1;
-      if (s.keys['d'] || s.keys['arrowright']) moveVec.x += 1;
+      if (s.keys['w'] || s.keys['keyw'] || s.keys['arrowup']) moveVec.z -= 1;
+      if (s.keys['s'] || s.keys['keys'] || s.keys['arrowdown']) moveVec.z += 1;
+      if (s.keys['a'] || s.keys['keya'] || s.keys['arrowleft']) moveVec.x -= 1;
+      if (s.keys['d'] || s.keys['keyd'] || s.keys['arrowright']) moveVec.x += 1;
 
       const isMoving = moveVec.lengthSq() > 0;
       if (isMoving) {
@@ -1371,7 +1473,7 @@ export const GtaCityMap: React.FC = () => {
       }
 
       // Jump
-      if (s.keys[' '] && s.isGrounded) {
+      if ((s.keys[' '] || s.keys['space']) && s.isGrounded) {
         s.playerVelY = 12;
         s.isGrounded = false;
         soundFx.playJump();
@@ -1389,9 +1491,9 @@ export const GtaCityMap: React.FC = () => {
 
       s.playerGroup.rotation.y = s.yaw;
 
-      // Check context prompts
+      // Check context prompts within generous range
       const pPos = s.playerGroup.position;
-      const nearCar = s.cars.find((c) => Math.hypot(c.x - pPos.x, c.z - pPos.z) < 4.5);
+      const nearCar = s.cars.find((c) => Math.hypot(c.x - pPos.x, c.z - pPos.z) < 7.5);
       const nearCrate = s.droppedCrates.find(
         (c) => Math.hypot(c.group.position.x - pPos.x, c.group.position.z - pPos.z) < 4.0
       );
@@ -1402,11 +1504,11 @@ export const GtaCityMap: React.FC = () => {
       if (nearCar) {
         const isOwned = nearCar.ownerId === user.id;
         if (isOwned) {
-          setInteractPrompt(`[F] DRIVE OWNED ${nearCar.name}`);
+          setInteractPrompt(`[F] DRIVE YOUR ${nearCar.name} 🚗`);
         } else if (nearCar.ownerId === null) {
-          setInteractPrompt(`[F] BUY & DRIVE: ${nearCar.name} ($${nearCar.price.toLocaleString()})`);
+          setInteractPrompt(`[F] DRIVE / TEST DRIVE: ${nearCar.name} ($${nearCar.price.toLocaleString()})`);
         } else {
-          setInteractPrompt(`CAR OWNED BY ${nearCar.ownerName || 'CITIZEN'}`);
+          setInteractPrompt(`[F] DRIVE ${nearCar.name} (Citizen Car)`);
         }
       } else if (nearCrate) {
         const label = nearCrate.item.isPaid
@@ -1463,15 +1565,24 @@ export const GtaCityMap: React.FC = () => {
     }
   };
 
-  // Camera Follow
+  // Camera Follow (with smooth GTA Chase Cam for vehicles)
   const updateCamera = () => {
     const s = sim.current;
     if (!s.camera || !s.playerGroup) return;
 
     const pPos = s.playerGroup.position;
     const isDrive = !!s.activeVehicle;
-    const camDist = isDrive ? 9.5 : 5.8;
-    const camHeight = isDrive ? 3.8 : 2.6;
+
+    if (isDrive && s.activeVehicle) {
+      // Smoothly align camera yaw behind vehicle orientation when driving
+      if (Math.abs(s.activeVehicle.speed) > 1.0) {
+        let angleDiff = THREE.MathUtils.euclideanModulo(s.activeVehicle.rotation - s.yaw + Math.PI, Math.PI * 2) - Math.PI;
+        s.yaw += angleDiff * 0.06;
+      }
+    }
+
+    const camDist = isDrive ? 10.5 : 5.8;
+    const camHeight = isDrive ? 4.2 : 2.6;
 
     const cosPitch = Math.cos(s.pitch);
     const sinPitch = Math.sin(s.pitch);
@@ -1484,8 +1595,8 @@ export const GtaCityMap: React.FC = () => {
       pPos.z + cosYaw * cosPitch * camDist
     );
 
-    s.camera.position.lerp(targetPos, 0.18);
-    s.camera.lookAt(new THREE.Vector3(pPos.x, pPos.y + (isDrive ? 1.5 : 1.7), pPos.z));
+    s.camera.position.lerp(targetPos, isDrive ? 0.12 : 0.18);
+    s.camera.lookAt(new THREE.Vector3(pPos.x, pPos.y + (isDrive ? 1.6 : 1.7), pPos.z));
   };
 
   // Drag and Drop Incoming File Handler
@@ -1688,6 +1799,21 @@ export const GtaCityMap: React.FC = () => {
     showNotification('BILLBOARD AD DEPLOYED TO CITY!');
   };
 
+  // Virtual Driving Control Handler (Screen Buttons)
+  const handleDriveControl = (action: DriveControlAction, isPressed: boolean) => {
+    if (action === 'exit' && isPressed) {
+      toggleVehicleEntry();
+      return;
+    }
+    if (action === 'horn' && isPressed) {
+      soundFx.playCarHorn();
+      return;
+    }
+    if (action in virtualDriveState.current) {
+      (virtualDriveState.current as any)[action] = isPressed;
+    }
+  };
+
   return (
     <div
       className="relative w-full h-full bg-slate-950 overflow-hidden select-none cursor-default"
@@ -1733,6 +1859,8 @@ export const GtaCityMap: React.FC = () => {
           setIsMuted(m);
           showNotification(m ? 'AUDIO MUTED' : 'AUDIO UNMUTED');
         }}
+        onDriveControl={handleDriveControl}
+        onTriggerContextInteract={handleContextInteract}
       />
 
       {/* Minimap Radar */}

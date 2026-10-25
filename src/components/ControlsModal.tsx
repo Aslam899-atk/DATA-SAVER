@@ -48,13 +48,15 @@ export const ControlsModal: React.FC<ControlsModalProps> = ({ isOpen, onClose })
               <span>CARS, DRIVING & DEALERSHIP</span>
             </div>
             <div className="grid grid-cols-2 gap-2 text-zinc-300">
-              <div><strong className="text-amber-300">[F]:</strong> Enter / Exit / Buy Car</div>
-              <div><strong className="text-amber-300">[W / S]:</strong> Accelerate & Reverse</div>
-              <div><strong className="text-amber-300">[A / D]:</strong> Steering & Drifting</div>
-              <div><strong className="text-amber-300">[H]:</strong> Horn</div>
+              <div><strong className="text-amber-300">[F] / Screen Button:</strong> Enter / Exit Car</div>
+              <div><strong className="text-amber-300">[W / S] / Arrows:</strong> Gas & Reverse</div>
+              <div><strong className="text-amber-300">[A / D] / Arrows:</strong> Steer Left & Right</div>
+              <div><strong className="text-amber-300">[SPACE] / Drift:</strong> Handbrake Drift</div>
+              <div><strong className="text-amber-300">[H] / Horn:</strong> Honk Car Horn</div>
+              <div><strong className="text-amber-300">Starter Car:</strong> Free Red Mustang at spawn!</div>
             </div>
             <div className="text-zinc-400 mt-1">
-              Visit <strong className="text-white">Apex Motors Car Showroom</strong> to buy or sell cars second-hand for cash!
+              Test-drive ANY car in the city! Visit <strong className="text-white">Apex Motors Car Showroom</strong> to buy or sell cars second-hand for cash!
             </div>
           </div>
 

@@ -37,18 +37,29 @@ export function getCurrentUser(): UserProfile {
   try {
     const raw = localStorage.getItem(CURRENT_USER_KEY);
     if (raw) {
-      return JSON.parse(raw);
+      const user = JSON.parse(raw);
+      // Give players ample cash to buy and customize any car
+      if (typeof user.cash !== 'number' || user.cash < 1000000) {
+        user.cash = 2500000;
+      }
+      if (!Array.isArray(user.ownedCarIds)) {
+        user.ownedCarIds = ['starter_car_player'];
+      } else if (!user.ownedCarIds.includes('starter_car_player')) {
+        user.ownedCarIds.push('starter_car_player');
+      }
+      saveCurrentUser(user);
+      return user;
     }
   } catch (e) {}
 
-  // Default guest player
+  // Default guest player with $2.5M starter balance
   const defaultUser: UserProfile = {
     id: 'guest_' + Math.random().toString(36).substring(2, 8),
     name: 'Player One',
     email: 'guest@vicedrop.local',
     avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=PlayerOne',
-    cash: 50000,
-    ownedCarIds: [],
+    cash: 2500000,
+    ownedCarIds: ['starter_car_player'],
     x: 0,
     z: 0,
     rotation: 0,
