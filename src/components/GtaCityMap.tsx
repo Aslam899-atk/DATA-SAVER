@@ -93,6 +93,7 @@ export const GtaCityMap: React.FC = () => {
     playerRightArm: THREE.Mesh | null;
     yaw: number;
     pitch: number;
+    zoom: number;
     playerVelY: number;
     isGrounded: boolean;
     activeVehicle: SpawnedCar | null;
@@ -118,6 +119,8 @@ export const GtaCityMap: React.FC = () => {
     worldSize: number;
     showcasePodiumCar?: THREE.Group;
     lastBroadcastMoveTime: number;
+    clouds: THREE.Group[];
+    particles: { mesh: THREE.Mesh; vel: THREE.Vector3; life: number; maxLife: number; size: number }[];
   }>({
     scene: null,
     camera: null,
@@ -129,6 +132,7 @@ export const GtaCityMap: React.FC = () => {
     playerRightArm: null,
     yaw: user.rotation || 0,
     pitch: 0.15,
+    zoom: 1.0,
     playerVelY: 0,
     isGrounded: true,
     activeVehicle: null,
@@ -143,6 +147,8 @@ export const GtaCityMap: React.FC = () => {
     mouseDown: false,
     worldSize: 400,
     lastBroadcastMoveTime: 0,
+    clouds: [],
+    particles: [],
   });
 
   // Interactive Driving State (Keyboard + On-Screen Touch/Mouse Controls)
@@ -373,7 +379,61 @@ export const GtaCityMap: React.FC = () => {
     showNotification(`SWITCHED TO ACCOUNT: ${nextUser.name} (${nextUser.email})`);
   };
 
-  // Create Detailed 3D Car Mesh based on famous model
+  // Visual Particle System FX (Smoke, Dust, Sparkles)
+  const smokeGeo = new THREE.SphereGeometry(0.35, 6, 6);
+  const smokeMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.5 });
+  const goldGeo = new THREE.DodecahedronGeometry(0.2, 0);
+  const goldMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.85 });
+
+  const spawnDriftSmoke = (x: number, y: number, z: number) => {
+    const scene = sim.current.scene;
+    if (!scene || sim.current.particles.length > 70) return;
+    const mesh = new THREE.Mesh(smokeGeo, smokeMat.clone());
+    mesh.position.set(x + (Math.random() - 0.5) * 1.4, y + 0.15, z + (Math.random() - 0.5) * 1.4);
+    scene.add(mesh);
+    sim.current.particles.push({
+      mesh,
+      vel: new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.8 + Math.random() * 0.8, (Math.random() - 0.5) * 0.8),
+      life: 0,
+      maxLife: 0.6,
+      size: 0.35,
+    });
+  };
+
+  const spawnTouchdownDust = (x: number, z: number) => {
+    const scene = sim.current.scene;
+    if (!scene) return;
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2;
+      const mesh = new THREE.Mesh(smokeGeo, smokeMat.clone());
+      mesh.position.set(x, 0.3, z);
+      scene.add(mesh);
+      sim.current.particles.push({
+        mesh,
+        vel: new THREE.Vector3(Math.cos(angle) * 3.2, 0.6, Math.sin(angle) * 3.2),
+        life: 0,
+        maxLife: 0.75,
+        size: 0.4,
+      });
+    }
+  };
+
+  const spawnGoldSparkle = (x: number, y: number, z: number) => {
+    const scene = sim.current.scene;
+    if (!scene || sim.current.particles.length > 80) return;
+    const mesh = new THREE.Mesh(goldGeo, goldMat.clone());
+    mesh.position.set(x + (Math.random() - 0.5) * 2.2, y + Math.random() * 1.6, z + (Math.random() - 0.5) * 2.2);
+    scene.add(mesh);
+    sim.current.particles.push({
+      mesh,
+      vel: new THREE.Vector3((Math.random() - 0.5) * 0.4, 1.0 + Math.random() * 0.6, (Math.random() - 0.5) * 0.4),
+      life: 0,
+      maxLife: 0.8,
+      size: 0.2,
+    });
+  };
+
+  // Create Detailed 3D Car Mesh based on famous model with Headlight Beams & Animated Wheels
   const createDetailedCarMesh = (car: SpawnedCar): THREE.Group => {
     const carGroup = new THREE.Group();
     const catalogItem = FAMOUS_CARS.find((c) => c.id === car.catalogId) || FAMOUS_CARS[0];
@@ -435,9 +495,39 @@ export const GtaCityMap: React.FC = () => {
     rightLight.position.x = 0.85;
     carGroup.add(leftLight, rightLight);
 
+    // Dynamic 3D Headlight Spotlights & Volumetric Light Beams
+    const spotTarget = new THREE.Object3D();
+    spotTarget.position.set(0, 0, -28);
+    carGroup.add(spotTarget);
+
+    const leftSpot = new THREE.SpotLight(0xfffbeb, 3.2, 42, Math.PI / 6, 0.5, 1.2);
+    leftSpot.position.set(-0.85, bodyHeight * 0.7 + 0.25, -bodyLength / 2);
+    leftSpot.target = spotTarget;
+    const rightSpot = new THREE.SpotLight(0xfffbeb, 3.2, 42, Math.PI / 6, 0.5, 1.2);
+    rightSpot.position.set(0.85, bodyHeight * 0.7 + 0.25, -bodyLength / 2);
+    rightSpot.target = spotTarget;
+    carGroup.add(leftSpot, rightSpot);
+
+    // Semi-transparent 3D Light Cones
+    const beamGeo = new THREE.ConeGeometry(2.8, 16, 16, 1, true);
+    beamGeo.translate(0, -8, 0);
+    beamGeo.rotateX(-Math.PI / 2);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: 0xfffbeb,
+      transparent: true,
+      opacity: 0.07,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const leftBeam = new THREE.Mesh(beamGeo, beamMat);
+    leftBeam.position.set(-0.85, bodyHeight * 0.7 + 0.25, -bodyLength / 2);
+    const rightBeam = new THREE.Mesh(beamGeo, beamMat);
+    rightBeam.position.set(0.85, bodyHeight * 0.7 + 0.25, -bodyLength / 2);
+    carGroup.add(leftBeam, rightBeam);
+
     // Rear Taillights (Glowing Red strip)
     const tailMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-    const tailStrip = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.8, 0.12, 0.1), tailMat);
+    const tailStrip = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.8, 0.14, 0.1), tailMat);
     tailStrip.position.set(0, bodyHeight * 0.7 + 0.25, bodyLength / 2 + 0.02);
     carGroup.add(tailStrip);
 
@@ -464,31 +554,48 @@ export const GtaCityMap: React.FC = () => {
       carGroup.add(spareWheel);
     }
 
-    // 4 Wheels
+    // 4 Animated Wheels & Front Steering Pivots
     const wheelRadius = catalogItem.category === 'SUV' ? 0.55 : 0.45;
     const wheelWidth = 0.38;
     const wheelGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, 16);
+    wheelGeo.rotateZ(Math.PI / 2);
     const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.8 });
     const rimMat = new THREE.MeshStandardMaterial({ color: 0xd4d4d8, metalness: 0.9, roughness: 0.2 });
 
     const wheelZOffset = bodyLength * 0.33;
-    const wheelPositions = [
-      [-bodyWidth / 2 - wheelWidth / 3, wheelRadius, wheelZOffset],
-      [bodyWidth / 2 + wheelWidth / 3, wheelRadius, wheelZOffset],
-      [-bodyWidth / 2 - wheelWidth / 3, wheelRadius, -wheelZOffset],
-      [bodyWidth / 2 + wheelWidth / 3, wheelRadius, -wheelZOffset],
+    const wheelPositions: [number, number, number, boolean][] = [
+      [-bodyWidth / 2 - wheelWidth / 3, wheelRadius, wheelZOffset, false],
+      [bodyWidth / 2 + wheelWidth / 3, wheelRadius, wheelZOffset, false],
+      [-bodyWidth / 2 - wheelWidth / 3, wheelRadius, -wheelZOffset, true],
+      [bodyWidth / 2 + wheelWidth / 3, wheelRadius, -wheelZOffset, true],
     ];
 
-    wheelPositions.forEach(([wx, wy, wz]) => {
+    const wheelRollers: THREE.Group[] = [];
+    const frontPivots: THREE.Group[] = [];
+
+    wheelPositions.forEach(([wx, wy, wz, isFront]) => {
+      const pivot = new THREE.Group();
+      pivot.position.set(wx, wy, wz);
+
+      const roller = new THREE.Group();
       const wMesh = new THREE.Mesh(wheelGeo, wheelMat);
-      wMesh.rotation.z = Math.PI / 2;
-      wMesh.position.set(wx, wy, wz);
-      // Rim cap
-      const rim = new THREE.Mesh(new THREE.CylinderGeometry(wheelRadius * 0.65, wheelRadius * 0.65, wheelWidth + 0.02, 8), rimMat);
-      rim.rotation.z = Math.PI / 2;
-      rim.position.set(wx, wy, wz);
-      carGroup.add(wMesh, rim);
+      const rim = new THREE.Mesh(
+        new THREE.CylinderGeometry(wheelRadius * 0.65, wheelRadius * 0.65, wheelWidth + 0.02, 8),
+        rimMat
+      );
+      rim.geometry.rotateZ(Math.PI / 2);
+      roller.add(wMesh, rim);
+      pivot.add(roller);
+      carGroup.add(pivot);
+
+      wheelRollers.push(roller);
+      if (isFront) frontPivots.push(pivot);
     });
+
+    carGroup.userData.wheels = wheelRollers;
+    carGroup.userData.frontPivots = frontPivots;
+    carGroup.userData.wheelRadius = wheelRadius;
+    carGroup.userData.tailStrip = tailStrip;
 
     // 3D Floating Name/Price Tag
     const tagCanvas = document.createElement('canvas');
@@ -935,12 +1042,198 @@ export const GtaCityMap: React.FC = () => {
 
     // 5. City Ground & Natural Asphalt Roads
     const { worldSize } = sim.current;
+
+    // Grass & Suburban Ground Base
     const groundGeo = new THREE.PlaneGeometry(worldSize, worldSize);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.95 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
+
+    // Procedural Low-Poly Volumetric Clouds
+    sim.current.clouds = [];
+    const cloudMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.9,
+      metalness: 0.05,
+      flatShading: true,
+    });
+    for (let c = 0; c < 18; c++) {
+      const cloud = new THREE.Group();
+      const numBlobs = 4 + Math.floor(Math.random() * 3);
+      for (let b = 0; b < numBlobs; b++) {
+        const radius = 5.5 + Math.random() * 5.5;
+        const blob = new THREE.Mesh(new THREE.DodecahedronGeometry(radius, 1), cloudMat);
+        blob.position.set((b - numBlobs / 2) * 5.5, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 4);
+        cloud.add(blob);
+      }
+      cloud.position.set(
+        (Math.random() - 0.5) * (worldSize * 0.85),
+        70 + Math.random() * 25,
+        (Math.random() - 0.5) * (worldSize * 0.85)
+      );
+      scene.add(cloud);
+      sim.current.clouds.push(cloud);
+    }
+
+    // Road Network (Main Boulevards & Cross Avenues)
+    const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.9 });
+    const yellowLineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+    const whiteLineMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+    const curbMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7 });
+
+    const createRoadSegment = (
+      centerX: number,
+      centerZ: number,
+      width: number,
+      length: number,
+      isVertical: boolean
+    ) => {
+      const roadGroup = new THREE.Group();
+      roadGroup.position.set(centerX, 0.02, centerZ);
+
+      // Asphalt Surface
+      const roadGeo = new THREE.PlaneGeometry(isVertical ? width : length, isVertical ? length : width);
+      const roadMesh = new THREE.Mesh(roadGeo, asphaltMat);
+      roadMesh.rotation.x = -Math.PI / 2;
+      roadMesh.receiveShadow = true;
+      roadGroup.add(roadMesh);
+
+      // Center Yellow Dividing Line
+      const yLineGeo = new THREE.PlaneGeometry(isVertical ? 0.35 : length, isVertical ? length : 0.35);
+      const yLine = new THREE.Mesh(yLineGeo, yellowLineMat);
+      yLine.rotation.x = -Math.PI / 2;
+      yLine.position.y = 0.01;
+      roadGroup.add(yLine);
+
+      // White Border Shoulder Lines
+      const halfW = width / 2 - 0.8;
+      const wLineGeo = new THREE.PlaneGeometry(isVertical ? 0.25 : length, isVertical ? length : 0.25);
+      const wLine1 = new THREE.Mesh(wLineGeo, whiteLineMat);
+      wLine1.rotation.x = -Math.PI / 2;
+      wLine1.position.set(isVertical ? -halfW : 0, 0.01, isVertical ? 0 : -halfW);
+      const wLine2 = wLine1.clone();
+      wLine2.position.set(isVertical ? halfW : 0, 0.01, isVertical ? 0 : halfW);
+      roadGroup.add(wLine1, wLine2);
+
+      // Raised Sidewalk Curbs
+      const curbThick = 2.4;
+      const curbHeight = 0.22;
+      const curbGeo = new THREE.BoxGeometry(
+        isVertical ? curbThick : length,
+        curbHeight,
+        isVertical ? length : curbThick
+      );
+      const curb1 = new THREE.Mesh(curbGeo, curbMat);
+      curb1.position.set(isVertical ? -width / 2 - curbThick / 2 : 0, curbHeight / 2, isVertical ? 0 : -width / 2 - curbThick / 2);
+      curb1.receiveShadow = true;
+      const curb2 = curb1.clone();
+      curb2.position.set(isVertical ? width / 2 + curbThick / 2 : 0, curbHeight / 2, isVertical ? 0 : width / 2 + curbThick / 2);
+      roadGroup.add(curb1, curb2);
+
+      scene.add(roadGroup);
+    };
+
+    // 1. Grand Boulevard (North-South through Central Plaza)
+    createRoadSegment(0, 0, 16, worldSize - 20, true);
+    // 2. Coastal Main Street (East-West through Center)
+    createRoadSegment(0, 0, 16, worldSize - 20, false);
+    // 3. Showroom Avenue (East-West at Z = -15)
+    createRoadSegment(0, -15, 14, worldSize - 40, false);
+    // 4. District Crossways (Z = 60, Z = -70, X = 60, X = -60)
+    createRoadSegment(0, 60, 14, worldSize - 40, false);
+    createRoadSegment(0, -70, 14, worldSize - 40, false);
+    createRoadSegment(60, 0, 14, worldSize - 40, true);
+    createRoadSegment(-60, 0, 14, worldSize - 40, true);
+
+    // Pedestrian Zebra Crossings
+    const zebraGeo = new THREE.PlaneGeometry(1.0, 12);
+    const zebraMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const zebraPositions = [
+      { x: 0, z: -10, rot: Math.PI / 2 },
+      { x: 0, z: 10, rot: Math.PI / 2 },
+      { x: -10, z: 0, rot: 0 },
+      { x: 10, z: 0, rot: 0 },
+      { x: 35, z: -4, rot: 0 }, // Showroom entrance
+      { x: 0, z: -27, rot: Math.PI / 2 }, // Bank ATM entrance
+      { x: -30, z: 15, rot: 0 }, // Thattukada
+    ];
+    zebraPositions.forEach((zp) => {
+      for (let s = -4; s <= 4; s += 1.8) {
+        const stripe = new THREE.Mesh(zebraGeo, zebraMat);
+        stripe.rotation.x = -Math.PI / 2;
+        stripe.rotation.z = zp.rot;
+        stripe.position.set(zp.x + (zp.rot === 0 ? s : 0), 0.035, zp.z + (zp.rot !== 0 ? s : 0));
+        scene.add(stripe);
+      }
+    });
+
+    // 3D Traffic Light Posts at Central Crossroads (X: 0, Z: 0)
+    const trafficPoleMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8 });
+    const redSignalMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    const yellowSignalMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+    const greenSignalMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+
+    [
+      { x: 9.5, z: 9.5, rot: Math.PI },
+      { x: -9.5, z: -9.5, rot: 0 },
+      { x: 9.5, z: -9.5, rot: Math.PI / 2 },
+      { x: -9.5, z: 9.5, rot: -Math.PI / 2 },
+    ].forEach((tp) => {
+      const post = new THREE.Group();
+      post.position.set(tp.x, 0, tp.z);
+      post.rotation.y = tp.rot;
+
+      // Vertical pole
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 7.5, 12), trafficPoleMat);
+      pole.position.y = 3.75;
+      post.add(pole);
+
+      // Horizontal mast arm
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4.5, 8), trafficPoleMat);
+      arm.rotation.z = Math.PI / 2;
+      arm.position.set(-2.0, 7.2, 0);
+      post.add(arm);
+
+      // Signal Housing Box
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.2, 0.7), trafficPoleMat);
+      box.position.set(-3.2, 6.4, 0);
+      post.add(box);
+
+      // 3 Signal lenses
+      const lensRed = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 8), redSignalMat);
+      lensRed.position.set(-3.2, 7.1, -0.36);
+      const lensYellow = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 8), yellowSignalMat);
+      lensYellow.position.set(-3.2, 6.4, -0.36);
+      const lensGreen = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 8), greenSignalMat);
+      lensGreen.position.set(-3.2, 5.7, -0.36);
+      post.add(lensRed, lensYellow, lensGreen);
+
+      scene.add(post);
+    });
+
+    // 3D Fire Hydrants on street corners
+    const hydrantMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 });
+    const hydrantCapMat = new THREE.MeshStandardMaterial({ color: 0x991b1b, metalness: 0.8 });
+    [
+      { x: 10.5, z: 10.5 },
+      { x: -10.5, z: -10.5 },
+      { x: 38, z: -2 },
+      { x: -28, z: 23 },
+    ].forEach((hp) => {
+      const hyd = new THREE.Group();
+      hyd.position.set(hp.x, 0, hp.z);
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 1.2, 12), hydrantMat);
+      barrel.position.y = 0.6;
+      const topCap = new THREE.Mesh(new THREE.SphereGeometry(0.36, 12, 8), hydrantCapMat);
+      topCap.position.y = 1.25;
+      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.9, 8), hydrantCapMat);
+      nozzle.rotation.z = Math.PI / 2;
+      nozzle.position.y = 0.75;
+      hyd.add(barrel, topCap, nozzle);
+      scene.add(hyd);
+    });
 
     const collisionBoxes: BuildingCollisionBox[] = [];
 
@@ -1244,7 +1537,7 @@ export const GtaCityMap: React.FC = () => {
       scene.add(tree);
     }
 
-    // Streetlamps with warm light
+    // Streetlamps with warm light illumination
     const lampMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8 });
     const bulbMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
     for (let x = -worldSize / 2 + 25; x < worldSize / 2; x += 50) {
@@ -1255,7 +1548,10 @@ export const GtaCityMap: React.FC = () => {
       head.position.set(0, 8.1, 0.5);
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), bulbMat);
       bulb.position.set(0, 7.9, 0.8);
-      lamp.add(pole, head, bulb);
+
+      const lampLight = new THREE.PointLight(0xfef08a, 1.4, 24);
+      lampLight.position.set(0, 7.6, 0.8);
+      lamp.add(pole, head, bulb, lampLight);
       lamp.position.set(x, 0, 8);
       scene.add(lamp);
     }
@@ -1557,12 +1853,19 @@ export const GtaCityMap: React.FC = () => {
       }
     };
 
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomSpeed = 0.0012;
+      sim.current.zoom = THREE.MathUtils.clamp(sim.current.zoom + e.deltaY * zoomSpeed, 0.55, 2.4);
+    };
+
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     container.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
     window.addEventListener('mousemove', onMouseMove);
     container.addEventListener('click', onCanvasClick);
+    container.addEventListener('wheel', onWheel, { passive: false });
 
     // Resize
     const onResize = () => {
@@ -1588,6 +1891,34 @@ export const GtaCityMap: React.FC = () => {
         sim.current.showcasePodiumCar.rotation.y += 0.008;
       }
 
+      // Update Visual FX Particles
+      const particles = sim.current.particles;
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life += delta;
+        if (p.life >= p.maxLife) {
+          sim.current.scene?.remove(p.mesh);
+          p.mesh.geometry.dispose();
+          particles.splice(i, 1);
+        } else {
+          p.mesh.position.addScaledVector(p.vel, delta);
+          p.vel.y -= 0.5 * delta;
+          const prog = p.life / p.maxLife;
+          p.mesh.scale.setScalar(1 + prog * 2.2);
+          if ((p.mesh.material as any).opacity !== undefined) {
+            (p.mesh.material as any).opacity = (1 - prog) * 0.6;
+          }
+        }
+      }
+
+      // Drift Clouds slowly across sky
+      sim.current.clouds.forEach((cloud) => {
+        cloud.position.x += 1.8 * delta;
+        if (cloud.position.x > sim.current.worldSize / 2) {
+          cloud.position.x = -sim.current.worldSize / 2;
+        }
+      });
+
       // Update Player or Vehicle
       updatePlayerAndVehicle(delta);
 
@@ -1611,6 +1942,7 @@ export const GtaCityMap: React.FC = () => {
       window.removeEventListener('mouseup', onMouseUp);
       window.removeEventListener('mousemove', onMouseMove);
       container.removeEventListener('click', onCanvasClick);
+      container.removeEventListener('wheel', onWheel);
       window.removeEventListener('resize', onResize);
       soundFx.stopCarEngine();
       renderer.dispose();
@@ -1817,7 +2149,34 @@ export const GtaCityMap: React.FC = () => {
       if (car.mesh) {
         car.mesh.position.set(car.x, 0, car.z);
         car.mesh.rotation.y = car.rotation;
+
+        // Animated Wheel Roll & Steering Pivots
+        if (car.mesh.userData.wheels) {
+          const rollRate = (car.speed * delta) / (car.mesh.userData.wheelRadius || 0.45);
+          car.mesh.userData.wheels.forEach((roller: THREE.Group) => {
+            roller.rotation.x += rollRate;
+          });
+        }
+        if (car.mesh.userData.frontPivots) {
+          const targetSteer = isLeft ? 0.42 : isRight ? -0.42 : 0;
+          car.mesh.userData.frontPivots.forEach((pivot: THREE.Group) => {
+            pivot.rotation.y = THREE.MathUtils.lerp(pivot.rotation.y, targetSteer, 0.25);
+          });
+        }
+
+        // Taillight brake/reverse glow
+        if (car.mesh.userData.tailStrip) {
+          (car.mesh.userData.tailStrip.material as THREE.MeshBasicMaterial).color.setHex(
+            isReverse || isHandbrake ? 0xff0000 : 0xaa1111
+          );
+        }
       }
+
+      // Drift Smoke Particle FX
+      if (isHandbrake || (isGas && Math.abs(car.speed) < 14)) {
+        spawnDriftSmoke(car.x, 0.2, car.z);
+      }
+
       s.playerGroup.position.set(car.x, 0, car.z);
 
       soundFx.updateCarEngine(car.speed / maxSpeed);
@@ -2009,6 +2368,7 @@ export const GtaCityMap: React.FC = () => {
         if (crate.group.position.y <= 1) {
           crate.group.position.y = 1;
           soundFx.playAirdropTouchdown();
+          spawnTouchdownDust(crate.group.position.x, crate.group.position.z);
           if (crate.parachute) {
             crate.group.remove(crate.parachute);
             crate.parachute = undefined;
@@ -2017,7 +2377,7 @@ export const GtaCityMap: React.FC = () => {
       }
     }
 
-    // Cash Drops Parachute Descent
+    // Cash Drops Parachute Descent & Ground Sparkles
     for (let i = s.cashDropCrates.length - 1; i >= 0; i--) {
       const drop = s.cashDropCrates[i];
       if (drop.group.position.y > 1) {
@@ -2028,16 +2388,22 @@ export const GtaCityMap: React.FC = () => {
         if (drop.group.position.y <= 1) {
           drop.group.position.y = 1;
           soundFx.playAirdropTouchdown();
+          spawnTouchdownDust(drop.group.position.x, drop.group.position.z);
           if (drop.parachute) {
             drop.group.remove(drop.parachute);
             drop.parachute = undefined;
           }
         }
+      } else {
+        // Grounded cash crate golden sparkles
+        if (Math.random() < 0.22) {
+          spawnGoldSparkle(drop.group.position.x, 1.2, drop.group.position.z);
+        }
       }
     }
   };
 
-  // Camera Follow (with smooth GTA Chase Cam for vehicles)
+  // Camera Follow (with smooth GTA Chase Cam for vehicles & mouse wheel zoom)
   const updateCamera = () => {
     const s = sim.current;
     if (!s.camera || !s.playerGroup) return;
@@ -2053,8 +2419,8 @@ export const GtaCityMap: React.FC = () => {
       }
     }
 
-    const camDist = isDrive ? 10.5 : 5.8;
-    const camHeight = isDrive ? 4.2 : 2.6;
+    const camDist = (isDrive ? 10.5 : 5.8) * s.zoom;
+    const camHeight = (isDrive ? 4.2 : 2.6) * Math.sqrt(s.zoom);
 
     const cosPitch = Math.cos(s.pitch);
     const sinPitch = Math.sin(s.pitch);
