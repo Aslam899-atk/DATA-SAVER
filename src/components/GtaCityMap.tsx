@@ -602,29 +602,35 @@ export const GtaCityMap: React.FC = () => {
     tagCanvas.width = 384;
     tagCanvas.height = 96;
     const tCtx = tagCanvas.getContext('2d');
+    const isUserOwned = car.ownerId === user.id;
     if (tCtx) {
-      tCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      tCtx.fillStyle = 'rgba(15, 23, 42, 0.88)';
       tCtx.roundRect(8, 8, 368, 80, 16);
       tCtx.fill();
-      tCtx.strokeStyle = car.ownerId ? '#38bdf8' : '#f59e0b';
+      tCtx.strokeStyle = isUserOwned ? '#38bdf8' : car.ownerId ? '#64748b' : '#22c55e';
       tCtx.lineWidth = 4;
       tCtx.stroke();
 
-      tCtx.font = 'bold 26px monospace';
+      tCtx.font = 'bold 24px monospace';
       tCtx.fillStyle = '#ffffff';
       tCtx.textAlign = 'center';
-      tCtx.fillText(catalogItem.name.slice(0, 20), 192, 45);
+      tCtx.fillText(catalogItem.name.slice(0, 20), 192, 42);
 
-      tCtx.font = 'bold 20px monospace';
-      tCtx.fillStyle = car.ownerId ? '#38bdf8' : '#4ade80';
-      const statusText = car.ownerId ? 'OWNED' : `$${car.price.toLocaleString()}`;
-      tCtx.fillText(statusText, 192, 75);
+      tCtx.font = 'bold 19px monospace';
+      tCtx.fillStyle = isUserOwned ? '#38bdf8' : car.ownerId ? '#94a3b8' : '#4ade80';
+      const statusText = isUserOwned
+        ? 'YOUR CAR [F]'
+        : car.ownerId
+        ? `LOCKED (${car.ownerName || 'CITIZEN'})`
+        : `FOR SALE: $${car.price.toLocaleString()} [E]`;
+      tCtx.fillText(statusText, 192, 72);
     }
     const tagTexture = new THREE.CanvasTexture(tagCanvas);
     const tagSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tagTexture, depthTest: false }));
     tagSprite.scale.set(3.8, 1, 1);
     tagSprite.position.set(0, bodyHeight + cabinHeight + 1.2, 0);
     carGroup.add(tagSprite);
+    carGroup.userData.tagSprite = tagSprite;
 
     return carGroup;
   };
@@ -1677,22 +1683,21 @@ export const GtaCityMap: React.FC = () => {
     });
     setOfflinePlayersList(offlineList);
 
-    // 8. Spawn Initial Showcase & Dealership Cars
+    // 8. Spawn Initial Showcase & Dealership Cars (NO FREE CARS - All cars have purchase price)
     const initialCars: SpawnedCar[] = [
       {
-        id: 'starter_car_player',
-        catalogId: 'ford_mustang',
-        name: 'Ford Mustang GT (Player Starter)',
-        price: 0,
+        id: 'car_initial_mustang',
+        catalogId: 'mustang_shelby',
+        name: 'Ford Mustang Shelby GT500',
+        price: 290000,
         x: 6,
         y: 0,
         z: 4,
         rotation: 0.2,
         speed: 0,
-        color: 0xdc2626,
+        color: 0x7c3aed,
         isPlayerInside: false,
-        ownerId: user.id,
-        ownerName: user.name,
+        ownerId: null,
       },
       {
         id: 'car_initial_porsche',
@@ -2015,10 +2020,20 @@ export const GtaCityMap: React.FC = () => {
     if (nearCrate) {
       soundFx.playClick();
       setSelectedFileForModal(nearCrate.item);
+      return;
+    }
+
+    // Check Street Car Quick Buy [E] (Direct Purchase on the Street)
+    const nearCarToBuy = s.cars.find(
+      (c) => c.ownerId === null && Math.hypot(c.x - pPos.x, c.z - pPos.z) < 5.0
+    );
+    if (nearCarToBuy) {
+      handleBuyShowroomCar(nearCarToBuy.id);
+      return;
     }
   };
 
-  // Enter / Test Drive / Buy / Exit Vehicle [F]
+  // Enter / Buy / Exit Vehicle [F] (STRICT RULE: NO FREE CARS)
   const toggleVehicleEntry = () => {
     const s = sim.current;
     if (s.activeVehicle) {
@@ -2043,7 +2058,7 @@ export const GtaCityMap: React.FC = () => {
       if (!s.playerGroup) return;
       const pPos = s.playerGroup.position;
 
-      // Find nearest car within generous 7.5 units
+      // Find nearest car within 7.5 units
       let nearest: SpawnedCar | null = null;
       let minDist = 7.5;
       for (const c of s.cars) {
@@ -2056,14 +2071,22 @@ export const GtaCityMap: React.FC = () => {
 
       if (nearest) {
         const isOwned = nearest.ownerId === user.id;
-        if (!isOwned && nearest.ownerId === null) {
-          showNotification(`TEST DRIVING ${nearest.name}! (Visit Showroom to permanently purchase)`);
-        } else if (nearest.ownerId !== null && !isOwned) {
-          showNotification(`BORROWED ${nearest.name} (Citizen Car)`);
-        } else {
-          showNotification(`DRIVING YOUR ${nearest.name}!`);
+        if (!isOwned) {
+          soundFx.playErrorTone();
+          if (nearest.ownerId === null) {
+            showNotification(
+              `🔒 LOCKED! ${nearest.name} COSTS $${nearest.price.toLocaleString()}. NO FREE CARS: PRESS [E] TO BUY!`
+            );
+          } else {
+            showNotification(
+              `🔒 LOCKED! THIS ${nearest.name} IS PRIVATELY OWNED BY ${nearest.ownerName || 'ANOTHER CITIZEN'}.`
+            );
+          }
+          return;
         }
 
+        // Owned by current user
+        showNotification(`DRIVING YOUR ${nearest.name}! 🚗`);
         nearest.isPlayerInside = true;
         s.activeVehicle = nearest;
         s.playerGroup.visible = false;
@@ -2071,7 +2094,7 @@ export const GtaCityMap: React.FC = () => {
         soundFx.startCarEngine();
         setInVehicle(true);
       } else {
-        showNotification('WALK CLOSER TO A CAR AND PRESS [F] OR TAP DRIVE BUTTON');
+        showNotification('WALK CLOSER TO YOUR CAR AND PRESS [F] TO DRIVE');
       }
     }
   };
@@ -2094,10 +2117,19 @@ export const GtaCityMap: React.FC = () => {
       const isLeft = s.keys['a'] || s.keys['keya'] || s.keys['arrowleft'] || virtualDriveState.current.steerLeft;
       const isRight = s.keys['d'] || s.keys['keyd'] || s.keys['arrowright'] || virtualDriveState.current.steerRight;
       const isHandbrake = s.keys[' '] || s.keys['space'] || virtualDriveState.current.handbrake;
+      const isShift = s.keys['shift'] || s.keys['shiftleft'] || s.keys['shiftright'];
+
+      // Nitro Boost
+      const isNitro = isShift && isGas;
+      const actualMaxSpeed = isNitro ? maxSpeed * 1.35 : maxSpeed;
+      const actualAccel = isNitro ? accelRate * 2.0 : accelRate;
 
       if (isGas) {
         const initialBoost = Math.abs(car.speed) < 2 ? 15 * delta : 0;
-        car.speed = Math.min(maxSpeed, car.speed + accelRate + initialBoost);
+        car.speed = Math.min(actualMaxSpeed, car.speed + actualAccel + initialBoost);
+        if (isNitro && Math.random() < 0.35) {
+          spawnDriftSmoke(car.x, 0.4, car.z);
+        }
       } else if (isReverse) {
         if (car.speed > 2) {
           car.speed = Math.max(0, car.speed - accelRate * 2.2);
@@ -2182,7 +2214,7 @@ export const GtaCityMap: React.FC = () => {
       soundFx.updateCarEngine(car.speed / maxSpeed);
       setVehicleSpeed(Math.abs(car.speed / maxSpeed));
       setPlayerCoord({ x: car.x, z: car.z, heading: car.rotation });
-      setInteractPrompt('[F] EXIT VEHICLE | [W/S] DRIVE | [A/D] STEER | [SPACE] DRIFT | [H] HORN');
+      setInteractPrompt('[F] EXIT | [W/S] DRIVE | [A/D] STEER | [SPACE] DRIFT | [SHIFT] NITRO 🔥 | [H] HORN');
     } else {
       // Walking / Sprinting
       const speed = (s.keys['shift'] ? 22 : 12) * delta;
@@ -2281,9 +2313,14 @@ export const GtaCityMap: React.FC = () => {
         if (isOwned) {
           setInteractPrompt(`[F] DRIVE YOUR ${nearCar.name} 🚗`);
         } else if (nearCar.ownerId === null) {
-          setInteractPrompt(`[F] DRIVE / TEST DRIVE: ${nearCar.name} ($${nearCar.price.toLocaleString()})`);
+          const canAfford = user.cash >= nearCar.price;
+          setInteractPrompt(
+            canAfford
+              ? `[E] BUY ${nearCar.name} ($${nearCar.price.toLocaleString()}) TO DRIVE 🔑`
+              : `🔒 ${nearCar.name} ($${nearCar.price.toLocaleString()}) - INSUFFICIENT FUNDS`
+          );
         } else {
-          setInteractPrompt(`[F] DRIVE ${nearCar.name} (Citizen Car)`);
+          setInteractPrompt(`🔒 ${nearCar.name} (OWNED BY ${nearCar.ownerName || 'CITIZEN'})`);
         }
       } else if (nearCrate) {
         const label = nearCrate.item.isPaid
@@ -2602,26 +2639,56 @@ export const GtaCityMap: React.FC = () => {
     showNotification(`ADMIN IMPORTED ${newCar.name} TO MAP!`);
   };
 
-  // Showroom Buy Car Action
+  // Showroom Buy Car Action (Strict Economy - Requires Cash)
   const handleBuyShowroomCar = (carId: string) => {
     const car = sim.current.cars.find((c) => c.id === carId);
     if (!car) return;
 
     if (user.cash < car.price) {
-      showNotification('INSUFFICIENT FUNDS TO BUY THIS CAR!');
+      soundFx.playErrorTone();
+      showNotification(`INSUFFICIENT FUNDS! ${car.name} COSTS $${car.price.toLocaleString()}`);
       return;
     }
 
     car.ownerId = user.id;
     car.ownerName = user.name;
-    setUser((prev) => ({
-      ...prev,
-      cash: prev.cash - car.price,
-      ownedCarIds: [...prev.ownedCarIds, car.id],
-    }));
+    const nextUser: UserProfile = {
+      ...user,
+      cash: user.cash - car.price,
+      ownedCarIds: [...user.ownedCarIds, car.id],
+    };
+    setUser(nextUser);
+    saveCurrentUser(nextUser);
+
+    // Update 3D Tag above car immediately to owned status
+    if (car.mesh && car.mesh.userData.tagSprite) {
+      const catalogItem = FAMOUS_CARS.find((c) => c.id === car.catalogId) || FAMOUS_CARS[0];
+      const tagCanvas = document.createElement('canvas');
+      tagCanvas.width = 384;
+      tagCanvas.height = 96;
+      const tCtx = tagCanvas.getContext('2d');
+      if (tCtx) {
+        tCtx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        tCtx.roundRect(8, 8, 368, 80, 16);
+        tCtx.fill();
+        tCtx.strokeStyle = '#38bdf8';
+        tCtx.lineWidth = 4;
+        tCtx.stroke();
+        tCtx.font = 'bold 24px monospace';
+        tCtx.fillStyle = '#ffffff';
+        tCtx.textAlign = 'center';
+        tCtx.fillText(catalogItem.name.slice(0, 20), 192, 42);
+        tCtx.font = 'bold 19px monospace';
+        tCtx.fillStyle = '#38bdf8';
+        tCtx.fillText('YOUR CAR [F]', 192, 72);
+      }
+      car.mesh.userData.tagSprite.material.map = new THREE.CanvasTexture(tagCanvas);
+      car.mesh.userData.tagSprite.material.needsUpdate = true;
+    }
 
     setCarsList([...sim.current.cars]);
-    showNotification(`PURCHASED ${car.name}! YOU NOW OWN THIS VEHICLE`);
+    soundFx.playCashRegister();
+    showNotification(`PURCHASED ${car.name}! YOU NOW OWN THIS VEHICLE. PRESS [F] TO DRIVE! 🚗`);
   };
 
   // Showroom Sell Car Action (70% buyback)
@@ -2633,13 +2700,42 @@ export const GtaCityMap: React.FC = () => {
     car.ownerId = null;
     car.ownerName = undefined;
 
-    setUser((prev) => ({
-      ...prev,
-      cash: prev.cash + refund,
-      ownedCarIds: prev.ownedCarIds.filter((id) => id !== carId),
-    }));
+    const nextUser: UserProfile = {
+      ...user,
+      cash: user.cash + refund,
+      ownedCarIds: user.ownedCarIds.filter((id) => id !== carId),
+    };
+    setUser(nextUser);
+    saveCurrentUser(nextUser);
+
+    // Update 3D Tag above car back to for-sale status
+    if (car.mesh && car.mesh.userData.tagSprite) {
+      const catalogItem = FAMOUS_CARS.find((c) => c.id === car.catalogId) || FAMOUS_CARS[0];
+      const tagCanvas = document.createElement('canvas');
+      tagCanvas.width = 384;
+      tagCanvas.height = 96;
+      const tCtx = tagCanvas.getContext('2d');
+      if (tCtx) {
+        tCtx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        tCtx.roundRect(8, 8, 368, 80, 16);
+        tCtx.fill();
+        tCtx.strokeStyle = '#22c55e';
+        tCtx.lineWidth = 4;
+        tCtx.stroke();
+        tCtx.font = 'bold 24px monospace';
+        tCtx.fillStyle = '#ffffff';
+        tCtx.textAlign = 'center';
+        tCtx.fillText(catalogItem.name.slice(0, 20), 192, 42);
+        tCtx.font = 'bold 19px monospace';
+        tCtx.fillStyle = '#4ade80';
+        tCtx.fillText(`FOR SALE: $${car.price.toLocaleString()} [E]`, 192, 72);
+      }
+      car.mesh.userData.tagSprite.material.map = new THREE.CanvasTexture(tagCanvas);
+      car.mesh.userData.tagSprite.material.needsUpdate = true;
+    }
 
     setCarsList([...sim.current.cars]);
+    soundFx.playCashRegister();
     showNotification(`SOLD ${car.name} BACK TO SHOWROOM FOR +$${refund.toLocaleString()}`);
   };
 

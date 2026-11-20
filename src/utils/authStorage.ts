@@ -38,17 +38,23 @@ export function getCurrentUser(): UserProfile {
       accounts[activeId] = u;
       saveAllStoredAccounts(accounts);
     }
+    // Remove free starter car from existing stored accounts
+    if (u.ownedCarIds && u.ownedCarIds.includes('starter_car_player')) {
+      u.ownedCarIds = u.ownedCarIds.filter((id) => id !== 'starter_car_player');
+      accounts[activeId] = u;
+      saveAllStoredAccounts(accounts);
+    }
     return u;
   }
 
-  // 2. Default Initial Account (Starting cash: $0, Cash is earned through file sales)
+  // 2. Default Initial Account (Starting cash: $0, 0 free cars. Earned through file sales)
   const defaultUser: UserProfile = {
     id: 'user_' + Math.random().toString(36).substring(2, 9),
     name: 'Citizen_One',
     email: 'player1@vicedrop.net',
     avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Citizen1',
     cash: 0, // No free money
-    ownedCarIds: ['starter_car_player'],
+    ownedCarIds: [], // No free cars! Must buy cars with earned cash.
     x: 0,
     z: 0,
     rotation: 0,
@@ -103,7 +109,7 @@ export function switchUserAccount(email: string, name?: string, avatar?: string)
       email: cleanEmail,
       avatar: avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(nick)}`,
       cash: 0, // Zero starting cash
-      ownedCarIds: ['starter_car_player'],
+      ownedCarIds: [], // No free cars! Must buy cars with earned cash.
       x: Math.round((Math.random() - 0.5) * 16),
       z: Math.round((Math.random() - 0.5) * 16),
       rotation: 0,
